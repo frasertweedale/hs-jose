@@ -16,8 +16,9 @@
 
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternGuards #-}
 
-module JWA where
+module Crypto.JOSE.JWA where
 
 import Control.Applicative
 import Data.Tuple
@@ -28,7 +29,7 @@ import Data.Attoparsec.Combinator (choice)
 import Data.Hashable
 import qualified Data.HashMap.Strict as M
 
-import qualified JOSE.Integer as JI
+import qualified Crypto.JOSE.Integer as JI
 
 -- TODO QQ or TH this rubbish
 

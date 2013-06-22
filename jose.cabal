@@ -1,0 +1,38 @@
+name:                jose
+version:             0.1.0.0
+synopsis:            Javascript Object Signing and Encryption
+description:
+  Implementation of the Javascript Object Signing and Encryption
+  (jose) formats.
+homepage:            https://github.com/frasertweedale/jose
+license:             GPL-3
+license-file:        agpl-3.0.txt
+extra-source-files:
+  README.md
+author:              Fraser Tweedale
+maintainer:          frase@frase.id.au
+copyright:           Copyright (C) 2013  Fraser Tweedale
+category:            Cryptography
+build-type:          Simple
+cabal-version:       >= 1.8
+
+library
+  exposed-modules:
+    Crypto.JOSE.JWA
+    Crypto.JOSE.JWK
+    Crypto.JOSE.JWS
+    Crypto.JOSE.Integer
+
+  build-depends:
+    base == 4.6.*,
+    aeson == 0.6.*,
+    attoparsec == 0.10.*,
+    hashable == 1.1.*,
+    unordered-containers == 0.2.*,
+    bytestring == 0.10.*,
+    text == 0.11.*,
+    dataenc == 0.14.*
+
+source-repository head
+  type: git
+  location: https://github.com/frasertweedale/jose.git

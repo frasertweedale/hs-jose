@@ -16,13 +16,13 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module JWK where
+module Crypto.JOSE.JWK where
 
 import Control.Applicative
 
 import Data.Aeson
 
-import qualified JWA
+import qualified Crypto.JOSE.JWA as JWA
 
 
 data Kty = EC | RSA | Oct {- "oct" -}
