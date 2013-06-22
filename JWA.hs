@@ -24,6 +24,7 @@ import Data.Tuple
 import GHC.Generics (Generic)
 
 import Data.Aeson
+import Data.Attoparsec.Combinator (choice)
 import Data.Hashable
 import qualified Data.HashMap.Strict as M
 
@@ -154,32 +155,27 @@ instance FromJSON KeyParameters where
   parseJSON (Object o)
     -- prefer private key; a private key could contain public key
     | Just (String "EC") <- M.lookup "kty" o
-    , Just _ <- M.lookup "d" o
-    = ECPrivateKeyParameters <$>
-      o .: "d"
-    | Just (String "EC") <- M.lookup "kty" o
-    = ECPublicKeyParameters <$>
-      o .: "crv" <*>
-      o .: "x" <*>
-      o .: "y"
+    = choice [
+      ECPrivateKeyParameters <$>
+        o .: "d",
+      ECPublicKeyParameters <$>
+        o .: "crv" <*>
+        o .: "x" <*>
+        o .: "y"
+      ]
     | Just (String "RSA") <- M.lookup "kty" o
-    , Just _ <- M.lookup "d" o
-    , Just _ <- M.lookup "p" o
-    , Just _ <- M.lookup "q" o
-    , Just _ <- M.lookup "dp" o
-    , Just _ <- M.lookup "dq" o
-    , Just _ <- M.lookup "qi" o
-    = RSAPrivateKeyParameters <$>
-      o .: "d" <*>
-      o .: "p" <*>
-      o .: "q" <*>
-      o .: "dp" <*>
-      o .: "dq" <*>
-      o .: "qi" <*>
-      o .:? "oth"
-    | Just (String "RSA") <- M.lookup "kty" o
-    = RSAPublicKeyParameters <$>
-      o .: "n" <*>
-      o .: "e"
+    = choice [
+      RSAPrivateKeyParameters <$>
+        o .: "d" <*>
+        o .: "p" <*>
+        o .: "q" <*>
+        o .: "dp" <*>
+        o .: "dq" <*>
+        o .: "qi" <*>
+        o .:? "oth",
+      RSAPublicKeyParameters <$>
+        o .: "n" <*>
+        o .: "e"
+      ]
     | otherwise = empty
   parseJSON _ = empty
