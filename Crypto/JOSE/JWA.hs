@@ -25,7 +25,6 @@ import Data.Tuple
 import GHC.Generics (Generic)
 
 import Data.Aeson
-import Data.Attoparsec.Combinator (choice)
 import Data.Hashable
 import qualified Data.HashMap.Strict as M
 
@@ -156,27 +155,23 @@ instance FromJSON KeyParameters where
   parseJSON (Object o)
     -- prefer private key; a private key could contain public key
     | Just (String "EC") <- M.lookup "kty" o
-    = choice [
-      ECPrivateKeyParameters <$>
-        o .: "d",
-      ECPublicKeyParameters <$>
+    = ECPrivateKeyParameters <$>
+        o .: "d"
+      <|> ECPublicKeyParameters <$>
         o .: "crv" <*>
         o .: "x" <*>
         o .: "y"
-      ]
     | Just (String "RSA") <- M.lookup "kty" o
-    = choice [
-      RSAPrivateKeyParameters <$>
+    = RSAPrivateKeyParameters <$>
         o .: "d" <*>
         o .: "p" <*>
         o .: "q" <*>
         o .: "dp" <*>
         o .: "dq" <*>
         o .: "qi" <*>
-        o .:? "oth",
-      RSAPublicKeyParameters <$>
+        o .:? "oth"
+      <|> RSAPublicKeyParameters <$>
         o .: "n" <*>
         o .: "e"
-      ]
     | otherwise = empty
   parseJSON _ = empty
