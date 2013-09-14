@@ -5,7 +5,7 @@ description:
   Implementation of the Javascript Object Signing and Encryption
   (jose) formats.
 homepage:            https://github.com/frasertweedale/jose
-license:             GPL-3
+license:             AGPL-3
 license-file:        agpl-3.0.txt
 extra-source-files:
   README.md
