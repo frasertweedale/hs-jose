@@ -130,6 +130,26 @@ instance FromJSON RSAPrivateKeyOthElem where
   parseJSON _ = empty
 
 
+data RSAPrivateKeyOptionalParameters = RSAPrivateKeyOptionalParameters {
+  p :: Maybe JI.Base64Integer,
+  q :: Maybe JI.Base64Integer,
+  dp :: Maybe JI.Base64Integer,
+  dq :: Maybe JI.Base64Integer,
+  qi :: Maybe JI.Base64Integer,
+  oth :: Maybe [RSAPrivateKeyOthElem] -- TODO oth must not be empty array
+  }
+  deriving (Show)
+
+instance FromJSON RSAPrivateKeyOptionalParameters where
+  parseJSON (Object o) = RSAPrivateKeyOptionalParameters <$>
+    o .: "p" <*>
+    o .: "q" <*>
+    o .: "dp" <*>
+    o .: "dq" <*>
+    o .: "qi" <*>
+    o .:? "oth"
+  parseJSON _ = empty
+
 data KeyParameters =
   ECPublicKeyParameters {
     crv :: Crv,
@@ -145,13 +165,7 @@ data KeyParameters =
     }
   | RSAPrivateKeyParameters {
     d :: JI.SizedBase64Integer,
-    p :: JI.Base64Integer,
-    q :: JI.Base64Integer,
-    dp :: JI.Base64Integer,
-    dq :: JI.Base64Integer,
-    qi :: JI.Base64Integer,
-    -- TODO oth must not be empty array
-    oth :: Maybe [RSAPrivateKeyOthElem]
+    optionalParameters :: Maybe RSAPrivateKeyOptionalParameters
     }
   deriving (Show)
 
@@ -168,12 +182,7 @@ instance FromJSON KeyParameters where
     | Just (String "RSA") <- M.lookup "kty" o
     = RSAPrivateKeyParameters <$>
         o .: "d" <*>
-        o .: "p" <*>
-        o .: "q" <*>
-        o .: "dp" <*>
-        o .: "dq" <*>
-        o .: "qi" <*>
-        o .:? "oth"
+        parseJSON (Object o)
       <|> RSAPublicKeyParameters <$>
         o .: "n" <*>
         o .: "e"
