@@ -43,6 +43,7 @@ data JWSAlg =
   | ES384  -- ECDSA P curve and SHA ; OPTIONAL
   | ES512  -- ECDSA P curve and SHA ; OPTIONAL
   | PS256  -- RSASSA-PSS SHA ; OPTIONAL
+  | PS384  -- RSASSA-PSS SHA ; OPTIONAL
   | PS512  -- RSSSSA-PSS SHA ; OPTIONAL
   | None   -- "none" No signature or MAC ; REQUIRED
   deriving (Eq, Generic, Show)
@@ -60,6 +61,9 @@ jwsAlgList = [
   ("ES256", ES256),
   ("ES384", ES384),
   ("ES512", ES512),
+  ("PS256", ES256),
+  ("PS384", ES384),
+  ("PS512", ES512),
   ("none", None)
   ]
 jwsAlgMap = M.fromList jwsAlgList
