@@ -19,6 +19,7 @@ cabal-version:       >= 1.8
 
 library
   exposed-modules:
+    Crypto.JOSE.Types
     Crypto.JOSE.JWK
     Crypto.JOSE.JWS
 
@@ -38,3 +39,14 @@ library
 source-repository head
   type: git
   location: https://github.com/frasertweedale/jose.git
+
+test-suite tests
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is:        Test.hs
+
+  build-depends:
+    base,
+    hspec,
+    aeson,
+    jose
