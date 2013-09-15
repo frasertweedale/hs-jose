@@ -21,7 +21,9 @@ library
   exposed-modules:
     Crypto.JOSE.JWK
     Crypto.JOSE.JWS
-    Crypto.JOSE.Integer
+
+  other-modules:
+    Crypto.JOSE.JWA.JWE
 
   build-depends:
     base == 4.6.*,

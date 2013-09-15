@@ -26,3 +26,30 @@ import GHC.Generics (Generic)
 import Data.Aeson
 import Data.Hashable
 import qualified Data.HashMap.Strict as M
+
+
+--
+-- JWA §4.2.  "enc" (Encryption Method) Header Parameters Values for JWE
+--
+
+data Enc =
+  A128CBC_HS256   -- AES HMAC SHA authenticated encryption  Required
+  | A192CBC_HS384 -- AES HMAC SHA authenticated encryption  Optional
+  | A256CBC_HS512 -- AES HMAC SHA authenticated encryption  Required
+  | A128GCM       -- AES in Galois/Counter Mode             Recommended
+  | A192GCM       -- AES in Galois/Counter Mode             Optional
+  | A256GCM       -- AES in Galois/Counter Mode             Recommended
+
+encMap = M.fromList [
+  ("A128CBC-HS256", A128CBC_HS256),
+  ("A192CBC-HS384", A192CBC_HS384),
+  ("A256CBC-HS512", A256CBC_HS512),
+  ("A128GCM", A128GCM),
+  ("A192GCM", A192GCM),
+  ("A256GCM", A256GCM)
+  ]
+
+instance FromJSON Enc where
+  parseJSON (String s) = case M.lookup s encMap of
+    Just v -> pure v
+    Nothing -> fail "unrecognised JWE enc value"
