@@ -21,16 +21,38 @@ module Crypto.JOSE.JWK where
 import Control.Applicative
 
 import Data.Aeson
+import qualified Data.HashMap.Strict as M
 
-import qualified Crypto.JOSE.JWA as JWA
+import qualified Crypto.JOSE.JWA.JWE as JWA.JWE
 import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
+import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 
+
+--
+-- JWK §3.3.  "alg" (Algorithm) Parameter
+--
+
+data Alg = JWSAlg JWA.JWS.Alg | JWEAlg JWA.JWE.Alg
+  deriving (Show)
+
+instance FromJSON Alg where
+  parseJSON (String s) = case M.lookup s JWA.JWE.algMap of
+    Just v -> pure $ JWEAlg v
+    Nothing -> case M.lookup s JWA.JWS.algMap of
+      Just v -> pure $ JWSAlg v
+      Nothing -> fail "undefined alg"
+  parseJSON _ = empty
+
+
+--
+-- JWK §3.  JSON Web Key (JWK) Format
+--
 
 data Key =
   Key {
     kty :: JWA.JWK.Kty,
     use :: Maybe String,
-    alg :: Maybe JWA.Alg,
+    alg :: Maybe Alg,
     kid :: Maybe String,
     x5u :: Maybe String,    -- X.509 URL
     x5t :: Maybe String,    -- base64url SHA-1 digest of DER of X.509 cert
@@ -52,6 +74,10 @@ instance FromJSON Key where
     parseJSON (Object o)
   parseJSON _ = empty
 
+
+--
+-- JWK §4.  JSON Web Key Set (JWK Set) Format
+--
 
 data KeySet = KeySet [Key]
 

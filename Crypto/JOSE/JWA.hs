@@ -22,19 +22,4 @@ module Crypto.JOSE.JWA where
 import Control.Applicative
 
 import Data.Aeson
-import qualified Data.HashMap.Strict as M
 
-import qualified Crypto.JOSE.JWA.JWE as JWA.JWE
-import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
-
-
-data Alg = JWSAlg JWA.JWS.Alg | JWEAlg JWA.JWE.Alg
-  deriving (Show)
-
-instance FromJSON Alg where
-  parseJSON (String s) = case M.lookup s JWA.JWE.algMap of
-    Just v -> pure $ JWEAlg v
-    Nothing -> case M.lookup s JWA.JWS.algMap of
-      Just v -> pure $ JWSAlg v
-      Nothing -> fail "undefined alg"
-  parseJSON _ = empty
