@@ -23,7 +23,7 @@ import Control.Applicative
 import Data.Aeson
 import qualified Data.HashMap.Strict as M
 
-import qualified Crypto.JOSE.JWA.JWE as JWA.JWE
+import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
 import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 
