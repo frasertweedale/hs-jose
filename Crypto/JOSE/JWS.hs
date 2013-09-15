@@ -29,11 +29,12 @@ import qualified Data.Text as T
 import qualified Codec.Binary.Base64Url as B64
 
 import qualified Crypto.JOSE.JWA as JWA
+import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.JWK as JWK
 
 
 data Header = Header {
-  alg :: JWA.JWSAlg
+  alg :: JWA.JWS.Alg
   -- TODO other fields
   }
   deriving (Show)
@@ -44,7 +45,7 @@ instance FromJSON Header where
 
 instance ToJSON Header where
   toJSON (Header alg) = object [
-    "alg" .= JWA.jwsAlgToKey alg
+    "alg" .= JWA.JWS.algToKey alg
     -- TODO other fields
     ]
 
@@ -117,8 +118,8 @@ sign (Signatures pro unpro p sigs) h k = Signatures pro unpro p (sig:sigs) where
   encodedSignature = B64.encode $ sign' (alg h) signingInput k
   sig = Signature h encodedSignature
 
-sign' :: JWA.JWSAlg -> String -> JWK.Key -> [Word8]
-sign' JWA.None i _ = []
+sign' :: JWA.JWS.Alg -> String -> JWK.Key -> [Word8]
+sign' JWA.JWS.None i _ = []
 sign' _ _ _ = undefined
 
 
