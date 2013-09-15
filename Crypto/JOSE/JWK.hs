@@ -23,33 +23,19 @@ import Control.Applicative
 import Data.Aeson
 
 import qualified Crypto.JOSE.JWA as JWA
-
-
-data Kty = EC | RSA | Oct {- "oct" -}
-  deriving (Show)
-
-instance FromJSON Kty where
-  parseJSON (String "EC") = pure EC
-  parseJSON (String "RSA") = pure RSA
-  parseJSON (String "oct") = pure Oct
-  parseJSON _ = fail "undefined kty"
-
-instance ToJSON Kty where
-  toJSON EC = String "EC"
-  toJSON RSA = String "RSA"
-  toJSON Oct = String "oct"
+import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
 
 
 data Key =
   Key {
-    kty :: Kty,
+    kty :: JWA.JWK.Kty,
     use :: Maybe String,
     alg :: Maybe JWA.Alg,
     kid :: Maybe String,
     x5u :: Maybe String,    -- X.509 URL
     x5t :: Maybe String,    -- base64url SHA-1 digest of DER of X.509 cert
     x5c :: Maybe [String],  -- X.509 certificate chain
-    params :: JWA.KeyParameters
+    params :: JWA.JWK.KeyParameters
     }
   | NullKey  -- convenience constructor for use with "none" alg
   deriving (Show)

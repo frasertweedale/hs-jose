@@ -16,7 +16,6 @@
 
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternGuards #-}
 
 module Crypto.JOSE.JWA where
 
@@ -28,7 +27,6 @@ import Data.Aeson
 import Data.Hashable
 import qualified Data.HashMap.Strict as M
 
-import qualified Crypto.JOSE.Integer as JI
 
 -- TODO QQ or TH this rubbish
 
@@ -122,99 +120,4 @@ instance FromJSON Alg where
     Nothing -> case M.lookup s jwsAlgMap of
       Just v -> pure $ JWSAlg v
       Nothing -> fail "undefined alg"
-  parseJSON _ = empty
-
-
-data Crv = P256 | P384 | P521
-  deriving (Eq, Show)
-
-instance Hashable Crv
-
-crvList = [
-  ("P-256", P256),
-  ("P-384", P384),
-  ("P-521", P521)
-  ]
-crvMap = M.fromList crvList
-crvMap' = M.fromList $ map swap crvList
-crvToKey crv = M.lookup crv crvMap'
-
-instance FromJSON Crv where
-  parseJSON (String s) = case M.lookup s crvMap of
-    Just v -> pure v
-    Nothing -> fail "undefined EC crv"
-
-
-data RSAPrivateKeyOthElem = RSAPrivateKeyOthElem {
-  r' :: JI.Base64Integer,
-  d' :: JI.Base64Integer,
-  t' :: JI.Base64Integer
-  }
-  deriving (Show)
-
-instance FromJSON RSAPrivateKeyOthElem where
-  parseJSON (Object o) = RSAPrivateKeyOthElem <$>
-    o .: "r" <*>
-    o .: "d" <*>
-    o .: "t"
-  parseJSON _ = empty
-
-
-data RSAPrivateKeyOptionalParameters = RSAPrivateKeyOptionalParameters {
-  p :: Maybe JI.Base64Integer,
-  q :: Maybe JI.Base64Integer,
-  dp :: Maybe JI.Base64Integer,
-  dq :: Maybe JI.Base64Integer,
-  qi :: Maybe JI.Base64Integer,
-  oth :: Maybe [RSAPrivateKeyOthElem] -- TODO oth must not be empty array
-  }
-  deriving (Show)
-
-instance FromJSON RSAPrivateKeyOptionalParameters where
-  parseJSON (Object o) = RSAPrivateKeyOptionalParameters <$>
-    o .: "p" <*>
-    o .: "q" <*>
-    o .: "dp" <*>
-    o .: "dq" <*>
-    o .: "qi" <*>
-    o .:? "oth"
-  parseJSON _ = empty
-
-data KeyParameters =
-  ECPublicKeyParameters {
-    crv :: Crv,
-    x :: JI.SizedBase64Integer,
-    y :: JI.SizedBase64Integer
-    }
-  | ECPrivateKeyParameters {
-    d :: JI.SizedBase64Integer
-    }
-  | RSAPublicKeyParameters {
-    n :: JI.SizedBase64Integer,
-    e :: JI.Base64Integer
-    }
-  | RSAPrivateKeyParameters {
-    d :: JI.SizedBase64Integer,
-    optionalParameters :: Maybe RSAPrivateKeyOptionalParameters
-    }
-  deriving (Show)
-
-instance FromJSON KeyParameters where
-  parseJSON (Object o)
-    -- prefer private key; a private key could contain public key
-    | Just (String "EC") <- M.lookup "kty" o
-    = ECPrivateKeyParameters <$>
-        o .: "d"
-      <|> ECPublicKeyParameters <$>
-        o .: "crv" <*>
-        o .: "x" <*>
-        o .: "y"
-    | Just (String "RSA") <- M.lookup "kty" o
-    = RSAPrivateKeyParameters <$>
-        o .: "d" <*>
-        parseJSON (Object o)
-      <|> RSAPublicKeyParameters <$>
-        o .: "n" <*>
-        o .: "e"
-    | otherwise = empty
   parseJSON _ = empty
