@@ -19,7 +19,6 @@ cabal-version:       >= 1.8
 
 library
   exposed-modules:
-    Crypto.JOSE.JWA
     Crypto.JOSE.JWK
     Crypto.JOSE.JWS
     Crypto.JOSE.Integer

@@ -28,7 +28,6 @@ import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text as T
 import qualified Codec.Binary.Base64Url as B64
 
-import qualified Crypto.JOSE.JWA as JWA
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.JWK as JWK
 
