@@ -142,6 +142,9 @@ data KeyParameters =
     d :: JI.SizedBase64Integer,
     optionalParameters :: Maybe RSAPrivateKeyOptionalParameters
     }
+  | SymmetricKeyParameters {
+    k :: JI.Base64Integer
+    }
   deriving (Show)
 
 instance FromJSON KeyParameters where
@@ -161,5 +164,7 @@ instance FromJSON KeyParameters where
       <|> RSAPublicKeyParameters <$>
         o .: "n" <*>
         o .: "e"
+    | Just (String "oct") <- M.lookup "key" o
+    = SymmetricKeyParameters <$> o .: "k"
     | otherwise = empty
   parseJSON _ = empty
