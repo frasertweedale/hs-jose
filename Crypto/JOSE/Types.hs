@@ -25,6 +25,11 @@ import Data.Aeson
 import qualified Data.Text as T
 
 
+equalsPad s
+  | length s `mod` 4 == 0 = s
+  | otherwise             = equalsPad (s ++ "=")
+
+
 data Base64UrlString = Base64UrlString String
   deriving (Eq, Show)
 
@@ -33,8 +38,13 @@ instance FromJSON Base64UrlString where
       Nothing -> fail "invalid base64url encoded string"
       -- probably wrong; really want to do a proper UTF-8 decode of bytes
       Just bytes -> pure $ Base64UrlString $ map (chr . fromIntegral) bytes
-    where
-      equalsPad s
-        | length s `mod` 4 == 0 = s
-        | otherwise             = equalsPad (s ++ "=")
   parseJSON _ = empty
+
+
+data Base64Octets = Base64Octets [Word8]
+  deriving (Eq, Show)
+
+instance FromJSON Base64Octets where
+  parseJSON (String s) = case B64.decode $ equalsPad $ T.unpack s of
+    Nothing -> fail "invalid base64 encoded octets"
+    Just bytes -> pure $ Base64Octets bytes

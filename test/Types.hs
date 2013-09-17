@@ -23,8 +23,16 @@ import Test.Hspec
 
 import Crypto.JOSE.Types
 
-spec =
+spec = do
   describe "Base64UrlString" $ do
     it "can be read from JSON" $ do
       decode "[\"QWxpY2U\"]" `shouldBe` Just [Base64UrlString "Alice"]
       decode "[\"Qm9i\"]"`shouldBe` Just [Base64UrlString "Bob"]
+
+  describe "Base64Octets" $ do
+    it "can be read from JSON" $ do
+      decode "[\"AxY8DCtDaGlsbGljb3RoZQ\"]" `shouldBe` Just [Base64Octets iv]
+      decode "[\"9hH0vgRfYgPnAHOd8stkvw\"]" `shouldBe` Just [Base64Octets tag]
+      where
+        iv = [3, 22, 60, 12, 43, 67, 104, 105, 108, 108, 105, 99, 111, 116, 104, 101]
+        tag = [246, 17, 244, 190, 4, 95, 98, 3, 231, 0, 115, 157, 242, 203, 100, 191]
