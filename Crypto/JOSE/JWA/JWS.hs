@@ -45,7 +45,7 @@ data Alg =
   | PS256  -- RSASSA-PSS SHA ; OPTIONAL
   | PS384  -- RSASSA-PSS SHA ; OPTIONAL
   | PS512  -- RSSSSA-PSS SHA ; OPTIONAL
-  | None   -- "none" No signature or MAC ; REQUIRED
+  | None   -- "none" No signature or MAC ; Optional
   deriving (Eq, Generic, Show)
 
 instance Hashable Alg
