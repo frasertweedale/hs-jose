@@ -21,6 +21,7 @@
 module Crypto.JOSE.JWA.JWK where
 
 import Control.Applicative
+import Data.Maybe
 import Data.Tuple
 import GHC.Generics (Generic)
 
@@ -69,12 +70,14 @@ crvList = [
   ]
 crvMap = M.fromList crvList
 crvMap' = M.fromList $ map swap crvList
-crvToKey crv = M.lookup crv crvMap'
 
 instance FromJSON Crv where
   parseJSON (String s) = case M.lookup s crvMap of
     Just v -> pure v
     Nothing -> fail "undefined EC crv"
+
+instance ToJSON Crv where
+  toJSON crv = String $ M.lookupDefault "?" crv crvMap'
 
 
 --
@@ -93,7 +96,9 @@ instance FromJSON RSAPrivateKeyOthElem where
     o .: "r" <*>
     o .: "d" <*>
     o .: "t"
-  parseJSON _ = empty
+
+instance ToJSON RSAPrivateKeyOthElem where
+  toJSON (RSAPrivateKeyOthElem r d t) = object ["r" .= r, "d" .= d, "t" .= t]
 
 
 --
@@ -118,7 +123,15 @@ instance FromJSON RSAPrivateKeyOptionalParameters where
     o .: "dq" <*>
     o .: "qi" <*>
     o .:? "oth"
-  parseJSON _ = empty
+
+instance ToJSON RSAPrivateKeyOptionalParameters where
+  toJSON (RSAPrivateKeyOptionalParameters p q dp dq qi oth) = object $ [
+    "p" .= p
+    , "q" .= q
+    , "dp" .= dp
+    , "dq" .= dq
+    , "dq" .= qi
+    ] ++ (map ("oth" .=) $ maybeToList oth)
 
 
 --
@@ -168,3 +181,18 @@ instance FromJSON KeyParameters where
     = SymmetricKeyParameters <$> o .: "k"
     | otherwise = empty
   parseJSON _ = empty
+
+instance ToJSON KeyParameters where
+  toJSON (ECPrivateKeyParameters d) = object ["d" .= d]
+  toJSON (ECPublicKeyParameters crv x y) = object [
+    "crv" .= crv
+    , "x" .= x
+    , "y" .= y
+    ]
+  toJSON (RSAPrivateKeyParameters d params) = object (
+    ["d" .= d]
+    ++ (objectPairs $ toJSON params)
+    )
+    where objectPairs (Object o) = M.toList o
+  toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
+  toJSON (SymmetricKeyParameters k) = object ["k" .= k]

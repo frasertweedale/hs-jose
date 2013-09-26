@@ -19,6 +19,7 @@
 module Crypto.JOSE.JWK where
 
 import Control.Applicative
+import Data.Maybe (catMaybes)
 
 import Data.Aeson
 import qualified Data.HashMap.Strict as M
@@ -42,6 +43,10 @@ instance FromJSON Alg where
       Just v -> pure $ JWSAlg v
       Nothing -> fail "undefined alg"
   parseJSON _ = empty
+
+instance ToJSON Alg where
+  toJSON (JWSAlg alg) = toJSON alg
+  toJSON (JWEAlg alg) = toJSON alg
 
 
 --
@@ -73,6 +78,20 @@ instance FromJSON Key where
     o .:? "x5c" <*>
     parseJSON (Object o)
   parseJSON _ = empty
+
+instance ToJSON Key where
+  toJSON (Key kty use alg kid x5u x5t x5c params) = object $ catMaybes [
+    Just ("kty" .= kty)
+    , fmap ("use" .=) use
+    , fmap ("alg" .=) alg
+    , fmap ("kid" .=) kid
+    , fmap ("x5u" .=) x5u
+    , fmap ("x5t" .=) x5t
+    , fmap ("x5c" .=) x5c
+    ]
+    ++ (objectPairs $ toJSON params)
+    where
+      objectPairs (Object o) = M.toList o
 
 
 --

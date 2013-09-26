@@ -77,9 +77,11 @@ algList = [
   ]
 algMap = M.fromList algList
 algMap' = M.fromList $ map swap algList
-algToKey alg = M.lookup alg algMap'
 
 instance FromJSON Alg where
   parseJSON (String s) = case M.lookup s algMap of
     Just v -> pure v
     Nothing -> fail "undefined JWE alg"
+
+instance ToJSON Alg where
+  toJSON alg = String $ M.lookupDefault "?" alg algMap'
