@@ -24,12 +24,15 @@ import Data.Aeson
 import Network.URI
 import Test.Hspec
 
+import Crypto.JOSE.Integer
 import Crypto.JOSE.Types
 
 spec = do
   base64UrlSpec
   base64OctetsSpec
   uriSpec
+  base64IntegerSpec
+  sizedBase64IntegerSpec
 
 base64UrlSpec = describe "Base64UrlString" $ do
   it "can be read from JSON" $ do
@@ -51,3 +54,19 @@ uriSpec = describe "URI typeclasses" $ do
 
   it "gets formatted to JSON correctly" $ do
     toJSON (fromJust $ parseURI "http://example.com") `shouldBe` String "http://example.com"
+
+base64IntegerSpec = describe "Base64Integer" $ do
+  it "parses from JSON correctly" $ do
+    decode "[\"AQAC\"]" `shouldBe` Just [Base64Integer 65538]
+    decode "[\"????\"]" `shouldBe` (Nothing :: Maybe [Base64Integer])
+
+  it "formats to JSON correctly" $ do
+    toJSON (Base64Integer 65538) `shouldBe` "AQAC"
+
+sizedBase64IntegerSpec = describe "SizedBase64Integer" $ do
+  it "parses from JSON correctly" $ do
+    decode "[\"AQAC\"]" `shouldBe` Just [SizedBase64Integer 3 65538]
+    decode "[\"????\"]" `shouldBe` (Nothing :: Maybe [SizedBase64Integer])
+
+  it "formats to JSON correctly" $ do
+    toJSON (SizedBase64Integer 4 1) `shouldBe` "AAAAAQ"
