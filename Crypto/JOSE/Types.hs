@@ -23,6 +23,7 @@ import Data.Word
 import qualified Codec.Binary.Base64Url as B64
 import Data.Aeson
 import qualified Data.Text as T
+import Network.URI
 
 
 equalsPad s
@@ -38,7 +39,6 @@ instance FromJSON Base64UrlString where
       Nothing -> fail "invalid base64url encoded string"
       -- probably wrong; really want to do a proper UTF-8 decode of bytes
       Just bytes -> pure $ Base64UrlString $ map (chr . fromIntegral) bytes
-  parseJSON _ = empty
 
 
 data Base64Octets = Base64Octets [Word8]
@@ -48,3 +48,10 @@ instance FromJSON Base64Octets where
   parseJSON (String s) = case B64.decode $ equalsPad $ T.unpack s of
     Nothing -> fail "invalid base64 encoded octets"
     Just bytes -> pure $ Base64Octets bytes
+
+
+instance FromJSON URI where
+  parseJSON (String s) = maybe (fail "not a URI") pure $ parseURI $ T.unpack s
+
+instance ToJSON URI where
+  toJSON uri = String $ T.pack $ show uri

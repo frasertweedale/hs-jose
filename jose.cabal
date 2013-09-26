@@ -34,7 +34,8 @@ library
     unordered-containers == 0.2.*,
     bytestring == 0.10.*,
     text == 0.11.*,
-    dataenc == 0.14.*
+    dataenc == 0.14.*,
+    network >= 2.4
 
 source-repository head
   type: git
@@ -47,6 +48,7 @@ test-suite tests
 
   build-depends:
     base,
+    network,
     hspec,
     aeson,
     jose
