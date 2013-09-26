@@ -27,25 +27,29 @@ import Data.Aeson
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Text as T
 import qualified Codec.Binary.Base64Url as B64
+import qualified Network.URI
 
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.JWK as JWK
+import qualified Crypto.JOSE.Types
 
 
 data Header = Header {
   alg :: JWA.JWS.Alg
-  -- TODO other fields
+  , jku :: Maybe Network.URI.URI  -- JWK Set URL
   }
   deriving (Show)
 
 instance FromJSON Header where
-  parseJSON (Object o) = Header <$> o .: "alg"
+  parseJSON (Object o) = Header
+    <$> o .: "alg"
+    <*> o .:? "jku"
   parseJSON _ = empty
 
 instance ToJSON Header where
-  toJSON (Header alg) = object [
-    "alg" .= JWA.JWS.algToKey alg
-    -- TODO other fields
+  toJSON (Header alg jku) = object $ catMaybes [
+    Just ("alg" .= JWA.JWS.algToKey alg)
+    , fmap ("jku" .=) jku
     ]
 
 
