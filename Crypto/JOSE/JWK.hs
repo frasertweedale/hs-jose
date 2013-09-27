@@ -37,12 +37,7 @@ data Alg = JWSAlg JWA.JWS.Alg | JWEAlg JWA.JWE.Alg
   deriving (Show)
 
 instance FromJSON Alg where
-  parseJSON (String s) = case M.lookup s JWA.JWE.algMap of
-    Just v -> pure $ JWEAlg v
-    Nothing -> case M.lookup s JWA.JWS.algMap of
-      Just v -> pure $ JWSAlg v
-      Nothing -> fail "undefined alg"
-  parseJSON _ = empty
+  parseJSON v = (JWSAlg <$> parseJSON v) <|> (JWEAlg <$> parseJSON v)
 
 instance ToJSON Alg where
   toJSON (JWSAlg alg) = toJSON alg
