@@ -50,6 +50,22 @@ instance FromJSON Base64Octets where
     Just bytes -> pure $ Base64Octets bytes
 
 
+data Base64SHA1 = Base64SHA1 [Word8]
+  deriving (Eq, Show)
+
+instance FromJSON Base64SHA1 where
+  parseJSON (String s) = case B64.decode $ equalsPad $ T.unpack s of
+    Nothing -> fail "invalid base64url SHA-1"
+    Just bytes
+      | length bytes == 20 -> pure $ Base64SHA1 bytes
+      | otherwise -> fail "incorrect number of bytes"
+
+instance ToJSON Base64SHA1 where
+  toJSON (Base64SHA1 bytes) = String $ T.pack $ dropPadding $ B64.encode bytes
+    where
+      dropPadding = reverse . dropWhile (== '=') . reverse
+
+
 instance FromJSON URI where
   parseJSON (String s) = maybe (fail "not a URI") pure $ parseURI $ T.unpack s
 
