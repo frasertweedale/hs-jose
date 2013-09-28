@@ -20,8 +20,11 @@ import Control.Applicative
 import Data.Char
 import Data.Word
 
+import qualified Codec.Binary.Base64
 import qualified Codec.Binary.Base64Url as B64
 import Data.Aeson
+import qualified Data.ByteString.Lazy as BS
+import Data.Certificate.X509
 import qualified Data.Text as T
 import Network.URI
 
@@ -62,8 +65,21 @@ instance FromJSON Base64SHA1 where
 
 instance ToJSON Base64SHA1 where
   toJSON (Base64SHA1 bytes) = String $ T.pack $ dropPadding $ B64.encode bytes
-    where
-      dropPadding = reverse . dropWhile (== '=') . reverse
+
+
+data Base64X509 = Base64X509 X509
+  deriving (Eq, Show)
+
+instance FromJSON Base64X509 where
+  parseJSON (String s) = case Codec.Binary.Base64.decode $ equalsPad $ T.unpack s of
+    Nothing -> fail "invalid base64 X.509 certificate"
+    Just bytes -> case decodeCertificate $ BS.pack bytes of
+      Left s -> fail $ "failed to decode X.509 certificate" ++ s
+      Right x509 -> pure $ Base64X509 x509
+
+instance ToJSON Base64X509 where
+  toJSON (Base64X509 x509) = String $ T.pack $ Codec.Binary.Base64.encode
+    $ BS.unpack $ encodeCertificate x509
 
 
 instance FromJSON URI where
@@ -71,3 +87,6 @@ instance FromJSON URI where
 
 instance ToJSON URI where
   toJSON uri = String $ T.pack $ show uri
+
+
+dropPadding = reverse . dropWhile (== '=') . reverse
