@@ -31,13 +31,16 @@ import qualified Network.URI
 
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.JWK as JWK
-import qualified Crypto.JOSE.Types
+import qualified Crypto.JOSE.Types as Types
 
 
 data Header = Header {
   alg :: JWA.JWS.Alg
   , jku :: Maybe Network.URI.URI  -- JWK Set URL
   , jwk :: Maybe JWK.Key
+  , x5u :: Maybe Network.URI.URI
+  , x5t :: Maybe Types.Base64SHA1
+  , x5c :: Maybe [Types.Base64X509] -- TODO implement min len of 1
   }
   deriving (Show)
 
@@ -46,13 +49,19 @@ instance FromJSON Header where
     <$> o .: "alg"
     <*> o .:? "jku"
     <*> o .:? "jwk"
+    <*> o .:? "x5u"
+    <*> o .:? "x5t"
+    <*> o .:? "x5c"
   parseJSON _ = empty
 
 instance ToJSON Header where
-  toJSON (Header alg jku jwk) = object $ catMaybes [
+  toJSON (Header alg jku jwk x5u x5t x5c) = object $ catMaybes [
     Just ("alg" .= alg)
     , fmap ("jku" .=) jku
     , fmap ("jwk" .=) jwk
+    , fmap ("x5u" .=) x5u
+    , fmap ("x5t" .=) x5t
+    , fmap ("x5c" .=) x5c
     ]
 
 

@@ -23,10 +23,12 @@ import Data.Maybe (catMaybes)
 
 import Data.Aeson
 import qualified Data.HashMap.Strict as M
+import qualified Network.URI
 
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
 import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
+import qualified Crypto.JOSE.Types as Types
 
 
 --
@@ -54,9 +56,9 @@ data Key =
     use :: Maybe String,
     alg :: Maybe Alg,
     kid :: Maybe String,
-    x5u :: Maybe String,    -- X.509 URL
-    x5t :: Maybe String,    -- base64url SHA-1 digest of DER of X.509 cert
-    x5c :: Maybe [String],  -- X.509 certificate chain
+    x5u :: Maybe Network.URI.URI,
+    x5t :: Maybe Types.Base64SHA1,
+    x5c :: Maybe [Types.Base64X509],
     params :: JWA.JWK.KeyParameters
     }
   | NullKey  -- convenience constructor for use with "none" alg
