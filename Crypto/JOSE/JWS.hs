@@ -41,6 +41,9 @@ data Header = Header {
   , x5u :: Maybe Network.URI.URI
   , x5t :: Maybe Types.Base64SHA1
   , x5c :: Maybe [Types.Base64X509] -- TODO implement min len of 1
+  , kid :: Maybe String  -- interpretation unspecified
+  , typ :: Maybe String  -- Content Type (of object)
+  , cty :: Maybe String  -- Content Type (of payload)
   }
   deriving (Show)
 
@@ -52,16 +55,22 @@ instance FromJSON Header where
     <*> o .:? "x5u"
     <*> o .:? "x5t"
     <*> o .:? "x5c"
+    <*> o .:? "kid"
+    <*> o .:? "typ"
+    <*> o .:? "cty"
   parseJSON _ = empty
 
 instance ToJSON Header where
-  toJSON (Header alg jku jwk x5u x5t x5c) = object $ catMaybes [
+  toJSON (Header alg jku jwk x5u x5t x5c kid typ cty) = object $ catMaybes [
     Just ("alg" .= alg)
     , fmap ("jku" .=) jku
     , fmap ("jwk" .=) jwk
     , fmap ("x5u" .=) x5u
     , fmap ("x5t" .=) x5t
     , fmap ("x5c" .=) x5c
+    , fmap ("kid" .=) kid
+    , fmap ("typ" .=) typ
+    , fmap ("cty" .=) cty
     ]
 
 
