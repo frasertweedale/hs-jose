@@ -37,6 +37,7 @@ import qualified Crypto.JOSE.Types
 data Header = Header {
   alg :: JWA.JWS.Alg
   , jku :: Maybe Network.URI.URI  -- JWK Set URL
+  , jwk :: Maybe JWK.Key
   }
   deriving (Show)
 
@@ -44,12 +45,14 @@ instance FromJSON Header where
   parseJSON (Object o) = Header
     <$> o .: "alg"
     <*> o .:? "jku"
+    <*> o .:? "jwk"
   parseJSON _ = empty
 
 instance ToJSON Header where
-  toJSON (Header alg jku) = object $ catMaybes [
-    Just ("alg" .= JWA.JWS.algToKey alg)
+  toJSON (Header alg jku jwk) = object $ catMaybes [
+    Just ("alg" .= alg)
     , fmap ("jku" .=) jku
+    , fmap ("jwk" .=) jwk
     ]
 
 
