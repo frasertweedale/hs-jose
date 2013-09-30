@@ -26,18 +26,21 @@ library
 
   other-modules:
     Crypto.JOSE.JWA.JWE
+    Crypto.JOSE.JWA.JWE.Alg
+    Crypto.JOSE.JWA.JWK
+    Crypto.JOSE.JWA.JWS
 
   build-depends:
     base == 4.6.*,
     aeson == 0.6.*,
-    attoparsec == 0.10.*,
     hashable == 1.1.*,
     unordered-containers == 0.2.*,
     bytestring == 0.10.*,
     text == 0.11.*,
     dataenc == 0.14.*,
     network >= 2.4,
-    certificate == 1.3.*
+    certificate == 1.3.*,
+    vector
 
 source-repository head
   type: git
@@ -51,6 +54,8 @@ test-suite tests
   build-depends:
     base,
     network,
+    unordered-containers,
+    attoparsec,
     hspec,
     aeson,
     jose

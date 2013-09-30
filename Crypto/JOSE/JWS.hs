@@ -15,6 +15,7 @@
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternGuards #-}
 
 module Crypto.JOSE.JWS where
 
@@ -25,13 +26,56 @@ import Data.Word
 
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BS
+import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
+import Data.Traversable (sequenceA)
+import qualified Data.Vector as V
 import qualified Codec.Binary.Base64Url as B64
 import qualified Network.URI
 
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.JWK as JWK
 import qualified Crypto.JOSE.Types as Types
+
+
+critInvalidNames = [
+  "alg"
+  , "jku"
+  , "jwk"
+  , "x5u"
+  , "x5t"
+  , "x5c"
+  , "kid"
+  , "typ"
+  , "cty"
+  , "crit"
+  ]
+
+data CritParameters
+  = CritParameters (M.HashMap T.Text Value)
+  | NullCritParameters
+  deriving (Eq, Show)
+
+critObjectParser (String s) o
+  | s `elem` critInvalidNames = fail "crit key is reserved"
+  | otherwise                 = (\v -> (s, v)) <$> o .: s
+critObjectParser _ _          = fail "crit key is not text"
+
+instance FromJSON CritParameters where
+  parseJSON (Object o)
+    | Just (Array paramNames) <- M.lookup "crit" o
+    = fmap (CritParameters . M.fromList)
+      $ sequenceA
+      $ map (\v -> critObjectParser v o)
+      $ V.toList paramNames
+    | Just _ <- M.lookup "crit" o
+    = fail "crit is not an array"
+    | otherwise  -- no "crit" param at all
+    = pure NullCritParameters
+
+instance ToJSON CritParameters where
+  toJSON (CritParameters m) = Object $ M.insert "crit" (toJSON $ M.keys m) m
+  toJSON (NullCritParameters) = object []
 
 
 data Header = Header {
