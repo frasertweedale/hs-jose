@@ -56,7 +56,7 @@ data CritParameters
   | NullCritParameters
   deriving (Eq, Show)
 
-critObjectParser (String s) o
+critObjectParser o (String s)
   | s `elem` critInvalidNames = fail "crit key is reserved"
   | otherwise                 = (\v -> (s, v)) <$> o .: s
 critObjectParser _ _          = fail "crit key is not text"
@@ -67,7 +67,7 @@ instance FromJSON CritParameters where
     | Just (Array paramNames) <- M.lookup "crit" o
     = fmap (CritParameters . M.fromList)
       $ sequenceA
-      $ map (\v -> critObjectParser v o)
+      $ map (critObjectParser o)
       $ V.toList paramNames
     | Just _ <- M.lookup "crit" o
     = fail "crit is not an array"
