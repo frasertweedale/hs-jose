@@ -89,7 +89,7 @@ data Header = Header {
   , typ :: Maybe String  -- Content Type (of object)
   , cty :: Maybe String  -- Content Type (of payload)
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance FromJSON Header where
   parseJSON (Object o) = Header

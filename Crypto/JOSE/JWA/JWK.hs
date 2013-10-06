@@ -40,7 +40,7 @@ data Kty =
   EC    -- Recommended+
   | RSA -- Required
   | Oct -- Required
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance FromJSON Kty where
   parseJSON (String "EC") = pure EC
@@ -89,7 +89,7 @@ data RSAPrivateKeyOthElem = RSAPrivateKeyOthElem {
   d' :: JI.Base64Integer,
   t' :: JI.Base64Integer
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance FromJSON RSAPrivateKeyOthElem where
   parseJSON (Object o) = RSAPrivateKeyOthElem <$>
@@ -113,7 +113,7 @@ data RSAPrivateKeyOptionalParameters = RSAPrivateKeyOptionalParameters {
   qi :: Maybe JI.Base64Integer,
   oth :: Maybe [RSAPrivateKeyOthElem] -- TODO oth must not be empty array
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance FromJSON RSAPrivateKeyOptionalParameters where
   parseJSON (Object o) = RSAPrivateKeyOptionalParameters <$>
@@ -158,7 +158,7 @@ data KeyParameters =
   | SymmetricKeyParameters {
     k :: JI.Base64Integer
     }
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance FromJSON KeyParameters where
   parseJSON (Object o)

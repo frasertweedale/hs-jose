@@ -36,7 +36,7 @@ import qualified Crypto.JOSE.Types as Types
 --
 
 data Alg = JWSAlg JWA.JWS.Alg | JWEAlg JWA.JWE.Alg
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance FromJSON Alg where
   parseJSON v = (JWSAlg <$> parseJSON v) <|> (JWEAlg <$> parseJSON v)
@@ -62,7 +62,7 @@ data Key =
     params :: JWA.JWK.KeyParameters
     }
   | NullKey  -- convenience constructor for use with "none" alg
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance FromJSON Key where
   parseJSON (Object o) = Key <$>
