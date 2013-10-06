@@ -61,6 +61,7 @@ critObjectParser (String s) o
   | otherwise                 = (\v -> (s, v)) <$> o .: s
 critObjectParser _ _          = fail "crit key is not text"
 
+-- TODO implement array length >= 1 restriction
 instance FromJSON CritParameters where
   parseJSON (Object o)
     | Just (Array paramNames) <- M.lookup "crit" o
@@ -88,6 +89,7 @@ data Header = Header {
   , kid :: Maybe String  -- interpretation unspecified
   , typ :: Maybe String  -- Content Type (of object)
   , cty :: Maybe String  -- Content Type (of payload)
+  , crit :: CritParameters
   }
   deriving (Eq, Show)
 
@@ -102,10 +104,11 @@ instance FromJSON Header where
     <*> o .:? "kid"
     <*> o .:? "typ"
     <*> o .:? "cty"
+    <*> parseJSON (Object o)
   parseJSON _ = empty
 
 instance ToJSON Header where
-  toJSON (Header alg jku jwk x5u x5t x5c kid typ cty) = object $ catMaybes [
+  toJSON (Header alg jku jwk x5u x5t x5c kid typ cty crit) = object $ catMaybes [
     Just ("alg" .= alg)
     , fmap ("jku" .=) jku
     , fmap ("jwk" .=) jwk
@@ -116,6 +119,15 @@ instance ToJSON Header where
     , fmap ("typ" .=) typ
     , fmap ("cty" .=) cty
     ]
+    ++ (objectPairs $ toJSON crit)
+    where
+      objectPairs (Object o) = M.toList o
+
+
+-- construct a minimal header with the given alg
+algHeader alg = Header alg
+  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
+  NullCritParameters
 
 
 data EncodedHeader = EncodedHeader Header

@@ -24,11 +24,13 @@ import qualified Data.HashMap.Strict as M
 import Test.Hspec
 
 import Crypto.JOSE.JWS
+import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 
 spec = do
   critSpec
+  critSpec'
 
-critSpec = describe "crit header parameter" $ do
+critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $ do
   it "parses from JSON correctly" $ do
     decode good `shouldBe`
       Just (CritParameters $ M.fromList [("exp", Number (I 1363284000))])
@@ -43,3 +45,10 @@ critSpec = describe "crit header parameter" $ do
       critNotArray = "{\"alg\":\"ES256\",\"crit\":\"exp\"}"
       critValueNotString = "{\"alg\":\"ES256\",\"crit\":[1234]}"
       critValueNotValid = "{\"alg\":\"ES256\",\"crit\":[\"crit\"]}"
+
+critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $ do
+  it "parses from JSON correctly" $ do
+    decode s `shouldBe` Just ((algHeader JWA.JWS.ES256) { crit = critValue })
+    where
+      s = "{\"alg\":\"ES256\",\"crit\":[\"exp\"],\"exp\":1363284000}"
+      critValue = CritParameters $ M.fromList [("exp", Number (I 1363284000))]
