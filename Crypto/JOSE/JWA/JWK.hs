@@ -148,7 +148,7 @@ data KeyParameters =
     d :: JI.SizedBase64Integer
     }
   | RSAPublicKeyParameters {
-    n :: JI.SizedBase64Integer,
+    n :: JI.Base64Integer,
     e :: JI.Base64Integer
     }
   | RSAPrivateKeyParameters {
