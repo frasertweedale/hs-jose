@@ -20,6 +20,7 @@
 module Crypto.JOSE.JWS where
 
 import Control.Applicative
+import Data.Char
 import Data.List
 import Data.Maybe
 import Data.Word
@@ -130,8 +131,10 @@ algHeader alg = Header alg
   NullCritParameters
 
 
-data EncodedHeader = EncodedHeader Header
-  deriving (Show)
+data EncodedHeader
+  = EncodedHeader Header
+  | MockEncodedHeader [Word8]
+  deriving (Eq, Show)
 
 instance FromJSON EncodedHeader where
   parseJSON (String s) = case B64.decode $ T.unpack s of
@@ -142,42 +145,64 @@ instance FromJSON EncodedHeader where
   parseJSON _ = empty
 
 instance ToJSON EncodedHeader where
-  toJSON (EncodedHeader h) = String $ T.pack $ B64.encode $ BS.unpack $ encode h
+  toJSON (MockEncodedHeader s) = String $ T.pack $ B64.encode s
+  toJSON encodedHeader = String $ T.pack $ encode' encodedHeader
 
 
-data Signature = Signature Header String
-  deriving (Show)
+-- TODO: implement following restriction
+--
+-- §7.2. JWS JSON Serialization
+--
+--  Of these members, only the "payload", "signatures", and "signature"
+--  members MUST be present.  At least one of the "protected" and
+--  "header" members MUST be present for each signature/MAC computation
+--  so that an "alg" Header Parameter value is conveyed.
+--
+data Headers =
+  Protected EncodedHeader
+  | Unprotected Header
+  | Both EncodedHeader Header
+  deriving (Eq, Show)
+
+instance FromJSON Headers where
+  parseJSON (Object o) =
+    Both            <$> o .: "protected" <*> o .: "header"
+    <|> Protected   <$> o .: "protected"
+    <|> Unprotected <$> o .: "header"
+
+instance ToJSON Headers where
+  toJSON (Both p u)       = object ["protected" .= p, "header" .= u]
+  toJSON (Protected p)    = object ["protected" .= p]
+  toJSON (Unprotected u)  = object ["header" .= u]
+
+
+data Signature = Signature Headers String
+  deriving (Eq, Show)
 
 instance FromJSON Signature where
-  parseJSON (Object o) = Signature <$>
-    o .: "header" <*>
-    o .: "signature"
-  parseJSON _ = empty
+  parseJSON (Object o) = Signature
+    <$> o .: "protected"
+    <*> parseJSON (Object o)
 
 instance ToJSON Signature where
-  toJSON (Signature h s) = object ["header" .= h, "signature" .= s]
+  toJSON (Signature h s) = object $
+    (objectPairs $ toJSON h)
+    ++ ["signature" .= s]
+    where
+      objectPairs (Object o) = M.toList o
 
 
-type Payload = String  -- already Base64URL encoded
-
-data Signatures
-  = Signatures (Maybe EncodedHeader) (Maybe Header) Payload [Signature]
-    deriving (Show)
+data Signatures = Signatures Types.Base64Octets [Signature]
+  deriving (Eq, Show)
 
 instance FromJSON Signatures where
-  parseJSON (Object o) = Signatures <$>
-    o .:? "protected" <*>
-    o .:? "unprotected" <*>
-    o .: "payload" <*>
-    o .: "signatures"
+  parseJSON (Object o) = Signatures
+    <$> o .: "payload"
+    <*> o .: "signatures"
 
 instance ToJSON Signatures where
-  toJSON (Signatures pro unpro payload sigs) = object fields where
-    fields = pro' ++ unpro' ++ payload' ++ sigs'
-    pro' = map ("protected" .=) $ maybeToList pro
-    unpro' = map ("unprotected" .=) $ maybeToList unpro
-    payload' = ["payload" .= payload]
-    sigs' = ["signatures" .= sigs]
+  toJSON (Signatures p ss) = object ["payload" .= p, "signatures" .= ss]
+
 
 -- Convert Signatures to compact serialization.
 --
@@ -185,18 +210,28 @@ instance ToJSON Signatures where
 -- signature and returns Nothing otherwise
 --
 encodeCompact :: Signatures -> Maybe String
-encodeCompact (Signatures (Just pro) _ payload [Signature _ s])
-  = Just $ intercalate "." [pro', payload, s] where
-    pro' = B64.encode $ BS.unpack $ encode pro
+encodeCompact (Signatures p [Signature h s]) = Just $ cat' (signingInput h p) s
 encodeCompact _ = Nothing
 
 
-sign :: Signatures -> Header -> JWK.Key -> Signatures
-sign (Signatures pro unpro p sigs) h k = Signatures pro unpro p (sig:sigs) where
-  encodedHeader = B64.encode $ BS.unpack $ encode h
-  signingInput = intercalate "." [encodedHeader, p]
-  encodedSignature = B64.encode $ sign' (alg h) signingInput k
-  sig = Signature h encodedSignature
+-- §5.1. Message Signing or MACing
+
+cat' p p' = intercalate "." [p, p']
+encode' = (map (chr . fromIntegral)) . init . tail . BS.unpack . encode
+encode'' = (map (chr . fromIntegral)) . init . tail . BS.unpack . encode
+
+signingInput :: Headers -> Types.Base64Octets -> String
+signingInput (Both p _) p' = cat' (encode' p) (encode'' p')
+signingInput (Protected p) p' = cat' (encode' p) (encode'' p')
+signingInput (Unprotected _) p' = cat' "" (encode'' p')
+
+alg' (Both (EncodedHeader h) _)     = alg h
+alg' (Protected (EncodedHeader h))  = alg h
+alg' (Unprotected h)                = alg h
+
+sign :: Signatures -> Headers -> JWK.Key -> Signatures
+sign (Signatures p sigs) h k = Signatures p (sig:sigs) where
+  sig = Signature h $ B64.encode $ sign' (alg' h) (signingInput h p) k
 
 sign' :: JWA.JWS.Alg -> String -> JWK.Key -> [Word8]
 sign' JWA.JWS.None i _ = []
