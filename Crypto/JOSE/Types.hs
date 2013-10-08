@@ -32,16 +32,18 @@ import qualified Data.Text as T
 import Network.URI
 
 
-equalsPad s
+pad s
   | length s `mod` 4 == 0 = s
-  | otherwise             = equalsPad (s ++ "=")
+  | otherwise             = pad (s ++ "=")
+
+unpad = reverse . dropWhile (== '=') . reverse
 
 
 data Base64UrlString = Base64UrlString String
   deriving (Eq, Show)
 
 instance FromJSON Base64UrlString where
-  parseJSON (String s) = case B64.decode $ equalsPad $ T.unpack s of
+  parseJSON (String s) = case B64.decode $ pad $ T.unpack s of
       Nothing -> fail "invalid base64url encoded string"
       -- probably wrong; really want to do a proper UTF-8 decode of bytes
       Just bytes -> pure $ Base64UrlString $ map (chr . fromIntegral) bytes
@@ -51,30 +53,34 @@ data Base64Octets = Base64Octets [Word8]
   deriving (Eq, Show)
 
 instance FromJSON Base64Octets where
-  parseJSON (String s) = case B64.decode $ equalsPad $ T.unpack s of
+  parseJSON (String s) = case B64.decode $ pad $ T.unpack s of
     Nothing -> fail "invalid base64 encoded octets"
     Just bytes -> pure $ Base64Octets bytes
+  parseJSON _ = fail "not a string"
+
+instance ToJSON Base64Octets where
+  toJSON (Base64Octets bytes) = String $ T.pack $ unpad $ B64.encode bytes
 
 
 data Base64SHA1 = Base64SHA1 [Word8]
   deriving (Eq, Show)
 
 instance FromJSON Base64SHA1 where
-  parseJSON (String s) = case B64.decode $ equalsPad $ T.unpack s of
+  parseJSON (String s) = case B64.decode $ pad $ T.unpack s of
     Nothing -> fail "invalid base64url SHA-1"
     Just bytes
       | length bytes == 20 -> pure $ Base64SHA1 bytes
       | otherwise -> fail "incorrect number of bytes"
 
 instance ToJSON Base64SHA1 where
-  toJSON (Base64SHA1 bytes) = String $ T.pack $ dropPadding $ B64.encode bytes
+  toJSON (Base64SHA1 bytes) = String $ T.pack $ unpad $ B64.encode bytes
 
 
 data Base64X509 = Base64X509 X509
   deriving (Eq, Show)
 
 instance FromJSON Base64X509 where
-  parseJSON (String s) = case Codec.Binary.Base64.decode $ equalsPad $ T.unpack s of
+  parseJSON (String s) = case Codec.Binary.Base64.decode $ pad $ T.unpack s of
     Nothing -> fail "invalid base64 X.509 certificate"
     Just bytes -> case decodeCertificate $ BS.pack bytes of
       Left s -> fail $ "failed to decode X.509 certificate" ++ s
@@ -90,9 +96,6 @@ instance FromJSON URI where
 
 instance ToJSON URI where
   toJSON uri = String $ T.pack $ show uri
-
-
-dropPadding = reverse . dropWhile (== '=') . reverse
 
 
 instance IsString [Word8] where
