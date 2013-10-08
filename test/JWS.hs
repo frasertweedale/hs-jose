@@ -78,7 +78,7 @@ appendixA1Spec = describe "JWS A.1.1.  Encoding" $ do
   where
     headerJSON = "{\"typ\":\"JWT\",\r\n \"alg\":\"HS256\"}"
     encodedHeader = MockEncodedHeader headerJSON
-    payload = Payload "\
+    payload = Types.Base64Octets "\
       \{\"iss\":\"joe\",\r\n\
       \ \"exp\":1300819380,\r\n\
       \ \"http://example.com/is_root\":true}"
