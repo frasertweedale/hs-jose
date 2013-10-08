@@ -14,10 +14,13 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# LANGUAGE FlexibleInstances #-}
+
 module Crypto.JOSE.Types where
 
 import Control.Applicative
 import Data.Char
+import Data.String
 import Data.Word
 
 import qualified Codec.Binary.Base64
@@ -90,3 +93,7 @@ instance ToJSON URI where
 
 
 dropPadding = reverse . dropWhile (== '=') . reverse
+
+
+instance IsString [Word8] where
+  fromString = map (fromIntegral . ord)
