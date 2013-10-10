@@ -60,7 +60,6 @@ data Key =
     x5t :: Maybe Types.Base64SHA1,
     x5c :: Maybe [Types.Base64X509]
     }
-  | NullKey  -- convenience constructor for use with "none" alg
   deriving (Eq, Show)
 
 instance FromJSON Key where
