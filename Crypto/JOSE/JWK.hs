@@ -52,41 +52,38 @@ instance ToJSON Alg where
 
 data Key =
   Key {
-    kty :: JWA.JWK.Kty,
+    key :: JWA.JWK.KeyMaterial,
     use :: Maybe String,
     alg :: Maybe Alg,
     kid :: Maybe String,
     x5u :: Maybe Network.URI.URI,
     x5t :: Maybe Types.Base64SHA1,
-    x5c :: Maybe [Types.Base64X509],
-    params :: JWA.JWK.KeyParameters
+    x5c :: Maybe [Types.Base64X509]
     }
   | NullKey  -- convenience constructor for use with "none" alg
   deriving (Eq, Show)
 
 instance FromJSON Key where
   parseJSON (Object o) = Key <$>
-    o .: "kty" <*>
+    parseJSON (Object o) <*>
     o .:? "use" <*>
     o .:? "alg" <*>
     o .:? "kid" <*>
     o .:? "x5u" <*>
     o .:? "x5t" <*>
-    o .:? "x5c" <*>
-    parseJSON (Object o)
+    o .:? "x5c"
   parseJSON _ = empty
 
 instance ToJSON Key where
-  toJSON (Key kty use alg kid x5u x5t x5c params) = object $ catMaybes [
-    Just ("kty" .= kty)
-    , fmap ("use" .=) use
+  toJSON (Key key use alg kid x5u x5t x5c) = object $ catMaybes [
+    fmap ("use" .=) use
     , fmap ("alg" .=) alg
     , fmap ("kid" .=) kid
     , fmap ("x5u" .=) x5u
     , fmap ("x5t" .=) x5t
     , fmap ("x5c" .=) x5c
     ]
-    ++ (objectPairs $ toJSON params)
+    ++ (objectPairs $ toJSON key)
     where
       objectPairs (Object o) = M.toList o
 

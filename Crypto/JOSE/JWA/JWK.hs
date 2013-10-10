@@ -16,7 +16,6 @@
 
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PatternGuards #-}
 
 module Crypto.JOSE.JWA.JWK where
 
@@ -36,22 +35,22 @@ import qualified Crypto.JOSE.Integer as JI
 -- JWA §5.1.  "kty" (Key Type) Parameter Values
 --
 
-data Kty =
-  EC    -- Recommended+
-  | RSA -- Required
-  | Oct -- Required
-  deriving (Eq, Show)
+parseKty t e s = if s == e then pure t else fail "bad kty"
 
-instance FromJSON Kty where
-  parseJSON (String "EC") = pure EC
-  parseJSON (String "RSA") = pure RSA
-  parseJSON (String "oct") = pure Oct
-  parseJSON _ = fail "undefined kty"
+-- Recommended+
+data EC = EC deriving (Eq, Show)
+instance FromJSON EC where parseJSON = withText "kty" (parseKty EC "EC")
+instance ToJSON EC where toJSON EC = String "EC"
 
-instance ToJSON Kty where
-  toJSON EC = String "EC"
-  toJSON RSA = String "RSA"
-  toJSON Oct = String "oct"
+-- Required
+data RSA = RSA deriving (Eq, Show)
+instance FromJSON RSA where parseJSON = withText "kty" (parseKty RSA "RSA")
+instance ToJSON RSA where toJSON RSA = String "RSA"
+
+-- Required
+data Oct = Oct deriving (Eq, Show)
+instance FromJSON Oct where parseJSON = withText "kty" (parseKty Oct "Oct")
+instance ToJSON Oct where toJSON Oct = String "Oct"
 
 
 --
@@ -85,9 +84,9 @@ instance ToJSON Crv where
 --
 
 data RSAPrivateKeyOthElem = RSAPrivateKeyOthElem {
-  r' :: JI.Base64Integer,
-  d' :: JI.Base64Integer,
-  t' :: JI.Base64Integer
+  rOth :: JI.Base64Integer,
+  dOth :: JI.Base64Integer,
+  tOth :: JI.Base64Integer
   }
   deriving (Eq, Show)
 
@@ -138,61 +137,69 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
 -- JWA §5.  Cryptographic Algorithms for JWK
 --
 
-data KeyParameters =
-  ECPublicKeyParameters {
+objectPairs (Object o) = M.toList o
+
+
+data ECKeyParameters =
+  ECPrivateKeyParameters {
+    d :: JI.SizedBase64Integer
+    }
+  | ECPublicKeyParameters {
     crv :: Crv,
     x :: JI.SizedBase64Integer,
     y :: JI.SizedBase64Integer
     }
-  | ECPrivateKeyParameters {
-    d :: JI.SizedBase64Integer
-    }
-  | RSAPublicKeyParameters {
-    n :: JI.Base64Integer,
-    e :: JI.Base64Integer
-    }
-  | RSAPrivateKeyParameters {
-    d :: JI.SizedBase64Integer,
-    optionalParameters :: Maybe RSAPrivateKeyOptionalParameters
-    }
-  | SymmetricKeyParameters {
-    k :: JI.Base64Integer
-    }
   deriving (Eq, Show)
 
-instance FromJSON KeyParameters where
-  parseJSON (Object o)
-    -- prefer private key; a private key could contain public key
-    | Just (String "EC") <- M.lookup "kty" o
-    = ECPrivateKeyParameters <$>
-        o .: "d"
-      <|> ECPublicKeyParameters <$>
-        o .: "crv" <*>
-        o .: "x" <*>
-        o .: "y"
-    | Just (String "RSA") <- M.lookup "kty" o
-    = RSAPrivateKeyParameters <$>
-        o .: "d" <*>
-        parseJSON (Object o)
-      <|> RSAPublicKeyParameters <$>
-        o .: "n" <*>
-        o .: "e"
-    | Just (String "oct") <- M.lookup "key" o
-    = SymmetricKeyParameters <$> o .: "k"
-    | otherwise = empty
-  parseJSON _ = empty
+instance FromJSON ECKeyParameters where
+  parseJSON = withObject "EC" (\o ->
+    ECPrivateKeyParameters    <$> o .: "d"
+    <|> ECPublicKeyParameters <$> o .: "crv" <*> o .: "x" <*> o .: "y")
 
-instance ToJSON KeyParameters where
+instance ToJSON ECKeyParameters where
   toJSON (ECPrivateKeyParameters d) = object ["d" .= d]
   toJSON (ECPublicKeyParameters crv x y) = object [
     "crv" .= crv
     , "x" .= x
     , "y" .= y
     ]
-  toJSON (RSAPrivateKeyParameters d params) = object (
-    ["d" .= d]
-    ++ (objectPairs $ toJSON params)
-    )
-    where objectPairs (Object o) = M.toList o
+
+
+data RSAKeyParameters =
+  RSAPrivateKeyParameters {
+    d' :: JI.SizedBase64Integer,
+    optionalParameters :: Maybe RSAPrivateKeyOptionalParameters
+    }
+  | RSAPublicKeyParameters {
+    n :: JI.Base64Integer,
+    e :: JI.Base64Integer
+    }
+  deriving (Eq, Show)
+
+instance FromJSON RSAKeyParameters where
+  parseJSON = withObject "RSA" (\o ->
+    RSAPrivateKeyParameters    <$> o .: "d" <*> parseJSON (Object o)
+    <|> RSAPublicKeyParameters <$> o .: "n" <*> o .: "e")
+
+instance ToJSON RSAKeyParameters where
+  toJSON (RSAPrivateKeyParameters d params) = object $
+    ["d" .= d] ++ (objectPairs $ toJSON params)
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
-  toJSON (SymmetricKeyParameters k) = object ["k" .= k]
+
+
+data KeyMaterial =
+  ECKeyMaterial EC ECKeyParameters
+  | RSAKeyMaterial RSA RSAKeyParameters
+  | OctKeyMaterial Oct JI.Base64Integer
+  deriving (Eq, Show)
+
+instance FromJSON KeyMaterial where
+  parseJSON = withObject "KeyMaterial" (\o ->
+    ECKeyMaterial      <$> o .: "kty" <*> parseJSON (Object o)
+    <|> RSAKeyMaterial <$> o .: "kty" <*> parseJSON (Object o)
+    <|> OctKeyMaterial <$> o .: "kty" <*> o .: "k")
+
+instance ToJSON KeyMaterial where
+  toJSON (ECKeyMaterial k p)  = object $ ["kty" .= k] ++ objectPairs (toJSON p)
+  toJSON (RSAKeyMaterial k p) = object $ ["kty" .= k] ++ objectPairs (toJSON p)
+  toJSON (OctKeyMaterial k i) = object ["kty" .= k, "k" .= i]
