@@ -42,9 +42,11 @@ unpad = reverse . dropWhile (== '=') . reverse
 
 decodeB64 = Codec.Binary.Base64.decode . pad . T.unpack
 parseB64 f = maybe (fail "invalid base64url") f . decodeB64
+encodeB64 = String . T.pack . Codec.Binary.Base64.encode
 
 decodeB64Url = B64.decode . pad . T.unpack
 parseB64Url f = maybe (fail "invalid base64url") f . decodeB64Url
+encodeB64Url = String . T.pack . unpad . B64.encode
 
 
 wordsToInteger :: [Word8] -> Integer
@@ -63,7 +65,7 @@ instance FromJSON Base64Integer where
     pure . Base64Integer . wordsToInteger
 
 instance ToJSON Base64Integer where
-  toJSON (Base64Integer x) = String $ T.pack $ B64.encode $ integerToWords x
+  toJSON (Base64Integer x) = encodeB64Url $ integerToWords x
 
 
 data SizedBase64Integer = SizedBase64Integer Int Integer
@@ -74,12 +76,8 @@ instance FromJSON SizedBase64Integer where
     pure $ SizedBase64Integer (length bytes) (wordsToInteger bytes))
 
 instance ToJSON SizedBase64Integer where
-  toJSON (SizedBase64Integer s x) = String $ T.pack
-    $ dropPadding $ B64.encode
-    $ zeroPad $ integerToWords x
-    where
-      zeroPad xs = replicate (s - length xs) 0 ++ xs
-      dropPadding = reverse . dropWhile (== '=') . reverse
+  toJSON (SizedBase64Integer s x) = encodeB64Url $ zeroPad $ integerToWords x
+    where zeroPad xs = replicate (s - length xs) 0 ++ xs
 
 
 data Base64UrlString = Base64UrlString String
@@ -98,7 +96,7 @@ instance FromJSON Base64Octets where
   parseJSON = withText "Base64Octets" $ parseB64Url (pure . Base64Octets)
 
 instance ToJSON Base64Octets where
-  toJSON (Base64Octets bytes) = String $ T.pack $ unpad $ B64.encode bytes
+  toJSON (Base64Octets bytes) = encodeB64Url bytes
 
 
 data Base64SHA1 = Base64SHA1 [Word8]
@@ -111,7 +109,7 @@ instance FromJSON Base64SHA1 where
       _  -> fail "incorrect number of bytes")
 
 instance ToJSON Base64SHA1 where
-  toJSON (Base64SHA1 bytes) = String $ T.pack $ unpad $ B64.encode bytes
+  toJSON (Base64SHA1 bytes) = encodeB64Url bytes
 
 
 data Base64X509 = Base64X509 X509
@@ -125,8 +123,7 @@ instance FromJSON Base64X509 where
         either l r . decodeCertificate . BS.pack
 
 instance ToJSON Base64X509 where
-  toJSON (Base64X509 x509) = String $ T.pack $ Codec.Binary.Base64.encode
-    $ BS.unpack $ encodeCertificate x509
+  toJSON (Base64X509 x509) = encodeB64 $ BS.unpack $ encodeCertificate x509
 
 
 instance FromJSON URI where
