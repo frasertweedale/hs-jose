@@ -95,7 +95,7 @@ data Header = Header {
   deriving (Eq, Show)
 
 instance FromJSON Header where
-  parseJSON (Object o) = Header
+  parseJSON = withObject "JWS Header" (\o -> Header
     <$> o .: "alg"
     <*> o .:? "jku"
     <*> o .:? "jwk"
@@ -105,8 +105,7 @@ instance FromJSON Header where
     <*> o .:? "kid"
     <*> o .:? "typ"
     <*> o .:? "cty"
-    <*> parseJSON (Object o)
-  parseJSON _ = empty
+    <*> parseJSON (Object o))
 
 instance ToJSON Header where
   toJSON (Header alg jku jwk x5u x5t x5c kid typ cty crit) = object $ catMaybes [
@@ -137,12 +136,12 @@ data EncodedHeader
   deriving (Eq, Show)
 
 instance FromJSON EncodedHeader where
-  parseJSON (String s) = case B64.decode $ T.unpack s of
-    Just bytes ->  case decode $ BS.pack bytes of
-      Just h -> pure $ EncodedHeader h
-      Nothing -> fail "signature header: invalid JSON"
-    Nothing -> fail "signature header: invalid base64url"
-  parseJSON _ = empty
+  parseJSON = withText "JWS Encoded Header" (\s ->
+    case B64.decode $ T.unpack s of
+      Just bytes ->  case decode $ BS.pack bytes of
+        Just h -> pure $ EncodedHeader h
+        Nothing -> fail "signature header: invalid JSON"
+      Nothing -> fail "signature header: invalid base64url")
 
 instance ToJSON EncodedHeader where
   toJSON (MockEncodedHeader s) = String $ T.pack $ B64.encode s

@@ -63,15 +63,14 @@ data Key =
   deriving (Eq, Show)
 
 instance FromJSON Key where
-  parseJSON (Object o) = Key <$>
+  parseJSON = withObject "Key" (\o -> Key <$>
     parseJSON (Object o) <*>
     o .:? "use" <*>
     o .:? "alg" <*>
     o .:? "kid" <*>
     o .:? "x5u" <*>
     o .:? "x5t" <*>
-    o .:? "x5c"
-  parseJSON _ = empty
+    o .:? "x5c")
 
 instance ToJSON Key where
   toJSON (Key key use alg kid x5u x5t x5c) = object $ catMaybes [
@@ -94,6 +93,4 @@ instance ToJSON Key where
 data KeySet = KeySet [Key]
 
 instance FromJSON KeySet where
-  parseJSON (Object o) = KeySet <$>
-    o .: "keys"
-  parseJSON _ = empty
+  parseJSON = withObject "KeySet" (\o -> KeySet <$> o .: "keys")
