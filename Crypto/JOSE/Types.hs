@@ -34,10 +34,7 @@ import qualified Data.Text as T
 import Network.URI
 
 
-pad s
-  | length s `mod` 4 == 0 = s
-  | otherwise             = pad (s ++ "=")
-
+pad s = s ++ replicate ((4 - length s `mod` 4) `mod` 4) '='
 unpad = reverse . dropWhile (== '=') . reverse
 
 decodeB64 = Codec.Binary.Base64.decode . pad . T.unpack
