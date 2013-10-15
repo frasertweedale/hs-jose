@@ -40,6 +40,12 @@ pad s
 
 unpad = reverse . dropWhile (== '=') . reverse
 
+decodeB64 = Codec.Binary.Base64.decode . pad . T.unpack
+parseB64 f = maybe (fail "invalid base64url") f . decodeB64
+
+decodeB64Url = B64.decode . pad . T.unpack
+parseB64Url f = maybe (fail "invalid base64url") f . decodeB64Url
+
 
 wordsToInteger :: [Word8] -> Integer
 wordsToInteger = foldl (\acc x -> acc * 256 + toInteger x) 0
@@ -53,10 +59,8 @@ data Base64Integer = Base64Integer Integer
   deriving (Eq, Show)
 
 instance FromJSON Base64Integer where
-  parseJSON = withText "base64url integer" (\s ->
-    case B64.decode $ T.unpack s of
-      Nothing -> fail "invalid base64 integer"
-      Just bytes -> pure $ Base64Integer $ wordsToInteger bytes)
+  parseJSON = withText "base64url integer" $ parseB64Url $
+    pure . Base64Integer . wordsToInteger
 
 instance ToJSON Base64Integer where
   toJSON (Base64Integer x) = String $ T.pack $ B64.encode $ integerToWords x
@@ -66,12 +70,8 @@ data SizedBase64Integer = SizedBase64Integer Int Integer
   deriving (Eq, Show)
 
 instance FromJSON SizedBase64Integer where
-  parseJSON = withText "full size base64url integer" (\s ->
-    case B64.decode $ T.unpack s of
-      Nothing -> fail "invalid base64 integer"
-      Just bytes -> pure $ SizedBase64Integer size val where
-       size = length bytes
-       val = wordsToInteger bytes)
+  parseJSON = withText "full size base64url integer" $ parseB64Url (\bytes ->
+    pure $ SizedBase64Integer (length bytes) (wordsToInteger bytes))
 
 instance ToJSON SizedBase64Integer where
   toJSON (SizedBase64Integer s x) = String $ T.pack
@@ -86,21 +86,16 @@ data Base64UrlString = Base64UrlString String
   deriving (Eq, Show)
 
 instance FromJSON Base64UrlString where
-  parseJSON = withText "base64url string" (\s ->
-    case B64.decode $ pad $ T.unpack s of
-      Nothing -> fail "invalid base64url encoded string"
-      -- probably wrong; really want to do a proper UTF-8 decode of bytes
-      Just bytes -> pure $ Base64UrlString $ map (chr . fromIntegral) bytes)
+  parseJSON = withText "base64url string" $ parseB64Url $
+    -- probably wrong; really want to do a proper UTF-8 decode of bytes
+    pure . Base64UrlString . map (chr . fromIntegral)
 
 
 data Base64Octets = Base64Octets [Word8]
   deriving (Eq, Show)
 
 instance FromJSON Base64Octets where
-  parseJSON = withText "Base64Octets" (\s ->
-    case B64.decode $ pad $ T.unpack s of
-      Nothing -> fail "invalid base64 encoded octets"
-      Just bytes -> pure $ Base64Octets bytes)
+  parseJSON = withText "Base64Octets" $ parseB64Url (pure . Base64Octets)
 
 instance ToJSON Base64Octets where
   toJSON (Base64Octets bytes) = String $ T.pack $ unpad $ B64.encode bytes
@@ -110,12 +105,10 @@ data Base64SHA1 = Base64SHA1 [Word8]
   deriving (Eq, Show)
 
 instance FromJSON Base64SHA1 where
-  parseJSON = withText "base64url SHA-1" (\s ->
-    case B64.decode $ pad $ T.unpack s of
-      Nothing -> fail "invalid base64url SHA-1"
-      Just bytes
-        | length bytes == 20 -> pure $ Base64SHA1 bytes
-        | otherwise -> fail "incorrect number of bytes")
+  parseJSON = withText "base64url SHA-1" $ parseB64Url (\bytes ->
+    case length bytes of
+      20 -> pure $ Base64SHA1 bytes
+      _  -> fail "incorrect number of bytes")
 
 instance ToJSON Base64SHA1 where
   toJSON (Base64SHA1 bytes) = String $ T.pack $ unpad $ B64.encode bytes
@@ -125,12 +118,11 @@ data Base64X509 = Base64X509 X509
   deriving (Eq, Show)
 
 instance FromJSON Base64X509 where
-  parseJSON = withText "base64url X.509 certificate" (\s ->
-    case Codec.Binary.Base64.decode $ pad $ T.unpack s of
-      Nothing -> fail "invalid base64 X.509 certificate"
-      Just bytes -> case decodeCertificate $ BS.pack bytes of
-        Left s -> fail $ "failed to decode X.509 certificate" ++ s
-        Right x509 -> pure $ Base64X509 x509)
+  parseJSON = let
+    l = \s -> fail $ "failed to decode X.509 certificate" ++ s
+    r = pure . Base64X509 in
+      withText "base64url X.509 certificate" $ parseB64 $
+        either l r . decodeCertificate . BS.pack
 
 instance ToJSON Base64X509 where
   toJSON (Base64X509 x509) = String $ T.pack $ Codec.Binary.Base64.encode
