@@ -23,7 +23,6 @@ library
     Crypto.JOSE.JWA.JWS
     Crypto.JOSE.JWK
     Crypto.JOSE.JWS
-    Crypto.JOSE.Integer
 
   other-modules:
     Crypto.JOSE.JWA.JWE

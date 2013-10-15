@@ -24,7 +24,6 @@ import Data.Aeson
 import Network.URI
 import Test.Hspec
 
-import Crypto.JOSE.Integer
 import Crypto.JOSE.Types
 
 spec = do

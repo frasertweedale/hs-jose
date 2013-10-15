@@ -28,7 +28,7 @@ import Data.Aeson
 import Data.Hashable
 import qualified Data.HashMap.Strict as M
 
-import qualified Crypto.JOSE.Integer as JI
+import qualified Crypto.JOSE.Types as Types
 
 
 --
@@ -84,9 +84,9 @@ instance ToJSON Crv where
 --
 
 data RSAPrivateKeyOthElem = RSAPrivateKeyOthElem {
-  rOth :: JI.Base64Integer,
-  dOth :: JI.Base64Integer,
-  tOth :: JI.Base64Integer
+  rOth :: Types.Base64Integer,
+  dOth :: Types.Base64Integer,
+  tOth :: Types.Base64Integer
   }
   deriving (Eq, Show)
 
@@ -105,11 +105,11 @@ instance ToJSON RSAPrivateKeyOthElem where
 --
 
 data RSAPrivateKeyOptionalParameters = RSAPrivateKeyOptionalParameters {
-  p :: Maybe JI.Base64Integer,
-  q :: Maybe JI.Base64Integer,
-  dp :: Maybe JI.Base64Integer,
-  dq :: Maybe JI.Base64Integer,
-  qi :: Maybe JI.Base64Integer,
+  p :: Maybe Types.Base64Integer,
+  q :: Maybe Types.Base64Integer,
+  dp :: Maybe Types.Base64Integer,
+  dq :: Maybe Types.Base64Integer,
+  qi :: Maybe Types.Base64Integer,
   oth :: Maybe [RSAPrivateKeyOthElem] -- TODO oth must not be empty array
   }
   deriving (Eq, Show)
@@ -142,12 +142,12 @@ objectPairs (Object o) = M.toList o
 
 data ECKeyParameters =
   ECPrivateKeyParameters {
-    d :: JI.SizedBase64Integer
+    d :: Types.SizedBase64Integer
     }
   | ECPublicKeyParameters {
     crv :: Crv,
-    x :: JI.SizedBase64Integer,
-    y :: JI.SizedBase64Integer
+    x :: Types.SizedBase64Integer,
+    y :: Types.SizedBase64Integer
     }
   deriving (Eq, Show)
 
@@ -167,12 +167,12 @@ instance ToJSON ECKeyParameters where
 
 data RSAKeyParameters =
   RSAPrivateKeyParameters {
-    d' :: JI.SizedBase64Integer,
+    d' :: Types.SizedBase64Integer,
     optionalParameters :: Maybe RSAPrivateKeyOptionalParameters
     }
   | RSAPublicKeyParameters {
-    n :: JI.Base64Integer,
-    e :: JI.Base64Integer
+    n :: Types.Base64Integer,
+    e :: Types.Base64Integer
     }
   deriving (Eq, Show)
 
@@ -190,7 +190,7 @@ instance ToJSON RSAKeyParameters where
 data KeyMaterial =
   ECKeyMaterial EC ECKeyParameters
   | RSAKeyMaterial RSA RSAKeyParameters
-  | OctKeyMaterial Oct JI.Base64Integer
+  | OctKeyMaterial Oct Types.Base64Integer
   deriving (Eq, Show)
 
 instance FromJSON KeyMaterial where
