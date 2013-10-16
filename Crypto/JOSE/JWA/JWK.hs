@@ -22,11 +22,11 @@ module Crypto.JOSE.JWA.JWK where
 import Control.Applicative
 import Data.Maybe
 import Data.Tuple
-import GHC.Generics (Generic)
 
 import Data.Aeson
 import Data.Hashable
 import qualified Data.HashMap.Strict as M
+import qualified Data.Text as T
 
 import qualified Crypto.JOSE.Types as Types
 
@@ -35,21 +35,22 @@ import qualified Crypto.JOSE.Types as Types
 -- JWA §5.1.  "kty" (Key Type) Parameter Values
 --
 
-parseKty t e s = if s == e then pure t else fail "bad kty"
+parseKty :: (Show t, Monad m) => t -> T.Text -> m t
+parseKty t s = if s == T.pack (show t) then return t else fail "bad kty"
 
 -- Recommended+
 data EC = EC deriving (Eq, Show)
-instance FromJSON EC where parseJSON = withText "kty" (parseKty EC "EC")
+instance FromJSON EC where parseJSON = withText "kty" (parseKty EC)
 instance ToJSON EC where toJSON EC = String "EC"
 
 -- Required
 data RSA = RSA deriving (Eq, Show)
-instance FromJSON RSA where parseJSON = withText "kty" (parseKty RSA "RSA")
+instance FromJSON RSA where parseJSON = withText "kty" (parseKty RSA)
 instance ToJSON RSA where toJSON RSA = String "RSA"
 
 -- Required
 data Oct = Oct deriving (Eq, Show)
-instance FromJSON Oct where parseJSON = withText "kty" (parseKty Oct "Oct")
+instance FromJSON Oct where parseJSON = withText "kty" (parseKty Oct)
 instance ToJSON Oct where toJSON Oct = String "Oct"
 
 
@@ -62,18 +63,22 @@ data Crv = P256 | P384 | P521
 
 instance Hashable Crv
 
+crvList :: [(T.Text, Crv)]
 crvList = [
   ("P-256", P256),
   ("P-384", P384),
   ("P-521", P521)
   ]
+
+crvMap :: M.HashMap T.Text Crv
 crvMap = M.fromList crvList
+
+crvMap' :: M.HashMap Crv T.Text
 crvMap' = M.fromList $ map swap crvList
 
 instance FromJSON Crv where
-  parseJSON (String s) = case M.lookup s crvMap of
-    Just v -> pure v
-    Nothing -> fail "undefined EC crv"
+  parseJSON = withText "crv" (\s ->
+    maybe (fail "undefined crv") pure $ M.lookup s crvMap)
 
 instance ToJSON Crv where
   toJSON crv = String $ M.lookupDefault "?" crv crvMap'
@@ -91,10 +96,10 @@ data RSAPrivateKeyOthElem = RSAPrivateKeyOthElem {
   deriving (Eq, Show)
 
 instance FromJSON RSAPrivateKeyOthElem where
-  parseJSON (Object o) = RSAPrivateKeyOthElem <$>
+  parseJSON = withObject "oth" (\o -> RSAPrivateKeyOthElem <$>
     o .: "r" <*>
     o .: "d" <*>
-    o .: "t"
+    o .: "t")
 
 instance ToJSON RSAPrivateKeyOthElem where
   toJSON (RSAPrivateKeyOthElem r d t) = object ["r" .= r, "d" .= d, "t" .= t]
@@ -105,23 +110,23 @@ instance ToJSON RSAPrivateKeyOthElem where
 --
 
 data RSAPrivateKeyOptionalParameters = RSAPrivateKeyOptionalParameters {
-  p :: Maybe Types.Base64Integer,
-  q :: Maybe Types.Base64Integer,
-  dp :: Maybe Types.Base64Integer,
-  dq :: Maybe Types.Base64Integer,
-  qi :: Maybe Types.Base64Integer,
-  oth :: Maybe [RSAPrivateKeyOthElem] -- TODO oth must not be empty array
+  rsaP :: Maybe Types.Base64Integer,
+  rsaQ :: Maybe Types.Base64Integer,
+  rsaDp :: Maybe Types.Base64Integer,
+  rsaDq :: Maybe Types.Base64Integer,
+  rsaQi :: Maybe Types.Base64Integer,
+  rsaOth :: Maybe [RSAPrivateKeyOthElem] -- TODO oth must not be empty array
   }
   deriving (Eq, Show)
 
 instance FromJSON RSAPrivateKeyOptionalParameters where
-  parseJSON (Object o) = RSAPrivateKeyOptionalParameters <$>
+  parseJSON = withObject "RSA" (\o -> RSAPrivateKeyOptionalParameters <$>
     o .: "p" <*>
     o .: "q" <*>
     o .: "dp" <*>
     o .: "dq" <*>
     o .: "qi" <*>
-    o .:? "oth"
+    o .:? "oth")
 
 instance ToJSON RSAPrivateKeyOptionalParameters where
   toJSON (RSAPrivateKeyOptionalParameters p q dp dq qi oth) = object $ [
@@ -137,17 +142,14 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
 -- JWA §5.  Cryptographic Algorithms for JWK
 --
 
-objectPairs (Object o) = M.toList o
-
-
 data ECKeyParameters =
   ECPrivateKeyParameters {
-    d :: Types.SizedBase64Integer
+    ecD :: Types.SizedBase64Integer
     }
   | ECPublicKeyParameters {
-    crv :: Crv,
-    x :: Types.SizedBase64Integer,
-    y :: Types.SizedBase64Integer
+    ecCrv :: Crv,
+    ecX :: Types.SizedBase64Integer,
+    ecY :: Types.SizedBase64Integer
     }
   deriving (Eq, Show)
 
@@ -167,12 +169,12 @@ instance ToJSON ECKeyParameters where
 
 data RSAKeyParameters =
   RSAPrivateKeyParameters {
-    d' :: Types.SizedBase64Integer,
-    optionalParameters :: Maybe RSAPrivateKeyOptionalParameters
+    rsaD :: Types.SizedBase64Integer,
+    rsaOptionalParameters :: Maybe RSAPrivateKeyOptionalParameters
     }
   | RSAPublicKeyParameters {
-    n :: Types.Base64Integer,
-    e :: Types.Base64Integer
+    rsaN :: Types.Base64Integer,
+    rsaE :: Types.Base64Integer
     }
   deriving (Eq, Show)
 
@@ -183,7 +185,7 @@ instance FromJSON RSAKeyParameters where
 
 instance ToJSON RSAKeyParameters where
   toJSON (RSAPrivateKeyParameters d params) = object $
-    ("d" .= d) : objectPairs (toJSON params)
+    ("d" .= d) : Types.objectPairs (toJSON params)
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
 
 
@@ -200,6 +202,6 @@ instance FromJSON KeyMaterial where
     <|> OctKeyMaterial <$> o .: "kty" <*> o .: "k")
 
 instance ToJSON KeyMaterial where
-  toJSON (ECKeyMaterial k p)  = object $ ("kty" .= k) : objectPairs (toJSON p)
-  toJSON (RSAKeyMaterial k p) = object $ ("kty" .= k) : objectPairs (toJSON p)
+  toJSON (ECKeyMaterial k p)  = object $ ("kty" .= k) : Types.objectPairs (toJSON p)
+  toJSON (RSAKeyMaterial k p) = object $ ("kty" .= k) : Types.objectPairs (toJSON p)
   toJSON (OctKeyMaterial k i) = object ["kty" .= k, "k" .= i]

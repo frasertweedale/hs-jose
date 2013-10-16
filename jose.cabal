@@ -41,6 +41,8 @@ library
     certificate == 1.3.*,
     vector
 
+  ghc-options:  -Werror -Wall
+
 source-repository head
   type: git
   location: https://github.com/frasertweedale/jose.git

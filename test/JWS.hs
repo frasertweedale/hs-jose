@@ -51,7 +51,7 @@ critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $ do
 
 critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $ do
   it "parses from JSON correctly" $ do
-    decode s `shouldBe` Just ((algHeader JWA.JWS.ES256) { crit = critValue })
+    decode s `shouldBe` Just ((algHeader JWA.JWS.ES256) { headerCrit = critValue })
     where
       s = "{\"alg\":\"ES256\",\"crit\":[\"exp\"],\"exp\":1363284000}"
       critValue = CritParameters $ M.fromList [("exp", Number (I 1363284000))]
@@ -59,7 +59,7 @@ critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $ d
 
 headerSpec = describe "(unencoded) Header" $ do
   it "parses from JSON correctly" $ do
-    decode headerJSON `shouldBe` Just ((algHeader JWA.JWS.HS256) { typ = typValue })
+    decode headerJSON `shouldBe` Just ((algHeader JWA.JWS.HS256) { headerTyp = typValue })
     where
       headerJSON = "{\"typ\":\"JWT\",\r\n \"alg\":\"HS256\"}"
       typValue = Just "JWT"

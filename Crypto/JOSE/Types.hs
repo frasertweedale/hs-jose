@@ -14,6 +14,8 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 {-# LANGUAGE FlexibleInstances #-}
 
 module Crypto.JOSE.Types where
@@ -28,21 +30,42 @@ import Data.Word
 import qualified Codec.Binary.Base64
 import qualified Codec.Binary.Base64Url as B64
 import Data.Aeson
+import Data.Aeson.Types
 import qualified Data.ByteString.Lazy as BS
 import Data.Certificate.X509
+import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import Network.URI
 
 
+objectPairs :: Value -> [Pair]
+objectPairs (Object o) = M.toList o
+objectPairs _ = []
+
+
+pad :: String -> String
 pad s = s ++ replicate ((4 - length s `mod` 4) `mod` 4) '='
+
+unpad :: String -> String
 unpad = reverse . dropWhile (== '=') . reverse
 
+
+decodeB64 :: T.Text -> Maybe [Word8]
 decodeB64 = Codec.Binary.Base64.decode . pad . T.unpack
+
+parseB64 :: FromJSON a => ([Word8] -> Parser a) -> T.Text -> Parser a
 parseB64 f = maybe (fail "invalid base64url") f . decodeB64
+
+encodeB64 :: [Word8] -> Value
 encodeB64 = String . T.pack . Codec.Binary.Base64.encode
 
+decodeB64Url :: T.Text -> Maybe [Word8]
 decodeB64Url = B64.decode . pad . T.unpack
+
+parseB64Url :: FromJSON a => ([Word8] -> Parser a) -> T.Text -> Parser a
 parseB64Url f = maybe (fail "invalid base64url") f . decodeB64Url
+
+encodeB64Url :: [Word8] -> Value
 encodeB64Url = String . T.pack . unpad . B64.encode
 
 

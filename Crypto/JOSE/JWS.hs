@@ -26,6 +26,7 @@ import Data.Maybe
 import Data.Word
 
 import Data.Aeson
+import Data.Aeson.Types
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
@@ -39,9 +40,7 @@ import qualified Crypto.JOSE.JWK as JWK
 import qualified Crypto.JOSE.Types as Types
 
 
-objectPairs (Object o) = M.toList o
-
-
+critInvalidNames :: [T.Text]
 critInvalidNames = [
   "alg"
   , "jku"
@@ -60,6 +59,7 @@ data CritParameters
   | NullCritParameters
   deriving (Eq, Show)
 
+critObjectParser :: M.HashMap T.Text Value -> Value -> Parser (T.Text, Value)
 critObjectParser o (String s)
   | s `elem` critInvalidNames = fail "crit key is reserved"
   | otherwise                 = (\v -> (s, v)) <$> o .: s
@@ -77,6 +77,7 @@ instance FromJSON CritParameters where
     = fail "crit is not an array"
     | otherwise  -- no "crit" param at all
     = pure NullCritParameters
+  parseJSON _ = fail "not an object"
 
 instance ToJSON CritParameters where
   toJSON (CritParameters m) = Object $ M.insert "crit" (toJSON $ M.keys m) m
@@ -84,16 +85,16 @@ instance ToJSON CritParameters where
 
 
 data Header = Header {
-  alg :: JWA.JWS.Alg
-  , jku :: Maybe Network.URI.URI  -- JWK Set URL
-  , jwk :: Maybe JWK.Key
-  , x5u :: Maybe Network.URI.URI
-  , x5t :: Maybe Types.Base64SHA1
-  , x5c :: Maybe [Types.Base64X509] -- TODO implement min len of 1
-  , kid :: Maybe String  -- interpretation unspecified
-  , typ :: Maybe String  -- Content Type (of object)
-  , cty :: Maybe String  -- Content Type (of payload)
-  , crit :: CritParameters
+  headerAlg :: JWA.JWS.Alg
+  , headerJku :: Maybe Network.URI.URI  -- JWK Set URL
+  , headerJwk :: Maybe JWK.Key
+  , headerX5u :: Maybe Network.URI.URI
+  , headerX5t :: Maybe Types.Base64SHA1
+  , headerX5c :: Maybe [Types.Base64X509] -- TODO implement min len of 1
+  , headerKid :: Maybe String  -- interpretation unspecified
+  , headerTyp :: Maybe String  -- Content Type (of object)
+  , headerCty :: Maybe String  -- Content Type (of payload)
+  , headerCrit :: CritParameters
   }
   deriving (Eq, Show)
 
@@ -122,10 +123,11 @@ instance ToJSON Header where
     , fmap ("typ" .=) typ
     , fmap ("cty" .=) cty
     ]
-    ++ objectPairs (toJSON crit)
+    ++ Types.objectPairs (toJSON crit)
 
 
 -- construct a minimal header with the given alg
+algHeader :: JWA.JWS.Alg -> Header
 algHeader alg = Header alg
   Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
   NullCritParameters
@@ -165,10 +167,10 @@ data Headers =
   deriving (Eq, Show)
 
 instance FromJSON Headers where
-  parseJSON (Object o) =
+  parseJSON = withObject "JWS headers" (\o ->
     Both            <$> o .: "protected" <*> o .: "header"
     <|> Protected   <$> o .: "protected"
-    <|> Unprotected <$> o .: "header"
+    <|> Unprotected <$> o .: "header")
 
 instance ToJSON Headers where
   toJSON (Both p u)       = object ["protected" .= p, "header" .= u]
@@ -180,21 +182,21 @@ data Signature = Signature Headers String
   deriving (Eq, Show)
 
 instance FromJSON Signature where
-  parseJSON (Object o) = Signature
+  parseJSON = withObject "signature" (\o -> Signature
     <$> o .: "protected"
-    <*> parseJSON (Object o)
+    <*> parseJSON (Object o))
 
 instance ToJSON Signature where
-  toJSON (Signature h s) = object $ ("signature" .= s) : objectPairs (toJSON h)
+  toJSON (Signature h s) = object $ ("signature" .= s) : Types.objectPairs (toJSON h)
 
 
 data Signatures = Signatures Types.Base64Octets [Signature]
   deriving (Eq, Show)
 
 instance FromJSON Signatures where
-  parseJSON (Object o) = Signatures
+  parseJSON = withObject "JWS JSON serialization" (\o -> Signatures
     <$> o .: "payload"
-    <*> o .: "signatures"
+    <*> o .: "signatures")
 
 instance ToJSON Signatures where
   toJSON (Signatures p ss) = object ["payload" .= p, "signatures" .= ss]
@@ -212,8 +214,13 @@ encodeCompact _ = Nothing
 
 -- §5.1. Message Signing or MACing
 
+cat' :: String -> String -> String
 cat' p p' = intercalate "." [p, p']
+
+encode' :: EncodedHeader -> String
 encode'   = map (chr . fromIntegral) . init . tail . BS.unpack . encode
+
+encode'' :: Types.Base64Octets -> String
 encode''  = map (chr . fromIntegral) . init . tail . BS.unpack . encode
 
 signingInput :: Headers -> Types.Base64Octets -> String
@@ -221,16 +228,18 @@ signingInput (Both p _) p' = cat' (encode' p) (encode'' p')
 signingInput (Protected p) p' = cat' (encode' p) (encode'' p')
 signingInput (Unprotected _) p' = cat' "" (encode'' p')
 
-alg' (Both (EncodedHeader h) _)     = alg h
-alg' (Protected (EncodedHeader h))  = alg h
-alg' (Unprotected h)                = alg h
+alg' :: Headers -> JWA.JWS.Alg
+alg' (Both (EncodedHeader h) _)     = headerAlg h
+alg' (Protected (EncodedHeader h))  = headerAlg h
+alg' (Unprotected h)                = headerAlg h
+alg' _                              = undefined
 
 sign :: Signatures -> Headers -> JWK.Key -> Signatures
 sign (Signatures p sigs) h k = Signatures p (sig:sigs) where
   sig = Signature h $ B64.encode $ sign' (alg' h) (signingInput h p) k
 
 sign' :: JWA.JWS.Alg -> String -> JWK.Key -> [Word8]
-sign' JWA.JWS.None i _ = []
+sign' JWA.JWS.None _ _ = []
 sign' _ _ _ = undefined
 
 

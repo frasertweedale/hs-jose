@@ -20,12 +20,10 @@
 module Crypto.JOSE.JWA.JWE where
 
 import Control.Applicative
-import Data.Tuple
-import GHC.Generics (Generic)
 
 import Data.Aeson
-import Data.Hashable
 import qualified Data.HashMap.Strict as M
+import qualified Data.Text as T
 
 import qualified Crypto.JOSE.JWK as JWK
 import qualified Crypto.JOSE.Types as Types
@@ -70,6 +68,7 @@ data Enc =
   | A192GCM       -- AES in Galois/Counter Mode             Optional
   | A256GCM       -- AES in Galois/Counter Mode             Recommended
 
+encMap :: M.HashMap T.Text Enc
 encMap = M.fromList [
   ("A128CBC-HS256", A128CBC_HS256),
   ("A192CBC-HS384", A192CBC_HS384),
@@ -80,6 +79,5 @@ encMap = M.fromList [
   ]
 
 instance FromJSON Enc where
-  parseJSON (String s) = case M.lookup s encMap of
-    Just v -> pure v
-    Nothing -> fail "unrecognised JWE enc value"
+  parseJSON = withText "enc" (\s ->
+    maybe (fail "unrecognised JWE enc value") pure $ M.lookup s encMap)

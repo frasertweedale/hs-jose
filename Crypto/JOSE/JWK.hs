@@ -22,7 +22,6 @@ import Control.Applicative
 import Data.Maybe (catMaybes)
 
 import Data.Aeson
-import qualified Data.HashMap.Strict as M
 import qualified Network.URI
 
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
@@ -52,13 +51,13 @@ instance ToJSON Alg where
 
 data Key =
   Key {
-    key :: JWA.JWK.KeyMaterial,
-    use :: Maybe String,
-    alg :: Maybe Alg,
-    kid :: Maybe String,
-    x5u :: Maybe Network.URI.URI,
-    x5t :: Maybe Types.Base64SHA1,
-    x5c :: Maybe [Types.Base64X509]
+    keyMaterial :: JWA.JWK.KeyMaterial,
+    keyUse :: Maybe String,
+    keyAlg :: Maybe Alg,
+    keyKid :: Maybe String,
+    keyX5u :: Maybe Network.URI.URI,
+    keyX5t :: Maybe Types.Base64SHA1,
+    keyX5c :: Maybe [Types.Base64X509]
     }
   deriving (Eq, Show)
 
@@ -81,9 +80,7 @@ instance ToJSON Key where
     , fmap ("x5t" .=) x5t
     , fmap ("x5c" .=) x5c
     ]
-    ++ objectPairs (toJSON key)
-    where
-      objectPairs (Object o) = M.toList o
+    ++ Types.objectPairs (toJSON key)
 
 
 --

@@ -26,6 +26,7 @@ import GHC.Generics (Generic)
 import Data.Aeson
 import Data.Hashable
 import qualified Data.HashMap.Strict as M
+import Data.Text (Text)
 
 
 --
@@ -51,6 +52,7 @@ data Alg =
 instance Hashable Alg
 
 -- TODO: is there some bijection data type that does this?
+algList :: [(Text, Alg)]
 algList = [
   ("HS256", HS256),
   ("HS384", HS384),
@@ -66,13 +68,16 @@ algList = [
   ("PS512", ES512),
   ("none", None)
   ]
+
+algMap :: M.HashMap Text Alg
 algMap = M.fromList algList
+
+algMap' :: M.HashMap Alg Text
 algMap' = M.fromList $ map swap algList
 
 instance FromJSON Alg where
-  parseJSON (String s) = case M.lookup s algMap of
-    Just v -> pure v
-    Nothing -> fail "undefined JWS alg"
+  parseJSON = withText "JWS alg" (\s ->
+    maybe (fail "undefined JWS alg") pure $ M.lookup s algMap)
 
 instance ToJSON Alg where
   toJSON alg = String $ M.lookupDefault "?" alg algMap'
