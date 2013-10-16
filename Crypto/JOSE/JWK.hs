@@ -81,7 +81,7 @@ instance ToJSON Key where
     , fmap ("x5t" .=) x5t
     , fmap ("x5c" .=) x5c
     ]
-    ++ (objectPairs $ toJSON key)
+    ++ objectPairs (toJSON key)
     where
       objectPairs (Object o) = M.toList o
 

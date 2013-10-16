@@ -39,6 +39,9 @@ import qualified Crypto.JOSE.JWK as JWK
 import qualified Crypto.JOSE.Types as Types
 
 
+objectPairs (Object o) = M.toList o
+
+
 critInvalidNames = [
   "alg"
   , "jku"
@@ -119,9 +122,7 @@ instance ToJSON Header where
     , fmap ("typ" .=) typ
     , fmap ("cty" .=) cty
     ]
-    ++ (objectPairs $ toJSON crit)
-    where
-      objectPairs (Object o) = M.toList o
+    ++ objectPairs (toJSON crit)
 
 
 -- construct a minimal header with the given alg
@@ -184,11 +185,7 @@ instance FromJSON Signature where
     <*> parseJSON (Object o)
 
 instance ToJSON Signature where
-  toJSON (Signature h s) = object $
-    (objectPairs $ toJSON h)
-    ++ ["signature" .= s]
-    where
-      objectPairs (Object o) = M.toList o
+  toJSON (Signature h s) = object $ ("signature" .= s) : objectPairs (toJSON h)
 
 
 data Signatures = Signatures Types.Base64Octets [Signature]
@@ -216,8 +213,8 @@ encodeCompact _ = Nothing
 -- §5.1. Message Signing or MACing
 
 cat' p p' = intercalate "." [p, p']
-encode' = (map (chr . fromIntegral)) . init . tail . BS.unpack . encode
-encode'' = (map (chr . fromIntegral)) . init . tail . BS.unpack . encode
+encode'   = map (chr . fromIntegral) . init . tail . BS.unpack . encode
+encode''  = map (chr . fromIntegral) . init . tail . BS.unpack . encode
 
 signingInput :: Headers -> Types.Base64Octets -> String
 signingInput (Both p _) p' = cat' (encode' p) (encode'' p')

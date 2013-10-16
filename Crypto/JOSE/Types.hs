@@ -113,18 +113,15 @@ data Base64X509 = Base64X509 X509
   deriving (Eq, Show)
 
 instance FromJSON Base64X509 where
-  parseJSON = let
-    l = \s -> fail $ "failed to decode X.509 certificate" ++ s
-    r = pure . Base64X509 in
-      withText "base64url X.509 certificate" $ parseB64 $
-        either l r . decodeCertificate . BS.pack
+  parseJSON = withText "base64url X.509 certificate" $ parseB64 $
+    either fail (pure . Base64X509) . decodeCertificate . BS.pack
 
 instance ToJSON Base64X509 where
   toJSON (Base64X509 x509) = encodeB64 $ BS.unpack $ encodeCertificate x509
 
 
 instance FromJSON URI where
-  parseJSON = withText "URI" ((maybe (fail "not a URI") pure) . parseURI . T.unpack)
+  parseJSON = withText "URI" (maybe (fail "not a URI") pure . parseURI . T.unpack)
 
 instance ToJSON URI where
   toJSON uri = String $ T.pack $ show uri

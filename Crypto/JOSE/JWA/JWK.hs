@@ -130,7 +130,7 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
     , "dp" .= dp
     , "dq" .= dq
     , "dq" .= qi
-    ] ++ (map ("oth" .=) $ maybeToList oth)
+    ] ++ map ("oth" .=) (maybeToList oth)
 
 
 --
@@ -183,7 +183,7 @@ instance FromJSON RSAKeyParameters where
 
 instance ToJSON RSAKeyParameters where
   toJSON (RSAPrivateKeyParameters d params) = object $
-    ["d" .= d] ++ (objectPairs $ toJSON params)
+    ("d" .= d) : objectPairs (toJSON params)
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
 
 
@@ -200,6 +200,6 @@ instance FromJSON KeyMaterial where
     <|> OctKeyMaterial <$> o .: "kty" <*> o .: "k")
 
 instance ToJSON KeyMaterial where
-  toJSON (ECKeyMaterial k p)  = object $ ["kty" .= k] ++ objectPairs (toJSON p)
-  toJSON (RSAKeyMaterial k p) = object $ ["kty" .= k] ++ objectPairs (toJSON p)
+  toJSON (ECKeyMaterial k p)  = object $ ("kty" .= k) : objectPairs (toJSON p)
+  toJSON (RSAKeyMaterial k p) = object $ ("kty" .= k) : objectPairs (toJSON p)
   toJSON (OctKeyMaterial k i) = object ["kty" .= k, "k" .= i]
