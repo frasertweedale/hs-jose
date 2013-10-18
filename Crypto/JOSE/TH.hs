@@ -76,8 +76,8 @@ aesonInstance s n = appT (conT n) (conT $ mkName s)
 deriveJOSEType :: String -> [String] -> Q [Dec]
 deriveJOSEType s vs = sequenceQ [
   dataD (cxt []) (mkName s) [] (map conQ vs) (map mkName ["Eq", "Show"])
-  , instanceD (cxt []) (aesonInstance s ''FromJSON) [(parseJSONFun vs)]
-  , instanceD (cxt []) (aesonInstance s ''ToJSON) [(toJSONFun vs)]
+  , instanceD (cxt []) (aesonInstance s ''FromJSON) [parseJSONFun vs]
+  , instanceD (cxt []) (aesonInstance s ''ToJSON) [toJSONFun vs]
   ]
   where
     conQ v = normalC (conize v) []
