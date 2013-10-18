@@ -14,18 +14,13 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Crypto.JOSE.JWA.JWE where
 
-import Control.Applicative
-
-import Data.Aeson
-import qualified Data.HashMap.Strict as M
-import qualified Data.Text as T
-
 import qualified Crypto.JOSE.JWK as JWK
+import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
 
 
@@ -60,24 +55,11 @@ data JWEAlgHeaderParameters =
 -- JWA §4.2.  "enc" (Encryption Method) Header Parameters Values for JWE
 --
 
-data Enc =
-  A128CBC_HS256   -- AES HMAC SHA authenticated encryption  Required
-  | A192CBC_HS384 -- AES HMAC SHA authenticated encryption  Optional
-  | A256CBC_HS512 -- AES HMAC SHA authenticated encryption  Required
-  | A128GCM       -- AES in Galois/Counter Mode             Recommended
-  | A192GCM       -- AES in Galois/Counter Mode             Optional
-  | A256GCM       -- AES in Galois/Counter Mode             Recommended
-
-encMap :: M.HashMap T.Text Enc
-encMap = M.fromList [
-  ("A128CBC-HS256", A128CBC_HS256),
-  ("A192CBC-HS384", A192CBC_HS384),
-  ("A256CBC-HS512", A256CBC_HS512),
-  ("A128GCM", A128GCM),
-  ("A192GCM", A192GCM),
-  ("A256GCM", A256GCM)
-  ]
-
-instance FromJSON Enc where
-  parseJSON = withText "enc" (\s ->
-    maybe (fail "unrecognised JWE enc value") pure $ M.lookup s encMap)
+$(Crypto.JOSE.TH.deriveJOSEType "Enc" [
+  "A128CBC-HS256"   -- AES HMAC SHA authenticated encryption  Required
+  , "A192CBC-HS384" -- AES HMAC SHA authenticated encryption  Optional
+  , "A256CBC-HS512" -- AES HMAC SHA authenticated encryption  Required
+  , "A128GCM"       -- AES in Galois/Counter Mode             Recommended
+  , "A192GCM"       -- AES in Galois/Counter Mode             Optional
+  , "A256GCM"       -- AES in Galois/Counter Mode             Recommended
+  ])

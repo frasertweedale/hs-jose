@@ -14,70 +14,30 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Crypto.JOSE.JWA.JWS where
 
-import Control.Applicative
-import Data.Tuple
-import GHC.Generics (Generic)
-
-import Data.Aeson
-import Data.Hashable
-import qualified Data.HashMap.Strict as M
-import Data.Text (Text)
+import qualified Crypto.JOSE.TH
 
 
 --
 -- JWA §3.1.  "alg" (Algorithm) Header Parameters for JWS
 --
 
-data Alg =
-  HS256    -- HMAC SHA ; REQUIRED
-  | HS384  -- HMAC SHA ; OPTIONAL
-  | HS512  -- HMAC SHA ; OPTIONAL
-  | RS256  -- RSASSA-PKCS-v1_5 SHA ; RECOMMENDED
-  | RS384  -- RSASSA-PKCS-v1_5 SHA ; OPTIONAL
-  | RS512  -- RSASSA-PKCS-v1_5 SHA ; OPTIONAL
-  | ES256  -- ECDSA P curve and SHA ; RECOMMENDED+
-  | ES384  -- ECDSA P curve and SHA ; OPTIONAL
-  | ES512  -- ECDSA P curve and SHA ; OPTIONAL
-  | PS256  -- RSASSA-PSS SHA ; OPTIONAL
-  | PS384  -- RSASSA-PSS SHA ; OPTIONAL
-  | PS512  -- RSSSSA-PSS SHA ; OPTIONAL
-  | None   -- "none" No signature or MAC ; Optional
-  deriving (Eq, Generic, Show)
-
-instance Hashable Alg
-
--- TODO: is there some bijection data type that does this?
-algList :: [(Text, Alg)]
-algList = [
-  ("HS256", HS256),
-  ("HS384", HS384),
-  ("HS512", HS512),
-  ("RS256", RS256),
-  ("RS384", RS384),
-  ("RS512", RS512),
-  ("ES256", ES256),
-  ("ES384", ES384),
-  ("ES512", ES512),
-  ("PS256", ES256),
-  ("PS384", ES384),
-  ("PS512", ES512),
-  ("none", None)
-  ]
-
-algMap :: M.HashMap Text Alg
-algMap = M.fromList algList
-
-algMap' :: M.HashMap Alg Text
-algMap' = M.fromList $ map swap algList
-
-instance FromJSON Alg where
-  parseJSON = withText "JWS alg" (\s ->
-    maybe (fail "undefined JWS alg") pure $ M.lookup s algMap)
-
-instance ToJSON Alg where
-  toJSON alg = String $ M.lookupDefault "?" alg algMap'
+$(Crypto.JOSE.TH.deriveJOSEType "Alg" [
+  "HS256"   -- HMAC SHA ; REQUIRED
+  , "HS384" -- HMAC SHA ; OPTIONAL
+  , "HS512" -- HMAC SHA ; OPTIONAL
+  , "RS256" -- RSASSA-PKCS-v1_5 SHA ; RECOMMENDED
+  , "RS384" -- RSASSA-PKCS-v1_5 SHA ; OPTIONAL
+  , "RS512" -- RSASSA-PKCS-v1_5 SHA ; OPTIONAL
+  , "ES256" -- ECDSA P curve and SHA ; RECOMMENDED+
+  , "ES384" -- ECDSA P curve and SHA ; OPTIONAL
+  , "ES512" -- ECDSA P curve and SHA ; OPTIONAL
+  , "PS256" -- RSASSA-PSS SHA ; OPTIONAL
+  , "PS384" -- RSASSA-PSS SHA ; OPTIONAL
+  , "PS512" -- RSSSSA-PSS SHA ; OPTIONAL
+  , "none"  -- "none" No signature or MAC ; Optional
+  ])

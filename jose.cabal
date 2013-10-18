@@ -28,9 +28,11 @@ library
     Crypto.JOSE.JWA.JWE
     Crypto.JOSE.JWA.JWE.Alg
     Crypto.JOSE.JWA.JWK
+    Crypto.JOSE.TH
 
   build-depends:
     base == 4.6.*,
+    template-haskell >= 2.4,
     aeson == 0.6.*,
     hashable == 1.1.*,
     unordered-containers == 0.2.*,

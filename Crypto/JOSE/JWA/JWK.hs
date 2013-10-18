@@ -14,20 +14,17 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Crypto.JOSE.JWA.JWK where
 
 import Control.Applicative
 import Data.Maybe
-import Data.Tuple
 
 import Data.Aeson
-import Data.Hashable
-import qualified Data.HashMap.Strict as M
-import qualified Data.Text as T
 
+import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
 
 
@@ -35,53 +32,16 @@ import qualified Crypto.JOSE.Types as Types
 -- JWA §5.1.  "kty" (Key Type) Parameter Values
 --
 
-parseKty :: (Show t, Monad m) => t -> T.Text -> m t
-parseKty t s = if s == T.pack (show t) then return t else fail "bad kty"
-
--- Recommended+
-data EC = EC deriving (Eq, Show)
-instance FromJSON EC where parseJSON = withText "kty" (parseKty EC)
-instance ToJSON EC where toJSON EC = String "EC"
-
--- Required
-data RSA = RSA deriving (Eq, Show)
-instance FromJSON RSA where parseJSON = withText "kty" (parseKty RSA)
-instance ToJSON RSA where toJSON RSA = String "RSA"
-
--- Required
-data Oct = Oct deriving (Eq, Show)
-instance FromJSON Oct where parseJSON = withText "kty" (parseKty Oct)
-instance ToJSON Oct where toJSON Oct = String "Oct"
+$(Crypto.JOSE.TH.deriveJOSEType "EC" ["EC"])    -- Recommended+
+$(Crypto.JOSE.TH.deriveJOSEType "RSA" ["RSA"])  -- Required
+$(Crypto.JOSE.TH.deriveJOSEType "Oct" ["oct"])  -- Required
 
 
 --
 -- JWA §5.2.1.1.  "crv" (Curve) Parameter
 --
 
-data Crv = P256 | P384 | P521
-  deriving (Eq, Show)
-
-instance Hashable Crv
-
-crvList :: [(T.Text, Crv)]
-crvList = [
-  ("P-256", P256),
-  ("P-384", P384),
-  ("P-521", P521)
-  ]
-
-crvMap :: M.HashMap T.Text Crv
-crvMap = M.fromList crvList
-
-crvMap' :: M.HashMap Crv T.Text
-crvMap' = M.fromList $ map swap crvList
-
-instance FromJSON Crv where
-  parseJSON = withText "crv" (\s ->
-    maybe (fail "undefined crv") pure $ M.lookup s crvMap)
-
-instance ToJSON Crv where
-  toJSON crv = String $ M.lookupDefault "?" crv crvMap'
+$(Crypto.JOSE.TH.deriveJOSEType "Crv" ["P-256", "P-384", "P-521"])
 
 
 --
