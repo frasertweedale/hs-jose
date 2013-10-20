@@ -17,24 +17,26 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Crypto.JOSE.Types where
 
 import Control.Applicative
 import Data.Char
-import Data.List (unfoldr)
 import Data.String
 import Data.Tuple (swap)
 import Data.Word
 
-import qualified Codec.Binary.Base64
-import qualified Codec.Binary.Base64Url as B64
 import Data.Aeson
 import Data.Aeson.Types
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base64 as B64
+import qualified Data.ByteString.Base64.URL as B64U
+import qualified Data.ByteString.Lazy as BSL
 import Data.Certificate.X509
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
 import Network.URI
 
 
@@ -43,38 +45,40 @@ objectPairs (Object o) = M.toList o
 objectPairs _ = []
 
 
-pad :: String -> String
-pad s = s ++ replicate ((4 - length s `mod` 4) `mod` 4) '='
+pad :: T.Text -> T.Text
+pad s = s `T.append` T.replicate ((4 - T.length s `mod` 4) `mod` 4) "="
 
-unpad :: String -> String
-unpad = reverse . dropWhile (== '=') . reverse
-
-
-decodeB64 :: T.Text -> Maybe [Word8]
-decodeB64 = Codec.Binary.Base64.decode . pad . T.unpack
-
-parseB64 :: FromJSON a => ([Word8] -> Parser a) -> T.Text -> Parser a
-parseB64 f = maybe (fail "invalid base64url") f . decodeB64
-
-encodeB64 :: [Word8] -> Value
-encodeB64 = String . T.pack . Codec.Binary.Base64.encode
-
-decodeB64Url :: T.Text -> Maybe [Word8]
-decodeB64Url = B64.decode . pad . T.unpack
-
-parseB64Url :: FromJSON a => ([Word8] -> Parser a) -> T.Text -> Parser a
-parseB64Url f = maybe (fail "invalid base64url") f . decodeB64Url
-
-encodeB64Url :: [Word8] -> Value
-encodeB64Url = String . T.pack . unpad . B64.encode
+unpad :: T.Text -> T.Text
+unpad = T.dropWhileEnd (== '=')
 
 
-wordsToInteger :: [Word8] -> Integer
-wordsToInteger = foldl (\acc x -> acc * 256 + toInteger x) 0
+decodeB64 :: T.Text -> Either String BS.ByteString
+decodeB64 = B64.decode . E.encodeUtf8
 
-integerToWords :: Integer -> [Word8]
-integerToWords = map fromIntegral . reverse . unfoldr (fmap swap . f)
-  where f x = if x == 0 then Nothing else Just (quotRem x  256)
+parseB64 :: FromJSON a => (BS.ByteString -> Parser a) -> T.Text -> Parser a
+parseB64 f = either fail f . decodeB64
+
+encodeB64 :: BS.ByteString -> Value
+encodeB64 = String . E.decodeUtf8 . B64.encode
+
+decodeB64Url :: T.Text -> Either String BS.ByteString
+decodeB64Url = B64U.decode . E.encodeUtf8 . pad
+
+parseB64Url :: FromJSON a => (BS.ByteString -> Parser a) -> T.Text -> Parser a
+parseB64Url f = either fail f . decodeB64Url
+
+encodeB64Url :: BS.ByteString -> Value
+encodeB64Url = String . unpad . E.decodeUtf8 . B64.encode
+
+
+bsToInteger :: BS.ByteString -> Integer
+bsToInteger = BS.foldl (\acc x -> acc * 256 + toInteger x) 0
+
+integerToBS :: Integer -> BS.ByteString
+integerToBS = BS.reverse . BS.unfoldr (fmap swap . f)
+  where
+    f x = if x == 0 then Nothing else Just (toWord8 $ quotRem x 256)
+    toWord8 (seed, x) = (seed, fromIntegral x)
 
 
 data Base64Integer = Base64Integer Integer
@@ -82,10 +86,10 @@ data Base64Integer = Base64Integer Integer
 
 instance FromJSON Base64Integer where
   parseJSON = withText "base64url integer" $ parseB64Url $
-    pure . Base64Integer . wordsToInteger
+    pure . Base64Integer . bsToInteger
 
 instance ToJSON Base64Integer where
-  toJSON (Base64Integer x) = encodeB64Url $ integerToWords x
+  toJSON (Base64Integer x) = encodeB64Url $ integerToBS x
 
 
 data SizedBase64Integer = SizedBase64Integer Int Integer
@@ -93,23 +97,21 @@ data SizedBase64Integer = SizedBase64Integer Int Integer
 
 instance FromJSON SizedBase64Integer where
   parseJSON = withText "full size base64url integer" $ parseB64Url (\bytes ->
-    pure $ SizedBase64Integer (length bytes) (wordsToInteger bytes))
+    pure $ SizedBase64Integer (BS.length bytes) (bsToInteger bytes))
 
 instance ToJSON SizedBase64Integer where
-  toJSON (SizedBase64Integer s x) = encodeB64Url $ zeroPad $ integerToWords x
-    where zeroPad xs = replicate (s - length xs) 0 ++ xs
+  toJSON (SizedBase64Integer s x) = encodeB64Url $ zeroPad $ integerToBS x
+    where zeroPad xs = BS.replicate (s - BS.length xs) 0 `BS.append` xs
 
 
-data Base64UrlString = Base64UrlString String
+data Base64UrlString = Base64UrlString BS.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64UrlString where
-  parseJSON = withText "base64url string" $ parseB64Url $
-    -- probably wrong; really want to do a proper UTF-8 decode of bytes
-    pure . Base64UrlString . map (chr . fromIntegral)
+  parseJSON = withText "base64url string" $ parseB64Url $ pure . Base64UrlString
 
 
-data Base64Octets = Base64Octets [Word8]
+data Base64Octets = Base64Octets BS.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64Octets where
@@ -119,12 +121,12 @@ instance ToJSON Base64Octets where
   toJSON (Base64Octets bytes) = encodeB64Url bytes
 
 
-data Base64SHA1 = Base64SHA1 [Word8]
+data Base64SHA1 = Base64SHA1 BS.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64SHA1 where
   parseJSON = withText "base64url SHA-1" $ parseB64Url (\bytes ->
-    case length bytes of
+    case BS.length bytes of
       20 -> pure $ Base64SHA1 bytes
       _  -> fail "incorrect number of bytes")
 
@@ -137,10 +139,10 @@ data Base64X509 = Base64X509 X509
 
 instance FromJSON Base64X509 where
   parseJSON = withText "base64url X.509 certificate" $ parseB64 $
-    either fail (pure . Base64X509) . decodeCertificate . BS.pack
+    either fail (pure . Base64X509) . decodeCertificate . BSL.fromStrict
 
 instance ToJSON Base64X509 where
-  toJSON (Base64X509 x509) = encodeB64 $ BS.unpack $ encodeCertificate x509
+  toJSON (Base64X509 x509) = encodeB64 $ BSL.toStrict $ encodeCertificate x509
 
 
 instance FromJSON URI where

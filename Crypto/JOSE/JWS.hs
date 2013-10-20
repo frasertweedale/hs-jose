@@ -20,19 +20,18 @@
 module Crypto.JOSE.JWS where
 
 import Control.Applicative
-import Data.Char
-import Data.List
 import Data.Maybe
 import Data.Word
 
 import Data.Aeson
 import Data.Aeson.Types
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base64.URL.Lazy as B64UL
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import Data.Traversable (sequenceA)
 import qualified Data.Vector as V
-import qualified Codec.Binary.Base64Url as B64
 import qualified Network.URI
 
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
@@ -135,20 +134,16 @@ algHeader alg = Header alg
 
 data EncodedHeader
   = EncodedHeader Header
-  | MockEncodedHeader [Word8]
+  | MockEncodedHeader BS.ByteString
   deriving (Eq, Show)
 
 instance FromJSON EncodedHeader where
-  parseJSON = withText "JWS Encoded Header" (\s ->
-    case B64.decode $ T.unpack s of
-      Just bytes ->  case decode $ BS.pack bytes of
-        Just h -> pure $ EncodedHeader h
-        Nothing -> fail "signature header: invalid JSON"
-      Nothing -> fail "signature header: invalid base64url")
+  parseJSON = withText "JWS Encoded Header" $ Types.parseB64Url $
+    maybe (fail "not a valid header") (pure . EncodedHeader) . decode . BSL.fromStrict
 
 instance ToJSON EncodedHeader where
-  toJSON (MockEncodedHeader s) = String $ T.pack $ B64.encode s
-  toJSON encodedHeader = String $ T.pack $ encode' encodedHeader
+  toJSON (MockEncodedHeader s) = Types.encodeB64Url s
+  toJSON encodedHeader = Types.encodeB64Url $ BSL.toStrict $ encode' encodedHeader
 
 
 -- TODO: implement following restriction
@@ -178,7 +173,7 @@ instance ToJSON Headers where
   toJSON (Unprotected u)  = object ["header" .= u]
 
 
-data Signature = Signature Headers String
+data Signature = Signature Headers BSL.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Signature where
@@ -207,26 +202,20 @@ instance ToJSON Signatures where
 -- The operation is defined only when there is exactly one
 -- signature and returns Nothing otherwise
 --
-encodeCompact :: Signatures -> Maybe String
-encodeCompact (Signatures p [Signature h s]) = Just $ cat' (signingInput h p) s
+encodeCompact :: Signatures -> Maybe BSL.ByteString
+encodeCompact (Signatures p [Signature h s]) = Just $ BSL.intercalate "." [signingInput h p, s]
 encodeCompact _ = Nothing
 
 
 -- §5.1. Message Signing or MACing
 
-cat' :: String -> String -> String
-cat' p p' = intercalate "." [p, p']
+encode' :: ToJSON a => a -> BSL.ByteString
+encode' = BSL.init . BSL.tail . encode
 
-encode' :: EncodedHeader -> String
-encode'   = map (chr . fromIntegral) . init . tail . BS.unpack . encode
-
-encode'' :: Types.Base64Octets -> String
-encode''  = map (chr . fromIntegral) . init . tail . BS.unpack . encode
-
-signingInput :: Headers -> Types.Base64Octets -> String
-signingInput (Both p _) p' = cat' (encode' p) (encode'' p')
-signingInput (Protected p) p' = cat' (encode' p) (encode'' p')
-signingInput (Unprotected _) p' = cat' "" (encode'' p')
+signingInput :: Headers -> Types.Base64Octets -> BSL.ByteString
+signingInput (Both p _) p' = BSL.intercalate "." [encode' p, encode' p']
+signingInput (Protected p) p' = BSL.intercalate "." [encode' p, encode' p']
+signingInput (Unprotected _) p' = BSL.intercalate "." ["", encode' p']
 
 alg' :: Headers -> JWA.JWS.Alg
 alg' (Both (EncodedHeader h) _)     = headerAlg h
@@ -236,10 +225,10 @@ alg' _                              = undefined
 
 sign :: Signatures -> Headers -> JWK.Key -> Signatures
 sign (Signatures p sigs) h k = Signatures p (sig:sigs) where
-  sig = Signature h $ B64.encode $ sign' (alg' h) (signingInput h p) k
+  sig = Signature h $ B64UL.encode $ sign' (alg' h) (signingInput h p) k
 
-sign' :: JWA.JWS.Alg -> String -> JWK.Key -> [Word8]
-sign' JWA.JWS.None _ _ = []
+sign' :: JWA.JWS.Alg -> BSL.ByteString -> JWK.Key -> BSL.ByteString
+sign' JWA.JWS.None _ _ = ""
 sign' _ _ _ = undefined
 
 
