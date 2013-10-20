@@ -1,0 +1,55 @@
+name:                jwt
+version:             0.1.0.0
+synopsis:            JSON Web Token
+description:         Implementation of the JSON Web Token (JWT) format.
+homepage:            https://github.com/frasertweedale/jwt
+bug-reports:         https://github.com/frasertweedale/jwt/issues
+license:             AGPL-3
+license-file:        agpl-3.0.txt
+extra-source-files:
+  README.md
+author:              Fraser Tweedale
+maintainer:          frase@frase.id.au
+copyright:           Copyright (C) 2013  Fraser Tweedale
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+
+source-repository head
+  type: git
+  location: https://github.com/frasertweedale/jwt.git
+
+library
+  default-language:    Haskell2010
+
+  exposed-modules:
+    Data.JWT
+
+  build-depends:
+    base >=4.6 && <4.7
+    , aeson == 0.6.*
+    , containers == 0.5.*
+    , hashable == 1.1.*
+    , network == 2.4.*
+    , template-haskell >= 2.4
+    , text == 0.11.*
+    , time == 1.4.*
+    , unordered-containers == 0.2.*
+
+  ghc-options:  -Werror -Wall
+
+test-suite tests
+  default-language:    Haskell2010
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is:        Test.hs
+
+  build-depends:
+    base
+    , aeson
+    , hspec
+    , network
+    , old-locale
+    , time
+    , unordered-containers
+    , jwt
