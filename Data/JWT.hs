@@ -57,10 +57,22 @@ instance ToJSON IntDate where
 
 -- §4.  JWT Claims
 
+-- $4.1.3.  "aud" (Audience Claim)
+
+data Audience = General [StringOrURI] | Special StringOrURI deriving (Eq, Show)
+
+instance FromJSON Audience where
+  parseJSON v = (fmap General $ parseJSON v) <|> (fmap Special $ parseJSON v)
+
+instance ToJSON Audience where
+  toJSON (General auds) = toJSON auds
+  toJSON (Special aud)  = toJSON aud
+
+
 data ClaimsSet = ClaimsSet {
   claimIss :: Maybe StringOrURI     -- Issuer Claim
   , claimSub :: Maybe StringOrURI   -- Subject Claim
-  , claimAud :: Maybe [StringOrURI] -- Audience Claim
+  , claimAud :: Maybe Audience      -- Audience Claim
   -- §4.1.4.  "exp" (Expiration Time) Claim
   --
   -- processing of "exp" claim requires that current date/time
