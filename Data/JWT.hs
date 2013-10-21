@@ -24,6 +24,7 @@ import Data.Maybe
 import Data.Aeson
 import Data.Aeson.Types
 import Data.HashMap.Strict as M
+import Data.Attoparsec.Number
 import qualified Data.Text as T
 import Data.Time
 import Data.Time.Clock.POSIX
@@ -52,7 +53,7 @@ instance FromJSON IntDate where
     pure . IntDate . posixSecondsToUTCTime . fromRational . toRational
 
 instance ToJSON IntDate where
-  toJSON (IntDate t) = Number $ fromRational $ toRational $ utcTimeToPOSIXSeconds t
+  toJSON (IntDate t) = Number $ I $ floor $ utcTimeToPOSIXSeconds t
 
 
 -- §4.  JWT Claims
