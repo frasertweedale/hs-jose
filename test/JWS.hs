@@ -32,6 +32,7 @@ spec = do
   critSpec'
   headerSpec
   appendixA1Spec
+  appendixA5Spec
 
 critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $ do
   it "parses from JSON correctly" $ do
@@ -64,13 +65,21 @@ headerSpec = describe "(unencoded) Header" $ do
       headerJSON = "{\"typ\":\"JWT\",\r\n \"alg\":\"HS256\"}"
       typValue = Just "JWT"
 
+
+examplePayload :: Types.Base64Octets
+examplePayload = Types.Base64Octets "\
+  \{\"iss\":\"joe\",\r\n\
+  \ \"exp\":1300819380,\r\n\
+  \ \"http://example.com/is_root\":true}"
+
+
 appendixA1Spec = describe "JWS A.1.1.  Encoding" $ do
   describe "JWS Protected Header" $ do
     it "formats to JSON correctly" $ do
       encode encodedHeader `shouldBe` "\"eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9\""
   describe "JWS Signing Input" $ do
     it "assembles the signing input correctly" $ do
-      signingInput (Protected encodedHeader) payload `shouldBe` "\
+      signingInput (Protected encodedHeader) examplePayload `shouldBe` "\
         \eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9\
         \.\
         \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
@@ -78,7 +87,17 @@ appendixA1Spec = describe "JWS A.1.1.  Encoding" $ do
   where
     headerJSON = "{\"typ\":\"JWT\",\r\n \"alg\":\"HS256\"}"
     encodedHeader = MockEncodedHeader headerJSON
-    payload = Types.Base64Octets "\
-      \{\"iss\":\"joe\",\r\n\
-      \ \"exp\":1300819380,\r\n\
-      \ \"http://example.com/is_root\":true}"
+
+
+appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $
+  it "yields the correct JWS" $
+    encodeCompact jws `shouldBe` Just exampleJWS
+  where
+    headers = Protected (EncodedHeader (algHeader JWA.JWS.None))
+    inputSignatures = Signatures examplePayload []
+    jws = sign inputSignatures headers undefined
+    exampleJWS = "eyJhbGciOiJub25lIn0\
+      \.\
+      \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
+      \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
+      \."

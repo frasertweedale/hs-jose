@@ -143,7 +143,7 @@ instance FromJSON EncodedHeader where
 
 instance ToJSON EncodedHeader where
   toJSON (MockEncodedHeader s) = Types.encodeB64Url s
-  toJSON encodedHeader = Types.encodeB64Url $ BSL.toStrict $ encode' encodedHeader
+  toJSON (EncodedHeader h) = Types.encodeB64Url $ BSL.toStrict $ encode h
 
 
 -- TODO: implement following restriction
@@ -171,6 +171,13 @@ instance ToJSON Headers where
   toJSON (Both p u)       = object ["protected" .= p, "header" .= u]
   toJSON (Protected p)    = object ["protected" .= p]
   toJSON (Unprotected u)  = object ["header" .= u]
+
+-- Select the header to be used as the JWS Protected Header
+--
+protectedHeader :: Headers -> EncodedHeader
+protectedHeader (Protected h)   = h
+protectedHeader (Unprotected h) = EncodedHeader h
+protectedHeader (Both h _)      = h
 
 
 data Signature = Signature Headers BSL.ByteString
@@ -213,9 +220,7 @@ encode' :: ToJSON a => a -> BSL.ByteString
 encode' = BSL.init . BSL.tail . encode
 
 signingInput :: Headers -> Types.Base64Octets -> BSL.ByteString
-signingInput (Both p _) p' = BSL.intercalate "." [encode' p, encode' p']
-signingInput (Protected p) p' = BSL.intercalate "." [encode' p, encode' p']
-signingInput (Unprotected _) p' = BSL.intercalate "." ["", encode' p']
+signingInput h p' = BSL.intercalate "." [encode' $ protectedHeader h, encode' p']
 
 alg' :: Headers -> JWA.JWS.Alg
 alg' (Both (EncodedHeader h) _)     = headerAlg h
