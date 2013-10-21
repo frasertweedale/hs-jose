@@ -23,12 +23,17 @@ import Data.Maybe
 
 import Data.Aeson
 import Data.Aeson.Types
-import Data.HashMap.Strict as M
 import Data.Attoparsec.Number
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import Data.Time
 import Data.Time.Clock.POSIX
 import qualified Network.URI
+
+import qualified Crypto.JOSE.JWK
+import qualified Crypto.JOSE.JWS
+import qualified Crypto.JOSE.Types
 
 
 -- §2.  Terminology
@@ -90,15 +95,15 @@ data ClaimsSet = ClaimsSet {
   , claimNbf :: Maybe IntDate
   , claimIat :: Maybe IntDate -- Issued At
   , claimJti :: Maybe T.Text -- JWT ID; Case-insensitive string
-  , unregisteredClaims :: HashMap T.Text Value
+  , unregisteredClaims :: M.HashMap T.Text Value
   }
   deriving (Eq, Show)
 
 emptyClaimsSet :: ClaimsSet
 emptyClaimsSet = ClaimsSet n n n n n n n M.empty where n = Nothing
 
-filterUnregistered :: HashMap T.Text Value -> HashMap T.Text Value
-filterUnregistered = filterWithKey (\k _ -> k `notElem` registered) where
+filterUnregistered :: M.HashMap T.Text Value -> M.HashMap T.Text Value
+filterUnregistered = M.filterWithKey (\k _ -> k `notElem` registered) where
   registered = ["iss", "sub", "aud", "exp", "nbf", "iat", "jti"]
 
 instance FromJSON ClaimsSet where
@@ -126,3 +131,12 @@ instance ToJSON ClaimsSet where
     , fmap ("iat" .=) iat
     , fmap ("jti" .=) jti
     ] ++ M.toList (filterUnregistered o)
+
+
+data Header = JWS Crypto.JOSE.JWS.Header  -- TODO JWE
+
+createJWT :: Crypto.JOSE.JWK.Key -> Header -> ClaimsSet -> BSL.ByteString
+createJWT k (JWS h) c = fromJust $ Crypto.JOSE.JWS.encodeCompact sign where
+  payload = Crypto.JOSE.Types.Base64Octets $ BSL.toStrict $ encode c
+  header = Crypto.JOSE.JWS.Protected (Crypto.JOSE.JWS.EncodedHeader h)
+  sign = Crypto.JOSE.JWS.sign (Crypto.JOSE.JWS.Signatures payload []) header k

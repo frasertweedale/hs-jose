@@ -25,27 +25,35 @@ import qualified Network.URI
 import System.Locale
 import Test.Hspec
 
+import Crypto.JOSE.JWA.JWS
+import Crypto.JOSE.JWS
+
 import Data.JWT as JWT
 
 
 intDate :: String -> Maybe IntDate
 intDate = fmap IntDate . parseTime defaultTimeLocale "%F %T"
 
+exampleClaimsSet :: ClaimsSet
+exampleClaimsSet = emptyClaimsSet {
+  claimIss = Just (Arbitrary "joe")
+  , claimExp = intDate "2011-03-22 18:43:00"
+  , unregisteredClaims = fromList [("http://example.com/is_root", Bool True)]
+  }
+
 main = hspec $ do
-  describe "JWT Claims Set" $
+  describe "JWT Claims Set" $ do
     it "parses from JSON correctly" $
       let
         example = "\
           \{\"iss\":\"joe\",\r\n\
           \ \"exp\":1300819380,\r\n\
           \ \"http://example.com/is_root\":true}"
-        exampleDecoded = emptyClaimsSet {
-          claimIss = Just (Arbitrary "joe")
-          , claimExp = intDate "2011-03-22 18:43:00"
-          , unregisteredClaims = fromList [("http://example.com/is_root", Bool True)]
-          }
       in
-        decode example `shouldBe` Just exampleDecoded
+        decode example `shouldBe` Just exampleClaimsSet
+
+    it "formats to a parsable and equal value" $
+      decode (encode exampleClaimsSet) `shouldBe` Just exampleClaimsSet
 
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
