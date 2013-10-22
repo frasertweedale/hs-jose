@@ -65,7 +65,7 @@ parseB64Url :: FromJSON a => (BS.ByteString -> Parser a) -> T.Text -> Parser a
 parseB64Url f = either fail f . decodeB64Url
 
 encodeB64Url :: BS.ByteString -> Value
-encodeB64Url = String . unpad . E.decodeUtf8 . B64.encode
+encodeB64Url = String . unpad . E.decodeUtf8 . B64U.encode
 
 
 bsToInteger :: BS.ByteString -> Integer
