@@ -22,10 +22,7 @@
 module Crypto.JOSE.Types where
 
 import Control.Applicative
-import Data.Char
-import Data.String
 import Data.Tuple (swap)
-import Data.Word
 
 import Data.Aeson
 import Data.Aeson.Types
@@ -150,7 +147,3 @@ instance FromJSON URI where
 
 instance ToJSON URI where
   toJSON uri = String $ T.pack $ show uri
-
-
-instance IsString [Word8] where
-  fromString = map (fromIntegral . ord)
