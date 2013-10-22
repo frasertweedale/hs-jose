@@ -24,7 +24,9 @@ import Data.Maybe
 import Data.Word
 
 import Data.Aeson
+import Data.Aeson.Parser
 import Data.Aeson.Types
+import qualified Data.Attoparsec.ByteString.Lazy as A
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import qualified Data.ByteString.Lazy as BSL
@@ -213,11 +215,26 @@ encodeCompact :: Signatures -> Maybe BSL.ByteString
 encodeCompact (Signatures p [Signature h s]) = Just $ BSL.intercalate "." [signingInput h p, s]
 encodeCompact _ = Nothing
 
+decodeCompact :: BSL.ByteString -> Maybe Signatures
+decodeCompact t = do
+  (h:p:s:[]) <- threeParts $ BSL.split 46 t
+  h' <- Protected <$> decodeS h
+  p' <- decodeS p
+  return $ Signatures p' [Signature h' s]
+  where
+    threeParts (h:p:s:[]) = Just (h:p:s:[])
+    threeParts _ = Nothing
+
 
 -- §5.1. Message Signing or MACing
 
 encode' :: ToJSON a => a -> BSL.ByteString
 encode' = BSL.init . BSL.tail . encode
+
+decodeS :: FromJSON a => BSL.ByteString -> Maybe a
+decodeS s = do
+  v <- A.maybeResult $ A.parse value $ BSL.intercalate s ["\"", "\""]
+  parseMaybe parseJSON v
 
 signingInput :: Headers -> Types.Base64Octets -> BSL.ByteString
 signingInput h p' = BSL.intercalate "." [encode' $ protectedHeader h, encode' p']

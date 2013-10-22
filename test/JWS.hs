@@ -89,9 +89,13 @@ appendixA1Spec = describe "JWS A.1.1.  Encoding" $ do
     encodedHeader = MockEncodedHeader headerJSON
 
 
-appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $
-  it "yields the correct JWS" $
+appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
+  it "encodes the correct JWS" $ do
     encodeCompact jws `shouldBe` Just exampleJWS
+
+  it "decodes the correct JWS" $ do
+    decodeCompact exampleJWS `shouldBe` Just jws
+
   where
     headers = Protected (EncodedHeader (algHeader JWA.JWS.None))
     inputSignatures = Signatures examplePayload []
