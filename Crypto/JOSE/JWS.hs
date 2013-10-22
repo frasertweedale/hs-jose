@@ -21,7 +21,6 @@ module Crypto.JOSE.JWS where
 
 import Control.Applicative
 import Data.Maybe
-import Data.Word
 
 import Data.Aeson
 import Data.Aeson.Parser
@@ -252,12 +251,3 @@ sign (Signatures p sigs) h k = Signatures p (sig:sigs) where
 sign' :: JWA.JWS.Alg -> BSL.ByteString -> JWK.Key -> BSL.ByteString
 sign' JWA.JWS.None _ _ = ""
 sign' _ _ _ = undefined
-
-
-verify :: Signature -> JWK.Key -> Bool
-verify = undefined
-
-data VerifyData = Good | Bad | VerifyData [Word8]
-
-runVerify :: Signature -> JWK.Key -> Maybe VerifyData
-runVerify = undefined
