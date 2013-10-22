@@ -27,7 +27,6 @@ import Data.Aeson.Parser
 import Data.Aeson.Types
 import qualified Data.Attoparsec.ByteString.Lazy as A
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
@@ -133,17 +132,13 @@ algHeader alg = Header alg
   NullCritParameters
 
 
-data EncodedHeader
-  = EncodedHeader Header
-  | MockEncodedHeader BS.ByteString
-  deriving (Eq, Show)
+data EncodedHeader = EncodedHeader Header deriving (Eq, Show)
 
 instance FromJSON EncodedHeader where
   parseJSON = withText "JWS Encoded Header" $ Types.parseB64Url $
     maybe (fail "not a valid header") (pure . EncodedHeader) . decode . BSL.fromStrict
 
 instance ToJSON EncodedHeader where
-  toJSON (MockEncodedHeader s) = Types.encodeB64Url s
   toJSON (EncodedHeader h) = Types.encodeB64Url $ BSL.toStrict $ encode h
 
 
@@ -181,7 +176,7 @@ protectedHeader (Unprotected h) = EncodedHeader h
 protectedHeader (Both h _)      = h
 
 
-data Signature = Signature Headers BSL.ByteString
+data Signature = Signature Headers Types.Base64Octets
   deriving (Eq, Show)
 
 instance FromJSON Signature where
@@ -211,7 +206,8 @@ instance ToJSON Signatures where
 -- signature and returns Nothing otherwise
 --
 encodeCompact :: Signatures -> Maybe BSL.ByteString
-encodeCompact (Signatures p [Signature h s]) = Just $ BSL.intercalate "." [signingInput h p, s]
+encodeCompact (Signatures p [Signature h s]) = Just $
+  BSL.intercalate "." [signingInput h p, encode' s]
 encodeCompact _ = Nothing
 
 decodeCompact :: BSL.ByteString -> Maybe Signatures
@@ -219,10 +215,22 @@ decodeCompact t = do
   (h:p:s:[]) <- threeParts $ BSL.split 46 t
   h' <- Protected <$> decodeS h
   p' <- decodeS p
-  return $ Signatures p' [Signature h' s]
+  s' <- decodeS s
+  return $ Signatures p' [Signature h' s']
   where
     threeParts (h:p:s:[]) = Just (h:p:s:[])
     threeParts _ = Nothing
+
+eitherDecodeCompact :: BSL.ByteString -> Either String Signatures
+eitherDecodeCompact t = do
+  (h:p:s:[]) <- threeParts $ BSL.split 46 t
+  h' <- maybe (Left "header decode failed") (Right . Protected) $ decodeS h
+  p' <- maybe (Left "payload decode failed") Right $ decodeS p
+  s' <- maybe (Left "sig decode failed") Right $ decodeS s
+  return $ Signatures p' [Signature h' s']
+  where
+    threeParts (h:p:s:[]) = Right (h:p:s:[])
+    threeParts _ = Left "incorrect number of parts"
 
 
 -- §5.1. Message Signing or MACing
@@ -242,12 +250,11 @@ alg' :: Headers -> JWA.JWS.Alg
 alg' (Both (EncodedHeader h) _)     = headerAlg h
 alg' (Protected (EncodedHeader h))  = headerAlg h
 alg' (Unprotected h)                = headerAlg h
-alg' _                              = undefined
 
 sign :: Signatures -> Headers -> JWK.Key -> Signatures
 sign (Signatures p sigs) h k = Signatures p (sig:sigs) where
-  sig = Signature h $ B64UL.encode $ sign' (alg' h) (signingInput h p) k
+  sig = Signature h $ Types.Base64Octets $ sign' (alg' h) (signingInput h p) k
 
-sign' :: JWA.JWS.Alg -> BSL.ByteString -> JWK.Key -> BSL.ByteString
+sign' :: JWA.JWS.Alg -> BSL.ByteString -> JWK.Key -> BS.ByteString
 sign' JWA.JWS.None _ _ = ""
 sign' _ _ _ = undefined

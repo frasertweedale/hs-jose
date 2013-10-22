@@ -18,8 +18,11 @@
 
 module JWS where
 
+import Data.Maybe
+
 import Data.Aeson
 import Data.Attoparsec.Number
+import qualified Data.ByteString as BS
 import qualified Data.HashMap.Strict as M
 import Test.Hspec
 
@@ -74,19 +77,33 @@ examplePayload = Types.Base64Octets "\
 
 
 appendixA1Spec = describe "JWS A.1.1.  Encoding" $ do
-  describe "JWS Protected Header" $ do
-    it "formats to JSON correctly" $ do
-      encode encodedHeader `shouldBe` "\"eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9\""
-  describe "JWS Signing Input" $ do
-    it "assembles the signing input correctly" $ do
-      signingInput (Protected encodedHeader) examplePayload `shouldBe` "\
-        \eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9\
-        \.\
-        \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
-        \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
+  -- can't make aeson encode JSON to exact representation used in
+  -- IETF doc, be we can go in reverse and then ensure that the
+  -- round-trip checks out
+  --
+  it "decodes the example to the correct value" $
+    decodeCompact compactJWS `shouldBe` Just jws
+
+  it "round-trips correctly" $ do
+    maybe (Left "encode failed") eitherDecodeCompact (encodeCompact jws)
+      `shouldBe` Right jws
+    (encodeCompact jws >>= decodeCompact) `shouldBe` Just jws
   where
-    headerJSON = "{\"typ\":\"JWT\",\r\n \"alg\":\"HS256\"}"
-    encodedHeader = MockEncodedHeader headerJSON
+    compactJWS = "\
+      \eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9\
+      \.\
+      \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
+      \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
+      \.\
+      \dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+    jws = Signatures examplePayload [signature]
+    signature = Signature (Protected (EncodedHeader h)) (Types.Base64Octets mac)
+    h = (algHeader JWA.JWS.HS256) { headerTyp = Just "JWT" }
+    mac = foldr BS.cons BS.empty macOctets
+    macOctets =
+      [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
+      187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
+      132, 141, 121]
 
 
 appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
