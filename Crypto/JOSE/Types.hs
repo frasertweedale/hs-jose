@@ -78,7 +78,7 @@ integerToBS = BS.reverse . BS.unfoldr (fmap swap . f)
     toWord8 (seed, x) = (seed, fromIntegral x)
 
 
-data Base64Integer = Base64Integer Integer
+newtype Base64Integer = Base64Integer Integer
   deriving (Eq, Show)
 
 instance FromJSON Base64Integer where
@@ -101,14 +101,14 @@ instance ToJSON SizedBase64Integer where
     where zeroPad xs = BS.replicate (s - BS.length xs) 0 `BS.append` xs
 
 
-data Base64UrlString = Base64UrlString BS.ByteString
+newtype Base64UrlString = Base64UrlString BS.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64UrlString where
   parseJSON = withText "base64url string" $ parseB64Url $ pure . Base64UrlString
 
 
-data Base64Octets = Base64Octets BS.ByteString
+newtype Base64Octets = Base64Octets BS.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64Octets where
@@ -118,7 +118,7 @@ instance ToJSON Base64Octets where
   toJSON (Base64Octets bytes) = encodeB64Url bytes
 
 
-data Base64SHA1 = Base64SHA1 BS.ByteString
+newtype Base64SHA1 = Base64SHA1 BS.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64SHA1 where
@@ -131,7 +131,7 @@ instance ToJSON Base64SHA1 where
   toJSON (Base64SHA1 bytes) = encodeB64Url bytes
 
 
-data Base64X509 = Base64X509 X509
+newtype Base64X509 = Base64X509 X509
   deriving (Eq, Show)
 
 instance FromJSON Base64X509 where
