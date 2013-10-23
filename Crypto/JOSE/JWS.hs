@@ -212,18 +212,18 @@ encodeCompact _ = Nothing
 
 decodeCompact :: BSL.ByteString -> Maybe Signatures
 decodeCompact t = do
-  (h:p:s:[]) <- threeParts $ BSL.split 46 t
+  [h, p, s] <- threeParts $ BSL.split 46 t
   h' <- Protected <$> decodeS h
   p' <- decodeS p
   s' <- decodeS s
   return $ Signatures p' [Signature h' s']
   where
-    threeParts (h:p:s:[]) = Just (h:p:s:[])
+    threeParts (h:p:s:[]) = Just [h, p, s]
     threeParts _ = Nothing
 
 eitherDecodeCompact :: BSL.ByteString -> Either String Signatures
 eitherDecodeCompact t = do
-  (h:p:s:[]) <- threeParts $ BSL.split 46 t
+  [h, p, s] <- threeParts $ BSL.split 46 t
   h' <- maybe (Left "header decode failed") (Right . Protected) $ decodeS h
   p' <- maybe (Left "payload decode failed") Right $ decodeS p
   s' <- maybe (Left "sig decode failed") Right $ decodeS s
