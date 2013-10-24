@@ -34,6 +34,8 @@ library
     base == 4.6.*,
     attoparsec == 0.10.*,
     base64-bytestring == 1.0.*,
+    crypto-api == 0.12.*,
+    cryptohash-cryptoapi == 0.1.*,
     template-haskell >= 2.4,
     aeson == 0.6.*,
     unordered-containers == 0.2.*,

@@ -23,9 +23,12 @@ import Data.Maybe
 import Data.Aeson
 import Data.Attoparsec.Number
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
 import Test.Hspec
 
+import Crypto.JOSE.JWA.JWK
+import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.Types as Types
@@ -88,22 +91,35 @@ appendixA1Spec = describe "JWS A.1.1.  Encoding" $ do
     maybe (Left "encode failed") eitherDecodeCompact (encodeCompact jws)
       `shouldBe` Right jws
     (encodeCompact jws >>= decodeCompact) `shouldBe` Just jws
+
+  it "computes the HMAC correctly" $
+    sign' alg signingInput jwk `shouldBe` BS.pack macOctets
+
   where
-    compactJWS = "\
+    signingInput = "\
       \eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
-      \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
+      \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
+    compactJWS = signingInput `BSL.append` "\
       \.\
       \dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     jws = Signatures examplePayload [signature]
-    signature = Signature (Protected (EncodedHeader h)) (Types.Base64Octets mac)
-    h = (algHeader JWA.JWS.HS256) { headerTyp = Just "JWT" }
+    signature = Signature headers (Types.Base64Octets mac)
+    headers = Protected (EncodedHeader h)
+    alg = JWA.JWS.HS256
+    h = (algHeader alg) { headerTyp = Just "JWT" }
     mac = foldr BS.cons BS.empty macOctets
     macOctets =
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
       187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
       132, 141, 121]
+    jwk = material (OctKeyMaterial Oct octKeyMaterial)
+    octKeyMaterial = Types.Base64Octets $ foldr BS.cons BS.empty
+      [3,35,53,75,43,15,165,188,131,126,6,101,119,123,166,143,90,179,40,
+       230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
+       210,6,71,239,150,138,180,195,119,98,61,34,61,46,33,114,5,46,79,8,
+       192,205,154,245,103,208,128,163]
 
 
 appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do

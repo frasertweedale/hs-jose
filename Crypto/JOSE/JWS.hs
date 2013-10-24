@@ -22,6 +22,9 @@ module Crypto.JOSE.JWS where
 import Control.Applicative
 import Data.Maybe
 
+import qualified Crypto.Classes as C
+import Crypto.HMAC
+import Crypto.Hash.CryptoAPI
 import Data.Aeson
 import Data.Aeson.Parser
 import Data.Aeson.Types
@@ -34,6 +37,7 @@ import Data.Traversable (sequenceA)
 import qualified Data.Vector as V
 import qualified Network.URI
 
+import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.JWK as JWK
 import qualified Crypto.JOSE.Types as Types
@@ -218,7 +222,7 @@ decodeCompact t = do
   s' <- decodeS s
   return $ Signatures p' [Signature h' s']
   where
-    threeParts (h:p:s:[]) = Just [h, p, s]
+    threeParts [h, p, s] = Just [h, p, s]
     threeParts _ = Nothing
 
 eitherDecodeCompact :: BSL.ByteString -> Either String Signatures
@@ -255,6 +259,13 @@ sign :: Signatures -> Headers -> JWK.Key -> Signatures
 sign (Signatures p sigs) h k = Signatures p (sig:sigs) where
   sig = Signature h $ Types.Base64Octets $ sign' (alg' h) (signingInput h p) k
 
+keyBytes :: JWK.Key -> BS.ByteString
+keyBytes k = case JWK.keyMaterial k of
+  JWA.JWK.ECKeyMaterial _ _ -> undefined
+  JWA.JWK.RSAKeyMaterial _ _ -> undefined
+  JWA.JWK.OctKeyMaterial _ (Types.Base64Octets s) -> s
+
 sign' :: JWA.JWS.Alg -> BSL.ByteString -> JWK.Key -> BS.ByteString
 sign' JWA.JWS.None _ _ = ""
+sign' JWA.JWS.HS256 s k = C.encode (hmac (MacKey $ keyBytes k) s :: SHA256)
 sign' _ _ _ = undefined
