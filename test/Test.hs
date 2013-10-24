@@ -16,10 +16,12 @@
 
 import Test.Hspec
 
+import JWK
 import JWS
 import Types
 
 
 main = hspec $ do
   Types.spec
+  JWK.spec
   JWS.spec

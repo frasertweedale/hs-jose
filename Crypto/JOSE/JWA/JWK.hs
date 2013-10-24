@@ -152,7 +152,7 @@ instance ToJSON RSAKeyParameters where
 data KeyMaterial =
   ECKeyMaterial EC ECKeyParameters
   | RSAKeyMaterial RSA RSAKeyParameters
-  | OctKeyMaterial Oct Types.Base64Integer
+  | OctKeyMaterial Oct Types.Base64Octets
   deriving (Eq, Show)
 
 instance FromJSON KeyMaterial where

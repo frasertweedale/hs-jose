@@ -82,6 +82,9 @@ instance ToJSON Key where
     ]
     ++ Types.objectPairs (toJSON key)
 
+material :: JWA.JWK.KeyMaterial -> Key
+material m = Key m n n n n n n where n = Nothing
+
 
 --
 -- JWK §4.  JSON Web Key Set (JWK Set) Format
