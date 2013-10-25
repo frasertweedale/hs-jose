@@ -79,7 +79,7 @@ examplePayload = Types.Base64Octets "\
   \ \"http://example.com/is_root\":true}"
 
 
-appendixA1Spec = describe "JWS A.1.1.  Encoding" $ do
+appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
   -- can't make aeson encode JSON to exact representation used in
   -- IETF doc, be we can go in reverse and then ensure that the
   -- round-trip checks out
@@ -95,6 +95,10 @@ appendixA1Spec = describe "JWS A.1.1.  Encoding" $ do
   it "computes the HMAC correctly" $
     sign' alg signingInput jwk `shouldBe` BS.pack macOctets
 
+  it "validates the JWS correctly" $ do
+    validate jwk jws `shouldBe` True
+    validateDecodeCompact jwk compactJWS `shouldBe` True
+
   where
     signingInput = "\
       \eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9\
@@ -106,7 +110,8 @@ appendixA1Spec = describe "JWS A.1.1.  Encoding" $ do
       \dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     jws = Signatures examplePayload [signature]
     signature = Signature headers (Types.Base64Octets mac)
-    headers = Protected (EncodedHeader h)
+    headers = Protected (EncodedHeader h { headerRaw = rawHeader })
+    rawHeader = Just "{\"typ\":\"JWT\",\r\n \"alg\":\"HS256\"}"
     alg = JWA.JWS.HS256
     h = (algHeader alg) { headerTyp = Just "JWT" }
     mac = foldr BS.cons BS.empty macOctets
@@ -130,7 +135,8 @@ appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
     decodeCompact exampleJWS `shouldBe` Just jws
 
   where
-    headers = Protected (EncodedHeader (algHeader JWA.JWS.None))
+    headers = Protected (EncodedHeader (algHeader JWA.JWS.None) { headerRaw = rawHeader })
+    rawHeader = Just "{\"alg\":\"none\"}"
     inputSignatures = Signatures examplePayload []
     jws = sign inputSignatures headers undefined
     exampleJWS = "eyJhbGciOiJub25lIn0\

@@ -98,6 +98,7 @@ data Header = Header {
   , headerTyp :: Maybe String  -- Content Type (of object)
   , headerCty :: Maybe String  -- Content Type (of payload)
   , headerCrit :: CritParameters
+  , headerRaw :: Maybe BS.ByteString  -- header text as given
   }
   deriving (Eq, Show)
 
@@ -112,10 +113,12 @@ instance FromJSON Header where
     <*> o .:? "kid"
     <*> o .:? "typ"
     <*> o .:? "cty"
-    <*> parseJSON (Object o))
+    <*> parseJSON (Object o)
+    <*> pure Nothing
+    )
 
 instance ToJSON Header where
-  toJSON (Header alg jku jwk x5u x5t x5c kid typ cty crit) = object $ catMaybes [
+  toJSON (Header alg jku jwk x5u x5t x5c kid typ cty crit _) = object $ catMaybes [
     Just ("alg" .= alg)
     , fmap ("jku" .=) jku
     , fmap ("jwk" .=) jwk
@@ -131,19 +134,23 @@ instance ToJSON Header where
 
 -- construct a minimal header with the given alg
 algHeader :: JWA.JWS.Alg -> Header
-algHeader alg = Header alg
-  Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-  NullCritParameters
+algHeader alg = Header alg n n n n n n n n NullCritParameters n where
+  n = Nothing
 
 
 data EncodedHeader = EncodedHeader Header deriving (Eq, Show)
 
 instance FromJSON EncodedHeader where
-  parseJSON = withText "JWS Encoded Header" $ Types.parseB64Url $
-    maybe (fail "not a valid header") (pure . EncodedHeader) . decode . BSL.fromStrict
+  parseJSON = withText "JWS Encoded Header" $ Types.parseB64Url (\s ->
+    let
+      n = fail "not a valid header"
+      f = pure . EncodedHeader . (\h -> h { headerRaw = Just s })
+    in maybe n f (decode $ BSL.fromStrict s))
 
 instance ToJSON EncodedHeader where
-  toJSON (EncodedHeader h) = Types.encodeB64Url $ BSL.toStrict $ encode h
+  toJSON (EncodedHeader h) = case headerRaw h of
+    Just s  -> Types.encodeB64Url s
+    Nothing -> Types.encodeB64Url $ BSL.toStrict $ encode h
 
 
 -- TODO: implement following restriction
@@ -233,7 +240,7 @@ eitherDecodeCompact t = do
   s' <- maybe (Left "sig decode failed") Right $ decodeS s
   return $ Signatures p' [Signature h' s']
   where
-    threeParts (h:p:s:[]) = Right (h:p:s:[])
+    threeParts [h, p, s] = Right [h, p, s]
     threeParts _ = Left "incorrect number of parts"
 
 
@@ -248,7 +255,7 @@ decodeS s = do
   parseMaybe parseJSON v
 
 signingInput :: Headers -> Types.Base64Octets -> BSL.ByteString
-signingInput h p' = BSL.intercalate "." [encode' $ protectedHeader h, encode' p']
+signingInput h p = BSL.intercalate "." [encode' $ protectedHeader h, encode' p]
 
 alg' :: Headers -> JWA.JWS.Alg
 alg' (Both (EncodedHeader h) _)     = headerAlg h
@@ -269,3 +276,16 @@ sign' :: JWA.JWS.Alg -> BSL.ByteString -> JWK.Key -> BS.ByteString
 sign' JWA.JWS.None _ _ = ""
 sign' JWA.JWS.HS256 s k = C.encode (hmac (MacKey $ keyBytes k) s :: SHA256)
 sign' _ _ _ = undefined
+
+validate :: JWK.Key -> Signatures -> Bool
+validate k (Signatures p sigs) = any (validateSig k p) sigs
+
+validateSig :: JWK.Key -> Types.Base64Octets -> Signature -> Bool
+validateSig k p (Signature h (Types.Base64Octets m))
+  = sign' (alg' h) (signingInput h p) k == m
+
+validateDecode :: JWK.Key -> BSL.ByteString -> Bool
+validateDecode k = maybe False (validate k) . decode
+
+validateDecodeCompact :: JWK.Key -> BSL.ByteString -> Bool
+validateDecodeCompact k = maybe False (validate k) . decodeCompact
