@@ -44,7 +44,7 @@ critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $ do
   it "parses from JSON correctly" $ do
     decode good `shouldBe`
       Just (CritParameters $ M.fromList [("exp", Number (I 1363284000))])
-    decode "{}" `shouldBe` Just NullCritParameters
+    decode "{}" `shouldBe` (Nothing :: Maybe CritParameters)
     decode missingParam `shouldBe` (Nothing :: Maybe CritParameters)
     decode critNotArray `shouldBe` (Nothing :: Maybe CritParameters)
     decode critValueNotString `shouldBe` (Nothing :: Maybe CritParameters)
@@ -58,7 +58,7 @@ critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $ do
 
 critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $ do
   it "parses from JSON correctly" $ do
-    decode s `shouldBe` Just ((algHeader JWA.JWS.ES256) { headerCrit = critValue })
+    decode s `shouldBe` Just ((algHeader JWA.JWS.ES256) { headerCrit = Just critValue })
     where
       s = "{\"alg\":\"ES256\",\"crit\":[\"exp\"],\"exp\":1363284000}"
       critValue = CritParameters $ M.fromList [("exp", Number (I 1363284000))]
@@ -66,7 +66,7 @@ critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $ d
 
 headerSpec = describe "(unencoded) Header" $ do
   it "parses from JSON correctly" $ do
-    decode headerJSON `shouldBe` Just ((algHeader JWA.JWS.HS256) { headerTyp = typValue })
+    eitherDecode headerJSON `shouldBe` Right ((algHeader JWA.JWS.HS256) { headerTyp = typValue })
     where
       headerJSON = "{\"typ\":\"JWT\",\r\n \"alg\":\"HS256\"}"
       typValue = Just "JWT"
@@ -96,8 +96,8 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     sign' alg signingInput jwk `shouldBe` BS.pack macOctets
 
   it "validates the JWS correctly" $ do
-    validate jwk jws `shouldBe` True
     validateDecodeCompact jwk compactJWS `shouldBe` True
+    fmap (validate jwk) (decodeCompact compactJWS) `shouldBe` Just True
 
   where
     signingInput = "\
@@ -108,10 +108,8 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     compactJWS = signingInput `BSL.append` "\
       \.\
       \dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
-    jws = Signatures examplePayload [signature]
-    signature = Signature headers (Types.Base64Octets mac)
-    headers = Protected (EncodedHeader h { headerRaw = rawHeader })
-    rawHeader = Just "{\"typ\":\"JWT\",\r\n \"alg\":\"HS256\"}"
+    jws = JWS examplePayload [signature]
+    signature = Signature h (Types.Base64Octets mac)
     alg = JWA.JWS.HS256
     h = (algHeader alg) { headerTyp = Just "JWT" }
     mac = foldr BS.cons BS.empty macOctets
@@ -132,13 +130,11 @@ appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
     encodeCompact jws `shouldBe` Just exampleJWS
 
   it "decodes the correct JWS" $ do
+    eitherDecodeCompact exampleJWS `shouldBe` Right jws
     decodeCompact exampleJWS `shouldBe` Just jws
 
   where
-    headers = Protected (EncodedHeader (algHeader JWA.JWS.None) { headerRaw = rawHeader })
-    rawHeader = Just "{\"alg\":\"none\"}"
-    inputSignatures = Signatures examplePayload []
-    jws = sign inputSignatures headers undefined
+    jws = sign (JWS examplePayload []) (algHeader JWA.JWS.None) undefined
     exampleJWS = "eyJhbGciOiJub25lIn0\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
