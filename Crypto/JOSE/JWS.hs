@@ -210,6 +210,9 @@ instance FromJSON Signatures where
 instance ToJSON Signatures where
   toJSON (Signatures p ss) = object ["payload" .= p, "signatures" .= ss]
 
+jwsPayload :: Signatures -> BSL.ByteString
+jwsPayload (Signatures (Types.Base64Octets s) _) = BSL.fromStrict s
+
 
 -- Convert Signatures to compact serialization.
 --
