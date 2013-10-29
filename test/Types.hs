@@ -18,11 +18,9 @@
 
 module Types where
 
-import Data.Maybe
-
 import Data.Aeson
 import qualified Data.ByteString as BS
-import Network.URI
+import qualified Network.URI
 import Test.Hspec
 
 import Crypto.JOSE.Types
@@ -50,11 +48,14 @@ base64OctetsSpec = describe "Base64Octets" $ do
 
 uriSpec = describe "URI typeclasses" $ do
   it "gets parsed from JSON correctly" $ do
-    decode "[\"http://example.com\"]" `shouldBe` Just [fromJust $ parseURI "http://example.com"]
+    decode "[\"http://example.com\"]" `shouldBe` do
+      uri <- Network.URI.parseURI "http://example.com"
+      return [URI uri]
     decode "[\"foo\"]" `shouldBe` (Nothing :: Maybe [URI])
 
-  it "gets formatted to JSON correctly" $ do
-    toJSON (fromJust $ parseURI "http://example.com") `shouldBe` String "http://example.com"
+  it "gets formatted to JSON correctly" $
+    fmap toJSON (fmap URI $ Network.URI.parseURI "http://example.com")
+      `shouldBe` Just (String "http://example.com")
 
 base64IntegerSpec = describe "Base64Integer" $ do
   it "parses from JSON correctly" $ do

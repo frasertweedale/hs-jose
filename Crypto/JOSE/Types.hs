@@ -14,9 +14,6 @@
 -- You should have received a copy of the GNU Affero General Public License
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Crypto.JOSE.Types where
@@ -34,7 +31,7 @@ import Data.Certificate.X509
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
-import Network.URI
+import qualified Network.URI
 
 
 objectPairs :: Value -> [Pair]
@@ -142,8 +139,11 @@ instance ToJSON Base64X509 where
   toJSON (Base64X509 x509) = encodeB64 $ BSL.toStrict $ encodeCertificate x509
 
 
+newtype URI = URI Network.URI.URI deriving (Eq, Show)
+
 instance FromJSON URI where
-  parseJSON = withText "URI" (maybe (fail "not a URI") pure . parseURI . T.unpack)
+  parseJSON = withText "URI" $
+    maybe (fail "not a URI") (pure . URI) . Network.URI.parseURI . T.unpack
 
 instance ToJSON URI where
-  toJSON uri = String $ T.pack $ show uri
+  toJSON (URI uri) = String $ T.pack $ show uri

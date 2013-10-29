@@ -37,7 +37,6 @@ import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import Data.Traversable (sequenceA)
 import qualified Data.Vector as V
-import qualified Network.URI
 
 import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
@@ -85,9 +84,9 @@ instance ToJSON CritParameters where
 
 data Header = Header
   { headerAlg :: JWA.JWS.Alg
-  , headerJku :: Maybe Network.URI.URI  -- JWK Set URL
+  , headerJku :: Maybe Types.URI  -- JWK Set URL
   , headerJwk :: Maybe JWK.Key
-  , headerX5u :: Maybe Network.URI.URI
+  , headerX5u :: Maybe Types.URI
   , headerX5t :: Maybe Types.Base64SHA1
   , headerX5c :: Maybe [Types.Base64X509] -- TODO implement min len of 1
   , headerKid :: Maybe String  -- interpretation unspecified

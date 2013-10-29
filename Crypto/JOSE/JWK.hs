@@ -22,7 +22,6 @@ import Control.Applicative
 import Data.Maybe (catMaybes)
 
 import Data.Aeson
-import qualified Network.URI
 
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
 import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
@@ -55,7 +54,7 @@ data Key =
     keyUse :: Maybe String,
     keyAlg :: Maybe Alg,
     keyKid :: Maybe String,
-    keyX5u :: Maybe Network.URI.URI,
+    keyX5u :: Maybe Types.URI,
     keyX5t :: Maybe Types.Base64SHA1,
     keyX5c :: Maybe [Types.Base64X509]
     }
