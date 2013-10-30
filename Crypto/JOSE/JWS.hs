@@ -71,10 +71,12 @@ critObjectParser _ _          = fail "crit key is not text"
 instance FromJSON CritParameters where
   parseJSON = withObject "crit" (\o ->
     case M.lookup "crit" o of
-      Just (Array paramNames) -> fmap (CritParameters . M.fromList)
-        $ sequenceA
-        $ map (critObjectParser o)
-        $ V.toList paramNames
+      Just (Array paramNames)
+        | V.null paramNames -> fail "crit cannot be empty"
+        | otherwise -> fmap (CritParameters . M.fromList)
+          $ sequenceA
+          $ map (critObjectParser o)
+          $ V.toList paramNames
       _ -> fail "crit is not an array")
 
 instance ToJSON CritParameters where
