@@ -57,7 +57,6 @@ critInvalidNames = [
   , "cty"
   , "crit"
   ]
--- TODO add header paramater names defined in JWA
 
 data CritParameters = CritParameters (M.HashMap T.Text Value)
   deriving (Eq, Show)
