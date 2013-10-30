@@ -259,7 +259,7 @@ eitherDecodeCompact t = do
     threeParts _ = Left "incorrect number of parts"
 
 decodeCompact :: BSL.ByteString -> Maybe JWS
-decodeCompact = either (\_ -> Nothing) Just . eitherDecodeCompact
+decodeCompact = either (const Nothing) Just . eitherDecodeCompact
 
 
 -- §5.1. Message Signing or MACing
