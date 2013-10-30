@@ -19,10 +19,10 @@
 module Data.JWT where
 
 import Control.Applicative
+import Control.Monad
 import Data.Maybe
 
 import Data.Aeson
-import Data.Aeson.Types
 import Data.Attoparsec.Number
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
@@ -68,7 +68,7 @@ instance ToJSON IntDate where
 data Audience = General [StringOrURI] | Special StringOrURI deriving (Eq, Show)
 
 instance FromJSON Audience where
-  parseJSON v = (fmap General $ parseJSON v) <|> (fmap Special $ parseJSON v)
+  parseJSON v = fmap General (parseJSON v) <|> fmap Special (parseJSON v)
 
 instance ToJSON Audience where
   toJSON (General auds) = toJSON auds
@@ -117,10 +117,6 @@ instance FromJSON ClaimsSet where
     <*> o .:? "jti"
     <*> pure (filterUnregistered o))
 
-objectPairs :: Value -> [Pair]
-objectPairs (Object o)  = M.toList o
-objectPairs _           = []
-
 instance ToJSON ClaimsSet where
   toJSON (ClaimsSet iss sub aud exp' nbf iat jti o) = object $ catMaybes [
     fmap ("iss" .=) iss
@@ -133,10 +129,24 @@ instance ToJSON ClaimsSet where
     ] ++ M.toList (filterUnregistered o)
 
 
-data Header = JWS Crypto.JOSE.JWS.Header  -- TODO JWE
+data JWT = JWS Crypto.JOSE.JWS.JWS ClaimsSet deriving (Eq, Show)
 
-createJWT :: Crypto.JOSE.JWK.Key -> Header -> ClaimsSet -> BSL.ByteString
-createJWT k (JWS h) c = fromJust $ Crypto.JOSE.JWS.encodeCompact sign where
+jwtClaimsSet :: JWT -> ClaimsSet
+jwtClaimsSet (JWS _ c) = c
+
+decodeJWT :: BSL.ByteString -> Maybe JWT
+decodeJWT = Crypto.JOSE.JWS.decodeCompact >=> toJWT
+  where
+    toJWT jws = fmap (JWS jws) $ decodeClaims jws
+    decodeClaims jws = decode (Crypto.JOSE.JWS.jwsPayload jws)
+
+validateJWT :: Crypto.JOSE.JWK.Key -> JWT -> Bool
+validateJWT k (JWS jws _) = Crypto.JOSE.JWS.validate k jws
+
+
+data Header = JWSHeader Crypto.JOSE.JWS.Header  -- TODO JWE
+
+createJWT :: Crypto.JOSE.JWK.Key -> Header -> ClaimsSet -> JWT
+createJWT k (JWSHeader h) c = JWS jws c where
   payload = Crypto.JOSE.Types.Base64Octets $ BSL.toStrict $ encode c
-  header = Crypto.JOSE.JWS.Protected (Crypto.JOSE.JWS.EncodedHeader h)
-  sign = Crypto.JOSE.JWS.sign (Crypto.JOSE.JWS.Signatures payload []) header k
+  jws = Crypto.JOSE.JWS.sign (Crypto.JOSE.JWS.JWS payload []) h k

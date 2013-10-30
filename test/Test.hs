@@ -25,8 +25,8 @@ import qualified Network.URI
 import System.Locale
 import Test.Hspec
 
-import Crypto.JOSE.JWA.JWS
-import Crypto.JOSE.JWS
+import qualified Crypto.JOSE.JWA.JWS
+import qualified Crypto.JOSE.JWS
 
 import Data.JWT as JWT
 
@@ -67,3 +67,17 @@ main = hspec $ do
       decode "[0]"          `shouldBe` fmap (:[]) (intDate "1970-01-01 00:00:00")
       decode "[1382245921]" `shouldBe` fmap (:[]) (intDate "2013-10-20 05:12:01")
       decode "[\"notnum\"]"       `shouldBe` (Nothing :: Maybe [IntDate])
+
+  describe "§6.1.  Example Plaintext JWT" $
+    it "can be decoded and validated" $
+      let
+        exampleJWT = "eyJhbGciOiJub25lIn0\
+          \.\
+          \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
+          \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
+          \."
+        jwt = decodeJWT exampleJWT
+        k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
+      in do
+        fmap jwtClaimsSet jwt `shouldBe` Just exampleClaimsSet
+        fmap (validateJWT k) jwt `shouldBe` Just True
