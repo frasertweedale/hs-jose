@@ -58,6 +58,7 @@ test-suite tests
 
   build-depends:
     base,
+    base64-bytestring,
     bytestring,
     network,
     unordered-containers,

@@ -193,7 +193,7 @@ instance FromJSON Signature where
         protectedJSON
       unprotected <- o .:? "header"
       parseHeader protected unprotected
-    <*> parseJSON (Object o))
+    <*> o .: "signature")
 
 instance ToJSON Signature where
   toJSON (Signature h s) = object $ ("signature" .= s) : Types.objectPairs (toJSON h)
