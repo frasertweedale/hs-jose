@@ -129,23 +129,32 @@ instance ToJSON ECKeyParameters where
 
 data RSAKeyParameters =
   RSAPrivateKeyParameters {
-    rsaD :: Types.SizedBase64Integer,
-    rsaOptionalParameters :: Maybe RSAPrivateKeyOptionalParameters
+    rsaN :: Types.Base64Integer
+    , rsaE :: Types.Base64Integer
+    , rsaD :: Types.SizedBase64Integer
+    , rsaOptionalParameters :: Maybe RSAPrivateKeyOptionalParameters
     }
   | RSAPublicKeyParameters {
-    rsaN :: Types.Base64Integer,
-    rsaE :: Types.Base64Integer
+    rsaN' :: Types.Base64Integer
+    , rsaE' :: Types.Base64Integer
     }
   deriving (Eq, Show)
 
 instance FromJSON RSAKeyParameters where
   parseJSON = withObject "RSA" (\o ->
-    RSAPrivateKeyParameters    <$> o .: "d" <*> parseJSON (Object o)
+    RSAPrivateKeyParameters
+      <$> o .: "n"
+      <*> o .: "e"
+      <*> o .: "d"
+      <*> parseJSON (Object o)
     <|> RSAPublicKeyParameters <$> o .: "n" <*> o .: "e")
 
 instance ToJSON RSAKeyParameters where
-  toJSON (RSAPrivateKeyParameters d params) = object $
-    ("d" .= d) : Types.objectPairs (toJSON params)
+  toJSON (RSAPrivateKeyParameters n e d params) = object $
+    ("n" .= n)
+    : ("e" .= e)
+    : ("d" .= d)
+    : Types.objectPairs (toJSON params)
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
 
 
