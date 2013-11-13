@@ -39,6 +39,7 @@ spec = do
   critSpec'
   headerSpec
   appendixA1Spec
+  appendixA2Spec
   appendixA5Spec
   appendixA6Spec
 
@@ -138,6 +139,53 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
        230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
        210,6,71,239,150,138,180,195,119,98,61,34,61,46,33,114,5,46,79,8,
        192,205,154,245,103,208,128,163]
+
+
+appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $
+  it "computes the signature correctly" $
+    sign' JWA.JWS.RS256 signingInput jwk `shouldBe` BS.pack sigOctets
+
+  where
+    signingInput = "\
+      \eyJhbGciOiJSUzI1NiJ9\
+      \.\
+      \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
+      \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
+    jwk = fromJust $ decode "\
+      \{\"kty\":\"RSA\",\
+      \ \"n\":\"ofgWCuLjybRlzo0tZWJjNiuSfb4p4fAkd_wWJcyQoTbji9k0l8W26mPddx\
+            \HmfHQp-Vaw-4qPCJrcS2mJPMEzP1Pt0Bm4d4QlL-yRT-SFd2lZS-pCgNMs\
+            \D1W_YpRPEwOWvG6b32690r2jZ47soMZo9wGzjb_7OMg0LOL-bSf63kpaSH\
+            \SXndS5z5rexMdbBYUsLA9e-KXBdQOS-UTo7WTBEMa2R2CapHg665xsmtdV\
+            \MTBQY4uDZlxvb3qCo5ZwKh9kG4LT6_I5IhlJH7aGhyxXFvUK-DWNmoudF8\
+            \NAco9_h9iaGNj8q2ethFkMLs91kzk2PAcDTW9gb54h4FRWyuXpoQ\",\
+      \ \"e\":\"AQAB\",\
+      \ \"d\":\"Eq5xpGnNCivDflJsRQBXHx1hdR1k6Ulwe2JZD50LpXyWPEAeP88vLNO97I\
+            \jlA7_GQ5sLKMgvfTeXZx9SE-7YwVol2NXOoAJe46sui395IW_GO-pWJ1O0\
+            \BkTGoVEn2bKVRUCgu-GjBVaYLU6f3l9kJfFNS3E0QbVdxzubSu3Mkqzjkn\
+            \439X0M_V51gfpRLI9JYanrC4D4qAdGcopV_0ZHHzQlBjudU2QvXt4ehNYT\
+            \CBr6XCLQUShb1juUO1ZdiYoFaFQT5Tw8bGUl_x_jTj3ccPDVZFD9pIuhLh\
+            \BOneufuBiB4cS98l2SR_RQyGWSeWjnczT0QU91p1DhOVRuOopznQ\"\
+      \}"
+    sigOctets =
+      [112, 46, 33, 137, 67, 232, 143, 209, 30, 181, 216, 45, 191, 120, 69,
+      243, 65, 6, 174, 27, 129, 255, 247, 115, 17, 22, 173, 209, 113, 125,
+      131, 101, 109, 66, 10, 253, 60, 150, 238, 221, 115, 162, 102, 62, 81,
+      102, 104, 123, 0, 11, 135, 34, 110, 1, 135, 237, 16, 115, 249, 69,
+      229, 130, 173, 252, 239, 22, 216, 90, 121, 142, 232, 198, 109, 219,
+      61, 184, 151, 91, 23, 208, 148, 2, 190, 237, 213, 217, 217, 112, 7,
+      16, 141, 178, 129, 96, 213, 248, 4, 12, 167, 68, 87, 98, 184, 31,
+      190, 127, 249, 217, 46, 10, 231, 111, 36, 242, 91, 51, 187, 230, 244,
+      74, 230, 30, 177, 4, 10, 203, 32, 4, 77, 62, 249, 18, 142, 212, 1,
+      48, 121, 91, 212, 189, 59, 65, 238, 202, 208, 102, 171, 101, 25, 129,
+      253, 228, 141, 247, 127, 55, 45, 195, 139, 159, 175, 221, 59, 239,
+      177, 139, 93, 163, 204, 60, 46, 176, 47, 158, 58, 65, 214, 18, 202,
+      173, 21, 145, 18, 115, 160, 95, 35, 185, 232, 56, 250, 175, 132, 157,
+      105, 132, 41, 239, 90, 30, 136, 121, 130, 54, 195, 212, 14, 96, 69,
+      34, 165, 68, 200, 242, 122, 122, 45, 184, 6, 99, 209, 108, 247, 202,
+      234, 86, 222, 64, 92, 178, 33, 90, 69, 178, 194, 85, 102, 181, 90,
+      193, 167, 72, 160, 112, 223, 200, 163, 42, 70, 149, 67, 208, 25, 238,
+      251, 71]
 
 
 appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
