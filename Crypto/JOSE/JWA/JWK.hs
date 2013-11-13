@@ -20,9 +20,9 @@
 module Crypto.JOSE.JWA.JWK where
 
 import Control.Applicative
-import Data.Maybe
 
 import Data.Aeson
+import qualified Data.HashMap.Strict as M
 
 import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
@@ -70,12 +70,12 @@ instance ToJSON RSAPrivateKeyOthElem where
 --
 
 data RSAPrivateKeyOptionalParameters = RSAPrivateKeyOptionalParameters {
-  rsaP :: Maybe Types.Base64Integer,
-  rsaQ :: Maybe Types.Base64Integer,
-  rsaDp :: Maybe Types.Base64Integer,
-  rsaDq :: Maybe Types.Base64Integer,
-  rsaQi :: Maybe Types.Base64Integer,
-  rsaOth :: Maybe [RSAPrivateKeyOthElem] -- TODO oth must not be empty array
+  rsaP :: Types.Base64Integer
+  , rsaQ :: Types.Base64Integer
+  , rsaDp :: Types.Base64Integer
+  , rsaDq :: Types.Base64Integer
+  , rsaQi :: Types.Base64Integer
+  , rsaOth :: Maybe [RSAPrivateKeyOthElem] -- TODO oth must not be empty array
   }
   deriving (Eq, Show)
 
@@ -95,7 +95,7 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
     , "dp" .= dp
     , "dq" .= dq
     , "dq" .= qi
-    ] ++ map ("oth" .=) (maybeToList oth)
+    ] ++ maybe [] ((:[]) . ("oth" .=)) oth
 
 
 --
@@ -129,13 +129,13 @@ instance ToJSON ECKeyParameters where
 
 data RSAKeyParameters =
   RSAPrivateKeyParameters {
-    rsaN :: Types.Base64Integer
+    rsaN :: Types.SizedBase64Integer
     , rsaE :: Types.Base64Integer
-    , rsaD :: Types.SizedBase64Integer
+    , rsaD :: Types.Base64Integer
     , rsaOptionalParameters :: Maybe RSAPrivateKeyOptionalParameters
     }
   | RSAPublicKeyParameters {
-    rsaN' :: Types.Base64Integer
+    rsaN' :: Types.SizedBase64Integer
     , rsaE' :: Types.Base64Integer
     }
   deriving (Eq, Show)
@@ -146,7 +146,9 @@ instance FromJSON RSAKeyParameters where
       <$> o .: "n"
       <*> o .: "e"
       <*> o .: "d"
-      <*> parseJSON (Object o)
+      <*> (if any (`M.member` o) ["p", "q", "dp", "dq", "qi", "oth"]
+        then Just <$> parseJSON (Object o)
+        else pure Nothing)
     <|> RSAPublicKeyParameters <$> o .: "n" <*> o .: "e")
 
 instance ToJSON RSAKeyParameters where
@@ -154,7 +156,7 @@ instance ToJSON RSAKeyParameters where
     ("n" .= n)
     : ("e" .= e)
     : ("d" .= d)
-    : Types.objectPairs (toJSON params)
+    : maybe [] (Types.objectPairs . toJSON) params
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
 
 
