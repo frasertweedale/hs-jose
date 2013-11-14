@@ -26,9 +26,9 @@ import Data.Maybe
 import qualified Crypto.Classes as C
 import Crypto.HMAC
 import Crypto.Hash.CryptoAPI
-import qualified Crypto.PubKey.RSA
+import Crypto.PubKey.RSA
 import qualified Crypto.PubKey.RSA.PKCS15
-import qualified Crypto.PubKey.HashDescr
+import Crypto.PubKey.HashDescr
 import Data.Aeson
 import Data.Aeson.Parser
 import Data.Aeson.Types
@@ -269,46 +269,41 @@ decodeCompact = either (const Nothing) Just . eitherDecodeCompact
 
 sign :: JWS -> Header -> JWK.Key -> JWS
 sign (JWS p sigs) h k = JWS p (sig:sigs) where
-  sig = Signature h $ Types.Base64Octets $ sign' (headerAlg h) (signingInput h p) k
+  sig = Signature h $ Types.Base64Octets $
+    sign' (headerAlg h) (signingInput h p) (JWK.keyMaterial k)
 
-keyBytes :: JWK.Key -> BS.ByteString
-keyBytes k = case JWK.keyMaterial k of
-  JWA.JWK.ECKeyMaterial _ _ -> undefined
-  JWA.JWK.RSAKeyMaterial _ _ -> undefined
-  JWA.JWK.OctKeyMaterial _ (Types.Base64Octets s) -> s
-
-keyRSAPrivate :: JWK.Key -> Crypto.PubKey.RSA.PrivateKey
-keyRSAPrivate k = case JWK.keyMaterial k of
-  JWA.JWK.ECKeyMaterial _ _ -> undefined
-  JWA.JWK.RSAKeyMaterial _ (JWA.JWK.RSAPrivateKeyParameters
-    (Types.SizedBase64Integer size n)
-    (Types.Base64Integer e)
-    (Types.Base64Integer d)
-    _) ->
-      Crypto.PubKey.RSA.PrivateKey
-        (Crypto.PubKey.RSA.PublicKey size n e)
-        d 0 0 0 0 0
-  JWA.JWK.RSAKeyMaterial _ (JWA.JWK.RSAPublicKeyParameters _ _) ->
-    error "not an RSA private key"
-  JWA.JWK.OctKeyMaterial _ _ -> undefined
-
-sign' :: JWA.JWS.Alg -> BSL.ByteString -> JWK.Key -> BS.ByteString
+sign' :: JWA.JWS.Alg -> BSL.ByteString -> JWA.JWK.KeyMaterial -> BS.ByteString
 sign' JWA.JWS.None _ _ = ""
-sign' JWA.JWS.HS256 s k = C.encode (hmac (MacKey $ keyBytes k) s :: SHA256)
-sign' JWA.JWS.RS256 s k = either (error . show) id $
-  Crypto.PubKey.RSA.PKCS15.sign
-  Nothing
-  Crypto.PubKey.HashDescr.hashDescrSHA256
-  (keyRSAPrivate k)
-  (BSL.toStrict s)
+sign' JWA.JWS.HS256 s (JWA.JWK.OctKeyMaterial _ k) = C.encode (signOct k s :: SHA256)
+sign' JWA.JWS.HS384 s (JWA.JWK.OctKeyMaterial _ k) = C.encode (signOct k s :: SHA384)
+sign' JWA.JWS.HS512 s (JWA.JWK.OctKeyMaterial _ k) = C.encode (signOct k s :: SHA512)
+sign' JWA.JWS.RS256 s (JWA.JWK.RSAKeyMaterial _ k) = signRSA k hashDescrSHA256 s
+sign' JWA.JWS.RS384 s (JWA.JWK.RSAKeyMaterial _ k) = signRSA k hashDescrSHA384 s
+sign' JWA.JWS.RS512 s (JWA.JWK.RSAKeyMaterial _ k) = signRSA k hashDescrSHA512 s
 sign' alg _ _ = error $ "algorithm " ++ show alg ++ " not implemented"
+
+signOct :: Hash c d => Types.Base64Octets -> BSL.ByteString -> d
+signOct (Types.Base64Octets k) = hmac (MacKey k)
+
+signRSA
+  :: JWA.JWK.RSAKeyParameters -> HashDescr -> BSL.ByteString -> BS.ByteString
+signRSA k h s = either (error . show) id $
+  Crypto.PubKey.RSA.PKCS15.sign Nothing h (keyRSAPrivate k) (BSL.toStrict s)
+  where
+    keyRSAPrivate (
+      JWA.JWK.RSAPrivateKeyParameters
+      (Types.SizedBase64Integer size n)
+      (Types.Base64Integer e)
+      (Types.Base64Integer d)
+      _) = PrivateKey (PublicKey size n e) d 0 0 0 0 0
+    keyRSAPrivate _ = error "not an RSA private key"
 
 validate :: JWK.Key -> JWS -> Bool
 validate k (JWS p sigs) = any (validateSig k p) sigs
 
 validateSig :: JWK.Key -> Types.Base64Octets -> Signature -> Bool
 validateSig k p (Signature h (Types.Base64Octets m))
-  = sign' (headerAlg h) (signingInput h p) k == m
+  = sign' (headerAlg h) (signingInput h p) (JWK.keyMaterial k) == m
 
 validateDecode :: JWK.Key -> BSL.ByteString -> Bool
 validateDecode k = maybe False (validate k) . decode

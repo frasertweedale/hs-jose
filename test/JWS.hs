@@ -109,7 +109,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     (encodeCompact jws >>= decodeCompact) `shouldBe` Just jws
 
   it "computes the HMAC correctly" $
-    sign' alg signingInput jwk `shouldBe` BS.pack macOctets
+    sign' alg signingInput keyMaterial `shouldBe` BS.pack macOctets
 
   it "validates the JWS correctly" $ do
     validateDecodeCompact jwk compactJWS `shouldBe` True
@@ -133,7 +133,8 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
       187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
       132, 141, 121]
-    jwk = material (OctKeyMaterial Oct octKeyMaterial)
+    keyMaterial = OctKeyMaterial Oct octKeyMaterial
+    jwk = material keyMaterial
     octKeyMaterial = Types.Base64Octets $ foldr BS.cons BS.empty
       [3,35,53,75,43,15,165,188,131,126,6,101,119,123,166,143,90,179,40,
        230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
