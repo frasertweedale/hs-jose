@@ -270,16 +270,16 @@ decodeCompact = either (const Nothing) Just . eitherDecodeCompact
 sign :: JWS -> Header -> JWK.Key -> JWS
 sign (JWS p sigs) h k = JWS p (sig:sigs) where
   sig = Signature h $ Types.Base64Octets $
-    sign' (headerAlg h) (signingInput h p) (JWK.keyMaterial k)
+    sign' (headerAlg h) (JWK.keyMaterial k) (signingInput h p)
 
-sign' :: JWA.JWS.Alg -> BSL.ByteString -> JWA.JWK.KeyMaterial -> BS.ByteString
+sign' :: JWA.JWS.Alg -> JWA.JWK.KeyMaterial -> BSL.ByteString -> BS.ByteString
 sign' JWA.JWS.None _ _ = ""
-sign' JWA.JWS.HS256 s (JWA.JWK.OctKeyMaterial _ k) = C.encode (signOct k s :: SHA256)
-sign' JWA.JWS.HS384 s (JWA.JWK.OctKeyMaterial _ k) = C.encode (signOct k s :: SHA384)
-sign' JWA.JWS.HS512 s (JWA.JWK.OctKeyMaterial _ k) = C.encode (signOct k s :: SHA512)
-sign' JWA.JWS.RS256 s (JWA.JWK.RSAKeyMaterial _ k) = signRSA k hashDescrSHA256 s
-sign' JWA.JWS.RS384 s (JWA.JWK.RSAKeyMaterial _ k) = signRSA k hashDescrSHA384 s
-sign' JWA.JWS.RS512 s (JWA.JWK.RSAKeyMaterial _ k) = signRSA k hashDescrSHA512 s
+sign' JWA.JWS.HS256 (JWA.JWK.OctKeyMaterial _ k) s = C.encode (signOct k s :: SHA256)
+sign' JWA.JWS.HS384 (JWA.JWK.OctKeyMaterial _ k) s = C.encode (signOct k s :: SHA384)
+sign' JWA.JWS.HS512 (JWA.JWK.OctKeyMaterial _ k) s = C.encode (signOct k s :: SHA512)
+sign' JWA.JWS.RS256 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA256 s
+sign' JWA.JWS.RS384 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA384 s
+sign' JWA.JWS.RS512 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA512 s
 sign' alg _ _ = error $ "algorithm " ++ show alg ++ " not implemented"
 
 signOct :: Hash c d => Types.Base64Octets -> BSL.ByteString -> d
@@ -287,8 +287,8 @@ signOct (Types.Base64Octets k) = hmac (MacKey k)
 
 signRSA
   :: JWA.JWK.RSAKeyParameters -> HashDescr -> BSL.ByteString -> BS.ByteString
-signRSA k h s = either (error . show) id $
-  Crypto.PubKey.RSA.PKCS15.sign Nothing h (keyRSAPrivate k) (BSL.toStrict s)
+signRSA k h m = either (error . show) id $
+  Crypto.PubKey.RSA.PKCS15.sign Nothing h (keyRSAPrivate k) (BSL.toStrict m)
   where
     keyRSAPrivate (
       JWA.JWK.RSAPrivateKeyParameters
@@ -301,12 +301,49 @@ signRSA k h s = either (error . show) id $
 validate :: JWK.Key -> JWS -> Bool
 validate k (JWS p sigs) = any (validateSig k p) sigs
 
-validateSig :: JWK.Key -> Types.Base64Octets -> Signature -> Bool
-validateSig k p (Signature h (Types.Base64Octets m))
-  = sign' (headerAlg h) (signingInput h p) (JWK.keyMaterial k) == m
-
 validateDecode :: JWK.Key -> BSL.ByteString -> Bool
 validateDecode k = maybe False (validate k) . decode
 
 validateDecodeCompact :: JWK.Key -> BSL.ByteString -> Bool
 validateDecodeCompact k = maybe False (validate k) . decodeCompact
+
+validateSig :: JWK.Key -> Types.Base64Octets -> Signature -> Bool
+validateSig k m (Signature h (Types.Base64Octets s))
+  = validate' (headerAlg h) (JWK.keyMaterial k) (signingInput h m) s
+
+validate'
+  :: JWA.JWS.Alg
+  -> JWA.JWK.KeyMaterial
+  -> BSL.ByteString
+  -> BS.ByteString
+  -> Bool
+validate' JWA.JWS.None _ _ s = s == ""
+validate' JWA.JWS.HS256 k m s = sign' JWA.JWS.HS256 k m == s
+validate' JWA.JWS.HS384 k m s = sign' JWA.JWS.HS384 k m == s
+validate' JWA.JWS.HS512 k m s = sign' JWA.JWS.HS512 k m == s
+validate' JWA.JWS.RS256 (JWA.JWK.RSAKeyMaterial _ k) m s
+  = validateRSA k hashDescrSHA256 m s
+validate' JWA.JWS.RS384 (JWA.JWK.RSAKeyMaterial _ k) m s
+  = validateRSA k hashDescrSHA384 m s
+validate' JWA.JWS.RS512 (JWA.JWK.RSAKeyMaterial _ k) m s
+  = validateRSA k hashDescrSHA512 m s
+validate' alg _ _ _ = error $ "algorithm " ++ show alg ++ " not implemented"
+
+validateRSA
+  :: JWA.JWK.RSAKeyParameters
+  -> HashDescr
+  -> BSL.ByteString
+  -> BS.ByteString
+  -> Bool
+validateRSA k h m = Crypto.PubKey.RSA.PKCS15.verify h (key k) (BSL.toStrict m)
+  where
+    key (JWA.JWK.RSAPrivateKeyParameters
+      (Types.SizedBase64Integer size n)
+      (Types.Base64Integer e)
+      _
+      _
+      ) = PublicKey size n e
+    key (JWA.JWK.RSAPublicKeyParameters
+      (Types.SizedBase64Integer size n)
+      (Types.Base64Integer e)
+      ) = PublicKey size n e

@@ -109,7 +109,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     (encodeCompact jws >>= decodeCompact) `shouldBe` Just jws
 
   it "computes the HMAC correctly" $
-    sign' alg signingInput keyMaterial `shouldBe` BS.pack macOctets
+    sign' alg keyMaterial signingInput `shouldBe` BS.pack macOctets
 
   it "validates the JWS correctly" $ do
     validateDecodeCompact jwk compactJWS `shouldBe` True
@@ -142,9 +142,12 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
        192,205,154,245,103,208,128,163]
 
 
-appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $
+appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
-    sign' JWA.JWS.RS256 signingInput jwk `shouldBe` BS.pack sigOctets
+    sign' JWA.JWS.RS256 jwk signingInput `shouldBe` sig
+
+  it "validates the signature correctly" $
+    validate' JWA.JWS.RS256 jwk signingInput sig `shouldBe` True
 
   where
     signingInput = "\
@@ -168,6 +171,7 @@ appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" 
             \CBr6XCLQUShb1juUO1ZdiYoFaFQT5Tw8bGUl_x_jTj3ccPDVZFD9pIuhLh\
             \BOneufuBiB4cS98l2SR_RQyGWSeWjnczT0QU91p1DhOVRuOopznQ\"\
       \}"
+    sig = BS.pack sigOctets
     sigOctets =
       [112, 46, 33, 137, 67, 232, 143, 209, 30, 181, 216, 45, 191, 120, 69,
       243, 65, 6, 174, 27, 129, 255, 247, 115, 17, 22, 173, 209, 113, 125,
