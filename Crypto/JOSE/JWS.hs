@@ -23,9 +23,7 @@ import Control.Applicative
 import Data.Char
 import Data.Maybe
 
-import qualified Crypto.Classes as C
-import Crypto.HMAC
-import Crypto.Hash.CryptoAPI
+import Crypto.Hash
 import Crypto.PubKey.RSA
 import qualified Crypto.PubKey.RSA.PKCS15
 import Crypto.PubKey.HashDescr
@@ -33,6 +31,7 @@ import Data.Aeson
 import Data.Aeson.Parser
 import Data.Aeson.Types
 import qualified Data.Attoparsec.ByteString.Lazy as A
+import Data.Byteable
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
@@ -274,16 +273,18 @@ sign (JWS p sigs) h k = JWS p (sig:sigs) where
 
 sign' :: JWA.JWS.Alg -> JWA.JWK.KeyMaterial -> BSL.ByteString -> BS.ByteString
 sign' JWA.JWS.None _ _ = ""
-sign' JWA.JWS.HS256 (JWA.JWK.OctKeyMaterial _ k) s = C.encode (signOct k s :: SHA256)
-sign' JWA.JWS.HS384 (JWA.JWK.OctKeyMaterial _ k) s = C.encode (signOct k s :: SHA384)
-sign' JWA.JWS.HS512 (JWA.JWK.OctKeyMaterial _ k) s = C.encode (signOct k s :: SHA512)
+sign' JWA.JWS.HS256 (JWA.JWK.OctKeyMaterial _ k) s = signOct SHA256 k s
+sign' JWA.JWS.HS384 (JWA.JWK.OctKeyMaterial _ k) s = signOct SHA384 k s
+sign' JWA.JWS.HS512 (JWA.JWK.OctKeyMaterial _ k) s = signOct SHA512 k s
 sign' JWA.JWS.RS256 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA256 s
 sign' JWA.JWS.RS384 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA384 s
 sign' JWA.JWS.RS512 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA512 s
 sign' alg _ _ = error $ "algorithm " ++ show alg ++ " not implemented"
 
-signOct :: Hash c d => Types.Base64Octets -> BSL.ByteString -> d
-signOct (Types.Base64Octets k) = hmac (MacKey k)
+signOct
+  :: HashAlgorithm a
+  => a -> Types.Base64Octets -> BSL.ByteString -> BS.ByteString
+signOct a (Types.Base64Octets k) m = toBytes $ hmacAlg a k (BSL.toStrict m)
 
 signRSA
   :: JWA.JWK.RSAKeyParameters -> HashDescr -> BSL.ByteString -> BS.ByteString
