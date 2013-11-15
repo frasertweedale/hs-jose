@@ -21,6 +21,8 @@ module Crypto.JOSE.JWA.JWK where
 
 import Control.Applicative
 
+import Crypto.PubKey.RSA
+import Crypto.Random
 import Data.Aeson
 import qualified Data.HashMap.Strict as M
 
@@ -158,6 +160,30 @@ instance ToJSON RSAKeyParameters where
     : ("d" .= d)
     : maybe [] (Types.objectPairs . toJSON) params
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
+
+genRSA :: Int -> IO (RSAKeyParameters, RSAKeyParameters)
+genRSA size = do
+  ent <- createEntropyPool
+  ((PublicKey s n e, PrivateKey _ d p q dp dq qi), _) <-
+    return $ generate (cprgCreate ent :: SystemRNG) size 65537
+  return (
+    RSAPublicKeyParameters
+      (Types.SizedBase64Integer s n)
+      (Types.Base64Integer e)
+    , RSAPrivateKeyParameters
+      (Types.SizedBase64Integer s n)
+      (Types.Base64Integer e)
+      (Types.Base64Integer d)
+      (Just (RSAPrivateKeyOptionalParameters
+        (Types.Base64Integer p)
+        (Types.Base64Integer q)
+        (Types.Base64Integer dp)
+        (Types.Base64Integer dq)
+        (Types.Base64Integer qi)
+        Nothing
+      ))
+    )
+
 
 
 data KeyMaterial =
