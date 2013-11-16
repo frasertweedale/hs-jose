@@ -42,7 +42,7 @@ import qualified Data.Vector as V
 
 import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
-import qualified Crypto.JOSE.JWK as JWK
+import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types as Types
 
 
@@ -88,7 +88,7 @@ instance ToJSON CritParameters where
 data Header = Header
   { headerAlg :: JWA.JWS.Alg
   , headerJku :: Maybe Types.URI  -- JWK Set URL
-  , headerJwk :: Maybe JWK.Key
+  , headerJwk :: Maybe JWK
   , headerX5u :: Maybe Types.URI
   , headerX5t :: Maybe Types.Base64SHA1
   , headerX5c :: Maybe [Types.Base64X509] -- TODO implement min len of 1
@@ -266,10 +266,10 @@ decodeCompact = either (const Nothing) Just . eitherDecodeCompact
 
 -- §5.1. Message Signing or MACing
 
-sign :: JWS -> Header -> JWK.Key -> JWS
+sign :: JWS -> Header -> JWK -> JWS
 sign (JWS p sigs) h k = JWS p (sig:sigs) where
   sig = Signature h $ Types.Base64Octets $
-    sign' (headerAlg h) (JWK.keyMaterial k) (signingInput h p)
+    sign' (headerAlg h) (jwkMaterial k) (signingInput h p)
 
 sign' :: JWA.JWS.Alg -> JWA.JWK.KeyMaterial -> BSL.ByteString -> BS.ByteString
 sign' JWA.JWS.None _ _ = ""
@@ -299,18 +299,18 @@ signRSA k h m = either (error . show) id $
       _) = PrivateKey (PublicKey size n e) d 0 0 0 0 0
     keyRSAPrivate _ = error "not an RSA private key"
 
-validate :: JWK.Key -> JWS -> Bool
+validate :: JWK -> JWS -> Bool
 validate k (JWS p sigs) = any (validateSig k p) sigs
 
-validateDecode :: JWK.Key -> BSL.ByteString -> Bool
+validateDecode :: JWK -> BSL.ByteString -> Bool
 validateDecode k = maybe False (validate k) . decode
 
-validateDecodeCompact :: JWK.Key -> BSL.ByteString -> Bool
+validateDecodeCompact :: JWK -> BSL.ByteString -> Bool
 validateDecodeCompact k = maybe False (validate k) . decodeCompact
 
-validateSig :: JWK.Key -> Types.Base64Octets -> Signature -> Bool
+validateSig :: JWK -> Types.Base64Octets -> Signature -> Bool
 validateSig k m (Signature h (Types.Base64Octets s))
-  = validate' (headerAlg h) (JWK.keyMaterial k) (signingInput h m) s
+  = validate' (headerAlg h) (jwkMaterial k) (signingInput h m) s
 
 validate'
   :: JWA.JWS.Alg

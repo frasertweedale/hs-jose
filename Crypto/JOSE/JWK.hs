@@ -16,7 +16,14 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Crypto.JOSE.JWK where
+module Crypto.JOSE.JWK
+  (
+    JWK(..)
+  , materialJWK
+  , genRSA
+
+  , JWKSet(..)
+  ) where
 
 import Control.Applicative
 import Control.Arrow
@@ -49,20 +56,20 @@ instance ToJSON Alg where
 -- JWK §3.  JSON Web Key (JWK) Format
 --
 
-data Key =
-  Key {
-    keyMaterial :: JWA.JWK.KeyMaterial,
-    keyUse :: Maybe String,
-    keyAlg :: Maybe Alg,
-    keyKid :: Maybe String,
-    keyX5u :: Maybe Types.URI,
-    keyX5t :: Maybe Types.Base64SHA1,
-    keyX5c :: Maybe [Types.Base64X509]
+data JWK =
+  JWK {
+    jwkMaterial :: JWA.JWK.KeyMaterial,
+    jwkUse :: Maybe String,
+    jwkAlg :: Maybe Alg,
+    jwkKid :: Maybe String,
+    jwkX5u :: Maybe Types.URI,
+    jwkX5t :: Maybe Types.Base64SHA1,
+    jwkX5c :: Maybe [Types.Base64X509]
     }
   deriving (Eq, Show)
 
-instance FromJSON Key where
-  parseJSON = withObject "Key" (\o -> Key <$>
+instance FromJSON JWK where
+  parseJSON = withObject "JWK" (\o -> JWK <$>
     parseJSON (Object o) <*>
     o .:? "use" <*>
     o .:? "alg" <*>
@@ -71,8 +78,8 @@ instance FromJSON Key where
     o .:? "x5t" <*>
     o .:? "x5c")
 
-instance ToJSON Key where
-  toJSON (Key key use alg kid x5u x5t x5c) = object $ catMaybes [
+instance ToJSON JWK where
+  toJSON (JWK key use alg kid x5u x5t x5c) = object $ catMaybes [
     fmap ("use" .=) use
     , fmap ("alg" .=) alg
     , fmap ("kid" .=) kid
@@ -82,18 +89,18 @@ instance ToJSON Key where
     ]
     ++ Types.objectPairs (toJSON key)
 
-material :: JWA.JWK.KeyMaterial -> Key
-material m = Key m n n n n n n where n = Nothing
+materialJWK :: JWA.JWK.KeyMaterial -> JWK
+materialJWK m = JWK m n n n n n n where n = Nothing
 
-genRSA :: Int -> IO (Key, Key)
-genRSA = fmap (material *** material) . JWA.JWK.genRSA
+genRSA :: Int -> IO (JWK, JWK)
+genRSA = fmap (materialJWK *** materialJWK) . JWA.JWK.genRSA
 
 
 --
 -- JWK §4.  JSON Web Key Set (JWK Set) Format
 --
 
-data KeySet = KeySet [Key]
+data JWKSet = JWKSet [JWK]
 
-instance FromJSON KeySet where
-  parseJSON = withObject "KeySet" (\o -> KeySet <$> o .: "keys")
+instance FromJSON JWKSet where
+  parseJSON = withObject "JWKSet" (\o -> JWKSet <$> o .: "keys")

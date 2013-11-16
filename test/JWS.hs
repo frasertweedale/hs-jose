@@ -134,7 +134,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
       187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
       132, 141, 121]
     keyMaterial = OctKeyMaterial Oct octKeyMaterial
-    jwk = material keyMaterial
+    jwk = materialJWK keyMaterial
     octKeyMaterial = Types.Base64Octets $ foldr BS.cons BS.empty
       [3,35,53,75,43,15,165,188,131,126,6,101,119,123,166,143,90,179,40,
        230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
