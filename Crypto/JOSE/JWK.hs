@@ -19,6 +19,7 @@
 module Crypto.JOSE.JWK where
 
 import Control.Applicative
+import Control.Arrow
 import Data.Maybe (catMaybes)
 
 import Data.Aeson
@@ -83,6 +84,9 @@ instance ToJSON Key where
 
 material :: JWA.JWK.KeyMaterial -> Key
 material m = Key m n n n n n n where n = Nothing
+
+genRSA :: Int -> IO (Key, Key)
+genRSA = fmap (material *** material) . JWA.JWK.genRSA
 
 
 --

@@ -161,29 +161,22 @@ instance ToJSON RSAKeyParameters where
     : maybe [] (Types.objectPairs . toJSON) params
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
 
-genRSA :: Int -> IO (RSAKeyParameters, RSAKeyParameters)
-genRSA size = do
-  ent <- createEntropyPool
-  ((PublicKey s n e, PrivateKey _ d p q dp dq qi), _) <-
-    return $ generate (cprgCreate ent :: SystemRNG) size 65537
-  return (
-    RSAPublicKeyParameters
-      (Types.SizedBase64Integer s n)
-      (Types.Base64Integer e)
-    , RSAPrivateKeyParameters
-      (Types.SizedBase64Integer s n)
-      (Types.Base64Integer e)
-      (Types.Base64Integer d)
-      (Just (RSAPrivateKeyOptionalParameters
-        (Types.Base64Integer p)
-        (Types.Base64Integer q)
-        (Types.Base64Integer dp)
-        (Types.Base64Integer dq)
-        (Types.Base64Integer qi)
-        Nothing
-      ))
-    )
-
+genRSA :: Int -> IO (KeyMaterial, KeyMaterial)
+genRSA size =
+  let
+    i = Types.Base64Integer
+    si = Types.SizedBase64Integer
+  in do
+    ent <- createEntropyPool
+    ((PublicKey s n e, PrivateKey _ d p q dp dq qi), _) <-
+      return $ generate (cprgCreate ent :: SystemRNG) size 65537
+    return (
+      RSAKeyMaterial RSA (RSAPublicKeyParameters (si s n) (i e))
+      , RSAKeyMaterial RSA (
+        RSAPrivateKeyParameters (si s n) (i e) (i d)
+          (Just (RSAPrivateKeyOptionalParameters
+            (i p) (i q) (i dp) (i dq) (i qi) Nothing)))
+      )
 
 
 data KeyMaterial =
