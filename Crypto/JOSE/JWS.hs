@@ -40,6 +40,7 @@ import qualified Data.Text as T
 import Data.Traversable (sequenceA)
 import qualified Data.Vector as V
 
+import Crypto.JOSE.Compact
 import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import Crypto.JOSE.JWK
@@ -244,24 +245,18 @@ signingInput h p = BSL.intercalate "."
 -- The operation is defined only when there is exactly one
 -- signature and returns Nothing otherwise
 --
-encodeCompact :: JWS -> Maybe BSL.ByteString
-encodeCompact (JWS p [Signature h s]) = Just $
-  BSL.intercalate "." [signingInput h p, encodeS s]
-encodeCompact _ = Nothing
+instance ToCompact JWS where
+  toCompact (JWS p [Signature h s]) = Right [signingInput h p, encodeS s]
+  toCompact (JWS _ xs) =
+    Left $ "cannot compact serialize JWS with " ++ show (length xs) ++ " sigs"
 
-eitherDecodeCompact :: BSL.ByteString -> Either String JWS
-eitherDecodeCompact t = do
-  [h, p, s] <- threeParts $ BSL.split 46 t
-  h' <- fmap (\h' -> h' { headerRaw = Just $ BSL.toStrict h }) $ decodeO h
-  p' <- maybe (Left "payload decode failed") Right $ decodeS p
-  s' <- maybe (Left "sig decode failed") Right $ decodeS s
-  return $ JWS p' [Signature h' s']
-  where
-    threeParts [h, p, s] = Right [h, p, s]
-    threeParts _ = Left "incorrect number of parts"
-
-decodeCompact :: BSL.ByteString -> Maybe JWS
-decodeCompact = either (const Nothing) Just . eitherDecodeCompact
+instance FromCompact JWS where
+  fromCompact [h, p, s] = do
+    h' <- fmap (\h' -> h' { headerRaw = Just $ BSL.toStrict h }) $ decodeO h
+    p' <- maybe (Left "payload decode failed") Right $ decodeS p
+    s' <- maybe (Left "sig decode failed") Right $ decodeS s
+    return $ JWS p' [Signature h' s']
+  fromCompact xs = Left $ "expected 3 parts, got " ++ show (length xs)
 
 
 -- §5.1. Message Signing or MACing
@@ -301,12 +296,6 @@ signRSA k h m = either (error . show) id $
 
 validate :: JWK -> JWS -> Bool
 validate k (JWS p sigs) = any (validateSig k p) sigs
-
-validateDecode :: JWK -> BSL.ByteString -> Bool
-validateDecode k = maybe False (validate k) . decode
-
-validateDecodeCompact :: JWK -> BSL.ByteString -> Bool
-validateDecodeCompact k = maybe False (validate k) . decodeCompact
 
 validateSig :: JWK -> Types.Base64Octets -> Signature -> Bool
 validateSig k m (Signature h (Types.Base64Octets s))

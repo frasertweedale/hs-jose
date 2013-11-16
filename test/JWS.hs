@@ -28,6 +28,7 @@ import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.HashMap.Strict as M
 import Test.Hspec
 
+import Crypto.JOSE.Compact
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
@@ -101,19 +102,16 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
   -- round-trip checks out
   --
   it "decodes the example to the correct value" $
-    decodeCompact compactJWS `shouldBe` Just jws
+    decodeCompact compactJWS `shouldBe` Right jws
 
   it "round-trips correctly" $ do
-    maybe (Left "encode failed") eitherDecodeCompact (encodeCompact jws)
-      `shouldBe` Right jws
-    (encodeCompact jws >>= decodeCompact) `shouldBe` Just jws
+    (encodeCompact jws >>= decodeCompact) `shouldBe` Right jws
 
   it "computes the HMAC correctly" $
     sign' alg keyMaterial signingInput `shouldBe` BS.pack macOctets
 
   it "validates the JWS correctly" $ do
-    validateDecodeCompact jwk compactJWS `shouldBe` True
-    fmap (validate jwk) (decodeCompact compactJWS) `shouldBe` Just True
+    fmap (validate jwk) (decodeCompact compactJWS) `shouldBe` Right True
 
   where
     signingInput = "\
@@ -195,11 +193,10 @@ appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" 
 
 appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
   it "encodes the correct JWS" $ do
-    encodeCompact jws `shouldBe` Just exampleJWS
+    encodeCompact jws `shouldBe` Right exampleJWS
 
   it "decodes the correct JWS" $ do
-    eitherDecodeCompact exampleJWS `shouldBe` Right jws
-    decodeCompact exampleJWS `shouldBe` Just jws
+    decodeCompact exampleJWS `shouldBe` Right jws
 
   where
     jws = sign (JWS examplePayload []) (algHeader JWA.JWS.None) undefined
