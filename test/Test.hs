@@ -28,7 +28,7 @@ import Test.Hspec
 import qualified Crypto.JOSE.JWA.JWS
 import qualified Crypto.JOSE.JWS
 
-import Data.JWT as JWT
+import Crypto.JWT
 
 
 intDate :: String -> Maybe IntDate

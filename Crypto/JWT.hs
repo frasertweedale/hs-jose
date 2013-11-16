@@ -16,7 +16,22 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Data.JWT where
+module Crypto.JWT
+  (
+    StringOrURI(..)
+
+  , IntDate(..)
+  , Audience(..)
+
+  , ClaimsSet(..)
+  , emptyClaimsSet
+
+  , JWT(..)
+  , jwtClaimsSet
+  , createJWT
+  , decodeJWT
+  , validateJWT
+  ) where
 
 import Control.Applicative
 import Control.Monad
@@ -31,7 +46,7 @@ import Data.Time
 import Data.Time.Clock.POSIX
 import qualified Network.URI
 
-import qualified Crypto.JOSE.JWK
+import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.JWS
 import qualified Crypto.JOSE.Types
 
@@ -140,13 +155,13 @@ decodeJWT = Crypto.JOSE.JWS.decodeCompact >=> toJWT
     toJWT jws = fmap (JWS jws) $ decodeClaims jws
     decodeClaims jws = decode (Crypto.JOSE.JWS.jwsPayload jws)
 
-validateJWT :: Crypto.JOSE.JWK.Key -> JWT -> Bool
+validateJWT :: JWK -> JWT -> Bool
 validateJWT k (JWS jws _) = Crypto.JOSE.JWS.validate k jws
 
 
 data Header = JWSHeader Crypto.JOSE.JWS.Header  -- TODO JWE
 
-createJWT :: Crypto.JOSE.JWK.Key -> Header -> ClaimsSet -> JWT
+createJWT :: JWK -> Header -> ClaimsSet -> JWT
 createJWT k (JWSHeader h) c = JWS jws c where
   payload = Crypto.JOSE.Types.Base64Octets $ BSL.toStrict $ encode c
   jws = Crypto.JOSE.JWS.sign (Crypto.JOSE.JWS.JWS payload []) h k
