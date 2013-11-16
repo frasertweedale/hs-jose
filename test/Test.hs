@@ -25,6 +25,7 @@ import qualified Network.URI
 import System.Locale
 import Test.Hspec
 
+import Crypto.JOSE.Compact
 import qualified Crypto.JOSE.JWA.JWS
 import qualified Crypto.JOSE.JWS
 
@@ -76,8 +77,8 @@ main = hspec $ do
           \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
           \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
           \."
-        jwt = decodeJWT exampleJWT
+        jwt = decodeCompact exampleJWT
         k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
       in do
-        fmap jwtClaimsSet jwt `shouldBe` Just exampleClaimsSet
-        fmap (validateJWT k) jwt `shouldBe` Just True
+        fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
+        fmap (validateJWT k) jwt `shouldBe` Right True

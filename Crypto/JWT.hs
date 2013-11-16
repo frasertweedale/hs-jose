@@ -29,7 +29,6 @@ module Crypto.JWT
   , JWT(..)
   , jwtClaimsSet
   , createJWT
-  , decodeJWT
   , validateJWT
   ) where
 
@@ -46,6 +45,7 @@ import Data.Time
 import Data.Time.Clock.POSIX
 import qualified Network.URI
 
+import Crypto.JOSE.Compact
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.JWS
 import qualified Crypto.JOSE.Types
@@ -149,11 +149,9 @@ data JWT = JWS Crypto.JOSE.JWS.JWS ClaimsSet deriving (Eq, Show)
 jwtClaimsSet :: JWT -> ClaimsSet
 jwtClaimsSet (JWS _ c) = c
 
-decodeJWT :: BSL.ByteString -> Maybe JWT
-decodeJWT = Crypto.JOSE.JWS.decodeCompact >=> toJWT
-  where
-    toJWT jws = fmap (JWS jws) $ decodeClaims jws
-    decodeClaims jws = decode (Crypto.JOSE.JWS.jwsPayload jws)
+instance FromCompact JWT where
+  fromCompact = fromCompact >=> toJWT where
+    toJWT jws = fmap (JWS jws) $ eitherDecode $ Crypto.JOSE.JWS.jwsPayload jws
 
 validateJWT :: JWK -> JWT -> Bool
 validateJWT k (JWS jws _) = Crypto.JOSE.JWS.validate k jws
