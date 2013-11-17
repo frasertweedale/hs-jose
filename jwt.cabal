@@ -44,6 +44,7 @@ test-suite tests
   type:           exitcode-stdio-1.0
   hs-source-dirs: test
   main-is:        Test.hs
+  ghc-options:  -Werror -Wall
 
   build-depends:
     base

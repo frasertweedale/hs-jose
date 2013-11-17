@@ -21,13 +21,10 @@ import Data.Maybe
 import Data.Aeson
 import Data.HashMap.Strict
 import Data.Time
-import qualified Network.URI
 import System.Locale
 import Test.Hspec
 
 import Crypto.JOSE.Compact
-import qualified Crypto.JOSE.JWA.JWS
-import qualified Crypto.JOSE.JWS
 
 import Crypto.JWT
 
@@ -42,16 +39,17 @@ exampleClaimsSet = emptyClaimsSet {
   , unregisteredClaims = fromList [("http://example.com/is_root", Bool True)]
   }
 
+main :: IO ()
 main = hspec $ do
   describe "JWT Claims Set" $ do
     it "parses from JSON correctly" $
       let
-        example = "\
+        claimsJSON = "\
           \{\"iss\":\"joe\",\r\n\
           \ \"exp\":1300819380,\r\n\
           \ \"http://example.com/is_root\":true}"
       in
-        decode example `shouldBe` Just exampleClaimsSet
+        decode claimsJSON `shouldBe` Just exampleClaimsSet
 
     it "formats to a parsable and equal value" $
       decode (encode exampleClaimsSet) `shouldBe` Just exampleClaimsSet
@@ -59,7 +57,8 @@ main = hspec $ do
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
       decode "[\"foo\"]" `shouldBe` Just [Arbitrary "foo"]
-      decode "[\"http://example.com\"]" `shouldBe` Just [URI $ fromJust $ Network.URI.parseURI "http://example.com"]
+      decode "[\"http://example.com\"]" `shouldBe`
+        fmap OrURI (decode "[\"http://example.com\"]")
       decode "[\":\"]" `shouldBe` (Nothing :: Maybe [StringOrURI])
       decode "[12345]" `shouldBe` (Nothing :: Maybe [StringOrURI])
 

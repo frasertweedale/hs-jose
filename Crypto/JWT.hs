@@ -43,27 +43,26 @@ import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import Data.Time
 import Data.Time.Clock.POSIX
-import qualified Network.URI
 
 import Crypto.JOSE.Compact
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.JWS
-import qualified Crypto.JOSE.Types
+import Crypto.JOSE.Types
 
 
 -- §2.  Terminology
 
-data StringOrURI = Arbitrary T.Text | URI Network.URI.URI deriving (Eq, Show)
+data StringOrURI = Arbitrary T.Text | OrURI URI deriving (Eq, Show)
 
 instance FromJSON StringOrURI where
   parseJSON = withText "StringOrURI" (\s ->
     if T.any (== ':') s
-    then fmap URI $ maybe (fail "not a URI") pure $ Network.URI.parseURI $ T.unpack s
+    then OrURI <$> parseJSON (String s)
     else pure $ Arbitrary s)
 
 instance ToJSON StringOrURI where
   toJSON (Arbitrary s)  = toJSON s
-  toJSON (URI uri)      = toJSON $ show uri
+  toJSON (OrURI uri)    = toJSON $ show uri
 
 
 newtype IntDate = IntDate UTCTime deriving (Eq, Show)
