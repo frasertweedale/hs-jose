@@ -27,7 +27,6 @@ module Crypto.JWT
   , emptyClaimsSet
 
   , JWT(..)
-  , jwtClaimsSet
   , createJWT
   , validateJWT
   ) where
@@ -46,7 +45,7 @@ import Data.Time.Clock.POSIX
 
 import Crypto.JOSE.Compact
 import Crypto.JOSE.JWK
-import qualified Crypto.JOSE.JWS
+import Crypto.JOSE.JWS
 import Crypto.JOSE.Types
 
 
@@ -143,22 +142,36 @@ instance ToJSON ClaimsSet where
     ] ++ M.toList (filterUnregistered o)
 
 
-data JWT = JWS Crypto.JOSE.JWS.JWS ClaimsSet deriving (Eq, Show)
+data JWTCrypto = JWTJWS JWS deriving (Eq, Show)
 
-jwtClaimsSet :: JWT -> ClaimsSet
-jwtClaimsSet (JWS _ c) = c
+instance FromCompact JWTCrypto where
+  fromCompact = fmap JWTJWS . fromCompact
+
+instance ToCompact JWTCrypto where
+  toCompact (JWTJWS jws) = toCompact jws
+
+
+data JWT = JWT
+  { jwtCrypto     :: JWTCrypto
+  , jwtClaimsSet  :: ClaimsSet
+  } deriving (Eq, Show)
 
 instance FromCompact JWT where
   fromCompact = fromCompact >=> toJWT where
-    toJWT jws = fmap (JWS jws) $ eitherDecode $ Crypto.JOSE.JWS.jwsPayload jws
+    toJWT (JWTJWS jws) =
+      fmap (JWT (JWTJWS jws)) $ eitherDecode $ Crypto.JOSE.JWS.jwsPayload jws
+
+instance ToCompact JWT where
+  toCompact = toCompact . jwtCrypto
+
 
 validateJWT :: JWK -> JWT -> Bool
-validateJWT k (JWS jws _) = Crypto.JOSE.JWS.validate k jws
+validateJWT k (JWT (JWTJWS jws) _) = Crypto.JOSE.JWS.validate k jws
 
 
-data Header = JWSHeader Crypto.JOSE.JWS.Header  -- TODO JWE
+data JWTHeader = JWSHeader Crypto.JOSE.JWS.Header  -- TODO JWE
 
-createJWT :: JWK -> Header -> ClaimsSet -> JWT
-createJWT k (JWSHeader h) c = JWS jws c where
-  payload = Crypto.JOSE.Types.Base64Octets $ BSL.toStrict $ encode c
+createJWT :: JWK -> JWTHeader -> ClaimsSet -> JWT
+createJWT k (JWSHeader h) c = JWT (JWTJWS jws) c where
+  payload = Base64Octets $ BSL.toStrict $ encode c
   jws = Crypto.JOSE.JWS.sign (Crypto.JOSE.JWS.JWS payload []) h k
