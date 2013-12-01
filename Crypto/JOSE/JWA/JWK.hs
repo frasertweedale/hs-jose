@@ -179,10 +179,20 @@ genRSA size =
       )
 
 
+newtype OctKeyParameters = OctKeyParameters Types.Base64Octets
+  deriving (Eq, Show)
+
+instance FromJSON OctKeyParameters where
+  parseJSON = (OctKeyParameters <$>) . parseJSON
+
+instance ToJSON OctKeyParameters where
+  toJSON (OctKeyParameters k) = toJSON k
+
+
 data KeyMaterial =
   ECKeyMaterial EC ECKeyParameters
   | RSAKeyMaterial RSA RSAKeyParameters
-  | OctKeyMaterial Oct Types.Base64Octets
+  | OctKeyMaterial Oct OctKeyParameters
   deriving (Eq, Show)
 
 instance FromJSON KeyMaterial where

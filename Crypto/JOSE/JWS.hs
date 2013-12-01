@@ -268,9 +268,9 @@ sign (JWS p sigs) h k = JWS p (sig:sigs) where
 
 sign' :: JWA.JWS.Alg -> JWA.JWK.KeyMaterial -> BSL.ByteString -> BS.ByteString
 sign' JWA.JWS.None _ _ = ""
-sign' JWA.JWS.HS256 (JWA.JWK.OctKeyMaterial _ k) s = signOct SHA256 k s
-sign' JWA.JWS.HS384 (JWA.JWK.OctKeyMaterial _ k) s = signOct SHA384 k s
-sign' JWA.JWS.HS512 (JWA.JWK.OctKeyMaterial _ k) s = signOct SHA512 k s
+sign' JWA.JWS.HS256 (JWA.JWK.OctKeyMaterial _ (JWA.JWK.OctKeyParameters k)) s = signOct SHA256 k s
+sign' JWA.JWS.HS384 (JWA.JWK.OctKeyMaterial _ (JWA.JWK.OctKeyParameters k)) s = signOct SHA384 k s
+sign' JWA.JWS.HS512 (JWA.JWK.OctKeyMaterial _ (JWA.JWK.OctKeyParameters k)) s = signOct SHA512 k s
 sign' JWA.JWS.RS256 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA256 s
 sign' JWA.JWS.RS384 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA384 s
 sign' JWA.JWS.RS512 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA512 s
