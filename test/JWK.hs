@@ -38,7 +38,7 @@ jwsAppendixA1Spec = describe "JWS A.1.1.  JWK" $ do
   -- IETF doc, be we can go in reverse and then ensure that the
   -- round-trip checks out
   --
-  it "decodes the example to the correct value" $ do
+  it "decodes the example to the correct value" $
     decode exampleJWK `shouldBe` Just jwk
 
   it "round-trips correctly" $

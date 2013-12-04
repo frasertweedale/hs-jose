@@ -21,11 +21,18 @@ module Crypto.JOSE.JWA.JWK where
 
 import Control.Applicative
 
+import Crypto.Hash
+import Crypto.PubKey.HashDescr
 import Crypto.PubKey.RSA
+import qualified Crypto.PubKey.RSA.PKCS15
 import Crypto.Random
 import Data.Aeson
+import Data.Byteable
+import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
 
+import Crypto.JOSE.Classes
+import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
 
@@ -128,6 +135,10 @@ instance ToJSON ECKeyParameters where
     , "y" .= y
     ]
 
+instance Key ECKeyParameters where
+  sign = error "elliptic curve algorithms not implemented"
+  verify = error "elliptic curve algorithms not implemented"
+
 
 data RSAKeyParameters =
   RSAPrivateKeyParameters {
@@ -161,6 +172,44 @@ instance ToJSON RSAKeyParameters where
     : maybe [] (Types.objectPairs . toJSON) params
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
 
+instance Key RSAKeyParameters where
+  sign JWA.JWS.RS256 = signRSA hashDescrSHA256
+  sign JWA.JWS.RS384 = signRSA hashDescrSHA384
+  sign JWA.JWS.RS512 = signRSA hashDescrSHA512
+  sign h = error $ "alg/key mismatch: " ++ show h ++ "/RSA"
+  verify JWA.JWS.RS256 = verifyRSA hashDescrSHA256
+  verify JWA.JWS.RS384 = verifyRSA hashDescrSHA384
+  verify JWA.JWS.RS512 = verifyRSA hashDescrSHA512
+  verify h = error $ "alg/key mismatch: " ++ show h ++ "/RSA"
+
+signRSA :: HashDescr -> RSAKeyParameters -> B.ByteString -> B.ByteString
+signRSA h k m = either (error . show) id $
+  Crypto.PubKey.RSA.PKCS15.sign Nothing h (privateKey k) m where
+    privateKey (RSAPrivateKeyParameters
+      (Types.SizedBase64Integer size n)
+      (Types.Base64Integer e)
+      (Types.Base64Integer d)
+      _) = PrivateKey (PublicKey size n e) d 0 0 0 0 0
+    privateKey _ = error "not an RSA private key"
+
+verifyRSA
+  :: HashDescr
+  -> RSAKeyParameters
+  -> B.ByteString
+  -> B.ByteString
+  -> Bool
+verifyRSA h k = Crypto.PubKey.RSA.PKCS15.verify h (publicKey k) where
+  publicKey (RSAPrivateKeyParameters
+    (Types.SizedBase64Integer size n)
+    (Types.Base64Integer e)
+    _
+    _
+    ) = PublicKey size n e
+  publicKey (RSAPublicKeyParameters
+    (Types.SizedBase64Integer size n)
+    (Types.Base64Integer e)
+    ) = PublicKey size n e
+
 genRSA :: Int -> IO (KeyMaterial, KeyMaterial)
 genRSA size =
   let
@@ -188,6 +237,21 @@ instance FromJSON OctKeyParameters where
 instance ToJSON OctKeyParameters where
   toJSON (OctKeyParameters k) = toJSON k
 
+instance Key OctKeyParameters where
+  sign JWA.JWS.HS256 = signOct SHA256
+  sign JWA.JWS.HS384 = signOct SHA384
+  sign JWA.JWS.HS512 = signOct SHA512
+  sign h = error $ "alg/key mismatch: " ++ show h ++ "/Oct"
+  verify h k m s = sign h k m == s
+
+signOct
+  :: HashAlgorithm a
+  => a
+  -> OctKeyParameters
+  -> B.ByteString
+  -> B.ByteString
+signOct a (OctKeyParameters (Types.Base64Octets k)) m = toBytes $ hmacAlg a k m
+
 
 data KeyMaterial =
   ECKeyMaterial EC ECKeyParameters
@@ -205,3 +269,13 @@ instance ToJSON KeyMaterial where
   toJSON (ECKeyMaterial k p)  = object $ ("kty" .= k) : Types.objectPairs (toJSON p)
   toJSON (RSAKeyMaterial k p) = object $ ("kty" .= k) : Types.objectPairs (toJSON p)
   toJSON (OctKeyMaterial k i) = object ["kty" .= k, "k" .= i]
+
+instance Key KeyMaterial where
+  sign JWA.JWS.None _ = const ""
+  sign h (ECKeyMaterial _ k)  = sign h k
+  sign h (RSAKeyMaterial _ k) = sign h k
+  sign h (OctKeyMaterial _ k) = sign h k
+  verify JWA.JWS.None _ = \_ s -> s == ""
+  verify h (ECKeyMaterial _ k)  = verify h k
+  verify h (RSAKeyMaterial _ k) = verify h k
+  verify h (OctKeyMaterial _ k) = verify h k

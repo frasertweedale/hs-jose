@@ -31,6 +31,7 @@ import Data.Maybe (catMaybes)
 
 import Data.Aeson
 
+import Crypto.JOSE.Classes
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
 import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
@@ -88,6 +89,10 @@ instance ToJSON JWK where
     , fmap ("x5c" .=) x5c
     ]
     ++ Types.objectPairs (toJSON key)
+
+instance Key JWK where
+  sign h k = sign h $ jwkMaterial k
+  verify h k = verify h $ jwkMaterial k
 
 materialJWK :: JWA.JWK.KeyMaterial -> JWK
 materialJWK m = JWK m n n n n n n where n = Nothing

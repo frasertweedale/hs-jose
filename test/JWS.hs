@@ -23,11 +23,12 @@ import Data.Maybe
 import Data.Aeson
 import Data.Attoparsec.Number
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.HashMap.Strict as M
 import Test.Hspec
 
+import Crypto.JOSE.Classes
 import Crypto.JOSE.Compact
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
@@ -108,10 +109,10 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     (encodeCompact jws >>= decodeCompact) `shouldBe` Right jws
 
   it "computes the HMAC correctly" $
-    sign' alg keyMaterial signingInput `shouldBe` BS.pack macOctets
+    sign alg jwk (L.toStrict signingInput) `shouldBe` BS.pack macOctets
 
   it "validates the JWS correctly" $ do
-    fmap (validate jwk) (decodeCompact compactJWS) `shouldBe` Right True
+    fmap (verifyJWS jwk) (decodeCompact compactJWS) `shouldBe` Right True
 
   where
     signingInput = "\
@@ -119,7 +120,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
-    compactJWS = signingInput `BSL.append` "\
+    compactJWS = signingInput `L.append` "\
       \.\
       \dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     jws = JWS examplePayload [signature]
@@ -131,8 +132,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
       187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
       132, 141, 121]
-    keyMaterial = OctKeyMaterial Oct octKeyMaterial
-    jwk = materialJWK keyMaterial
+    jwk = materialJWK $ OctKeyMaterial Oct octKeyMaterial
     octKeyMaterial = OctKeyParameters $ Types.Base64Octets $ foldr BS.cons BS.empty
       [3,35,53,75,43,15,165,188,131,126,6,101,119,123,166,143,90,179,40,
        230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
@@ -142,10 +142,10 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
 
 appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
-    sign' JWA.JWS.RS256 jwk signingInput `shouldBe` sig
+    sign JWA.JWS.RS256 jwk signingInput `shouldBe` sig
 
   it "validates the signature correctly" $
-    validate' JWA.JWS.RS256 jwk signingInput sig `shouldBe` True
+    verify JWA.JWS.RS256 jwk signingInput sig `shouldBe` True
 
   where
     signingInput = "\
@@ -168,7 +168,7 @@ appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" 
             \439X0M_V51gfpRLI9JYanrC4D4qAdGcopV_0ZHHzQlBjudU2QvXt4ehNYT\
             \CBr6XCLQUShb1juUO1ZdiYoFaFQT5Tw8bGUl_x_jTj3ccPDVZFD9pIuhLh\
             \BOneufuBiB4cS98l2SR_RQyGWSeWjnczT0QU91p1DhOVRuOopznQ\"\
-      \}"
+      \}" :: JWK
     sig = BS.pack sigOctets
     sigOctets =
       [112, 46, 33, 137, 67, 232, 143, 209, 30, 181, 216, 45, 191, 120, 69,
@@ -199,7 +199,7 @@ appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
     decodeCompact exampleJWS `shouldBe` Right jws
 
   where
-    jws = sign (JWS examplePayload []) (algHeader JWA.JWS.None) undefined
+    jws = signJWS (JWS examplePayload []) (algHeader JWA.JWS.None) undefined
     exampleJWS = "eyJhbGciOiJub25lIn0\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\

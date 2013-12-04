@@ -23,15 +23,10 @@ import Control.Applicative
 import Data.Char
 import Data.Maybe
 
-import Crypto.Hash
-import Crypto.PubKey.RSA
-import qualified Crypto.PubKey.RSA.PKCS15
-import Crypto.PubKey.HashDescr
 import Data.Aeson
 import Data.Aeson.Parser
 import Data.Aeson.Types
 import qualified Data.Attoparsec.ByteString.Lazy as A
-import Data.Byteable
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
@@ -40,8 +35,8 @@ import qualified Data.Text as T
 import Data.Traversable (sequenceA)
 import qualified Data.Vector as V
 
+import Crypto.JOSE.Classes
 import Crypto.JOSE.Compact
-import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types as Types
@@ -261,79 +256,14 @@ instance FromCompact JWS where
 
 -- §5.1. Message Signing or MACing
 
-sign :: JWS -> Header -> JWK -> JWS
-sign (JWS p sigs) h k = JWS p (sig:sigs) where
+signJWS :: JWS -> Header -> JWK -> JWS
+signJWS (JWS p sigs) h k = JWS p (sig:sigs) where
   sig = Signature h $ Types.Base64Octets $
-    sign' (headerAlg h) (jwkMaterial k) (signingInput h p)
+    sign (headerAlg h) k (BSL.toStrict $ signingInput h p)
 
-sign' :: JWA.JWS.Alg -> JWA.JWK.KeyMaterial -> BSL.ByteString -> BS.ByteString
-sign' JWA.JWS.None _ _ = ""
-sign' JWA.JWS.HS256 (JWA.JWK.OctKeyMaterial _ (JWA.JWK.OctKeyParameters k)) s = signOct SHA256 k s
-sign' JWA.JWS.HS384 (JWA.JWK.OctKeyMaterial _ (JWA.JWK.OctKeyParameters k)) s = signOct SHA384 k s
-sign' JWA.JWS.HS512 (JWA.JWK.OctKeyMaterial _ (JWA.JWK.OctKeyParameters k)) s = signOct SHA512 k s
-sign' JWA.JWS.RS256 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA256 s
-sign' JWA.JWS.RS384 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA384 s
-sign' JWA.JWS.RS512 (JWA.JWK.RSAKeyMaterial _ k) s = signRSA k hashDescrSHA512 s
-sign' alg _ _ = error $ "algorithm " ++ show alg ++ " not implemented"
+verifyJWS :: JWK -> JWS -> Bool
+verifyJWS k (JWS p sigs) = any (verifySig k p) sigs  -- TODO `any` or `all`?
 
-signOct
-  :: HashAlgorithm a
-  => a -> Types.Base64Octets -> BSL.ByteString -> BS.ByteString
-signOct a (Types.Base64Octets k) m = toBytes $ hmacAlg a k (BSL.toStrict m)
-
-signRSA
-  :: JWA.JWK.RSAKeyParameters -> HashDescr -> BSL.ByteString -> BS.ByteString
-signRSA k h m = either (error . show) id $
-  Crypto.PubKey.RSA.PKCS15.sign Nothing h (keyRSAPrivate k) (BSL.toStrict m)
-  where
-    keyRSAPrivate (
-      JWA.JWK.RSAPrivateKeyParameters
-      (Types.SizedBase64Integer size n)
-      (Types.Base64Integer e)
-      (Types.Base64Integer d)
-      _) = PrivateKey (PublicKey size n e) d 0 0 0 0 0
-    keyRSAPrivate _ = error "not an RSA private key"
-
-validate :: JWK -> JWS -> Bool
-validate k (JWS p sigs) = any (validateSig k p) sigs
-
-validateSig :: JWK -> Types.Base64Octets -> Signature -> Bool
-validateSig k m (Signature h (Types.Base64Octets s))
-  = validate' (headerAlg h) (jwkMaterial k) (signingInput h m) s
-
-validate'
-  :: JWA.JWS.Alg
-  -> JWA.JWK.KeyMaterial
-  -> BSL.ByteString
-  -> BS.ByteString
-  -> Bool
-validate' JWA.JWS.None _ _ s = s == ""
-validate' JWA.JWS.HS256 k m s = sign' JWA.JWS.HS256 k m == s
-validate' JWA.JWS.HS384 k m s = sign' JWA.JWS.HS384 k m == s
-validate' JWA.JWS.HS512 k m s = sign' JWA.JWS.HS512 k m == s
-validate' JWA.JWS.RS256 (JWA.JWK.RSAKeyMaterial _ k) m s
-  = validateRSA k hashDescrSHA256 m s
-validate' JWA.JWS.RS384 (JWA.JWK.RSAKeyMaterial _ k) m s
-  = validateRSA k hashDescrSHA384 m s
-validate' JWA.JWS.RS512 (JWA.JWK.RSAKeyMaterial _ k) m s
-  = validateRSA k hashDescrSHA512 m s
-validate' alg _ _ _ = error $ "algorithm " ++ show alg ++ " not implemented"
-
-validateRSA
-  :: JWA.JWK.RSAKeyParameters
-  -> HashDescr
-  -> BSL.ByteString
-  -> BS.ByteString
-  -> Bool
-validateRSA k h m = Crypto.PubKey.RSA.PKCS15.verify h (key k) (BSL.toStrict m)
-  where
-    key (JWA.JWK.RSAPrivateKeyParameters
-      (Types.SizedBase64Integer size n)
-      (Types.Base64Integer e)
-      _
-      _
-      ) = PublicKey size n e
-    key (JWA.JWK.RSAPublicKeyParameters
-      (Types.SizedBase64Integer size n)
-      (Types.Base64Integer e)
-      ) = PublicKey size n e
+verifySig :: JWK -> Types.Base64Octets -> Signature -> Bool
+verifySig k m (Signature h (Types.Base64Octets s))
+  = verify (headerAlg h) k (BSL.toStrict $ signingInput h m) s
