@@ -166,7 +166,7 @@ instance ToCompact JWT where
 
 
 validateJWT :: JWK -> JWT -> Bool
-validateJWT k (JWT (JWTJWS jws) _) = Crypto.JOSE.JWS.validate k jws
+validateJWT k (JWT (JWTJWS jws) _) = verifyJWS k jws
 
 
 data JWTHeader = JWSHeader Crypto.JOSE.JWS.Header  -- TODO JWE
@@ -174,4 +174,4 @@ data JWTHeader = JWSHeader Crypto.JOSE.JWS.Header  -- TODO JWE
 createJWT :: JWK -> JWTHeader -> ClaimsSet -> JWT
 createJWT k (JWSHeader h) c = JWT (JWTJWS jws) c where
   payload = Base64Octets $ BSL.toStrict $ encode c
-  jws = Crypto.JOSE.JWS.sign (Crypto.JOSE.JWS.JWS payload []) h k
+  jws = signJWS (Crypto.JOSE.JWS.JWS payload []) h k
