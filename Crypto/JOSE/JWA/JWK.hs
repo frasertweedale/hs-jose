@@ -20,6 +20,7 @@
 module Crypto.JOSE.JWA.JWK where
 
 import Control.Applicative
+import Control.Arrow
 
 import Crypto.Hash
 import Crypto.PubKey.HashDescr
@@ -210,8 +211,8 @@ verifyRSA h k = Crypto.PubKey.RSA.PKCS15.verify h (publicKey k) where
     (Types.Base64Integer e)
     ) = PublicKey size n e
 
-genRSA :: Int -> IO (KeyMaterial, KeyMaterial)
-genRSA size =
+genRSAParams :: Int -> IO (RSAKeyParameters, RSAKeyParameters)
+genRSAParams size =
   let
     i = Types.Base64Integer
     si = Types.SizedBase64Integer
@@ -219,13 +220,15 @@ genRSA size =
     ent <- createEntropyPool
     ((PublicKey s n e, PrivateKey _ d p q dp dq qi), _) <-
       return $ generate (cprgCreate ent :: SystemRNG) size 65537
-    return (
-      RSAKeyMaterial RSA (RSAPublicKeyParameters (si s n) (i e))
-      , RSAKeyMaterial RSA (
-        RSAPrivateKeyParameters (si s n) (i e) (i d)
+    return
+      ( RSAPublicKeyParameters (si s n) (i e)
+      , RSAPrivateKeyParameters (si s n) (i e) (i d)
           (Just (RSAPrivateKeyOptionalParameters
-            (i p) (i q) (i dp) (i dq) (i qi) Nothing)))
+            (i p) (i q) (i dp) (i dq) (i qi) Nothing))
       )
+
+genRSA :: Int -> IO (KeyMaterial, KeyMaterial)
+genRSA = fmap (RSAKeyMaterial RSA *** RSAKeyMaterial RSA) . genRSAParams
 
 
 newtype OctKeyParameters = OctKeyParameters Types.Base64Octets

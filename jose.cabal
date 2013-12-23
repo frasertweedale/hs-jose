@@ -26,6 +26,7 @@ library
     Crypto.JOSE.JWA.JWS
     Crypto.JOSE.JWK
     Crypto.JOSE.JWS
+    Crypto.JOSE.Legacy
 
   other-modules:
     Crypto.JOSE.JWA.JWE
