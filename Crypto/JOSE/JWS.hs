@@ -32,6 +32,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as E
 import Data.Traversable (sequenceA)
 import qualified Data.Vector as V
 
@@ -177,18 +178,25 @@ parseHeader _ (Just u) = parseHeaderWith (u .:) (u .:?) (if M.member "crit" u
   else pure Nothing)
 parseHeader _ _ = fail "no protected or unprotected header given"
 
+
+newtype JSONByteString = JSONByteString { bs :: BS.ByteString }
+
+instance FromJSON JSONByteString where
+  parseJSON = withText "JSON bytestring" (return . JSONByteString . E.encodeUtf8)
+
 instance FromJSON Signature where
   parseJSON = withObject "signature" (\o -> Signature
     <$> do
       protectedEncoded <- o .:? "protected"
       protectedJSON <- maybe
         (pure Nothing)
-        (withText "base64 encoded header" (Types.parseB64Url (return . Just)))
+        (withText "base64 encoded header"
+          (Types.parseB64Url (return . Just . JSONByteString)))
         protectedEncoded
       protected <- maybe
         (pure Nothing)
         (return . decode . BSL.fromStrict)
-        protectedJSON
+        (fmap bs protectedJSON)
       unprotected <- o .:? "header"
       parseHeader protected unprotected
     <*> o .: "signature")

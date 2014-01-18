@@ -21,7 +21,6 @@ module JWS where
 import Data.Maybe
 
 import Data.Aeson
-import Data.Attoparsec.Number
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64.URL as B64U
@@ -45,10 +44,10 @@ spec = do
   appendixA5Spec
   appendixA6Spec
 
-critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $ do
+critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $
   it "parses from JSON correctly" $ do
     decode good `shouldBe`
-      Just (CritParameters $ M.fromList [("exp", Number (I 1363284000))])
+      Just (CritParameters $ M.fromList [("exp", Number 1363284000)])
     decode "{}" `shouldBe` (Nothing :: Maybe CritParameters)
     decode missingParam `shouldBe` (Nothing :: Maybe CritParameters)
     decode critNotArray `shouldBe` (Nothing :: Maybe CritParameters)
@@ -61,12 +60,12 @@ critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $ do
       critValueNotString = "{\"alg\":\"ES256\",\"crit\":[1234]}"
       critValueNotValid = "{\"alg\":\"ES256\",\"crit\":[\"crit\"]}"
 
-critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $ do
-  it "parses from JSON correctly" $ do
+critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $
+  it "parses from JSON correctly" $
     decode s `shouldBe` Just ((algHeader JWA.JWS.ES256) { headerCrit = Just critValue })
     where
       s = "{\"alg\":\"ES256\",\"crit\":[\"exp\"],\"exp\":1363284000}"
-      critValue = CritParameters $ M.fromList [("exp", Number (I 1363284000))]
+      critValue = CritParameters $ M.fromList [("exp", Number 1363284000)]
 
 
 headerSpec = describe "(unencoded) Header" $ do
