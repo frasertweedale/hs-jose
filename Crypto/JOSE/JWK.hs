@@ -15,6 +15,7 @@
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Crypto.JOSE.JWK
@@ -80,7 +81,7 @@ data JWK =
   JWK {
     jwkMaterial :: JWA.JWK.KeyMaterial,
     jwkUse :: Maybe KeyUse,
-    jwkOps :: Maybe [KeyOp],
+    jwkKeyOps :: Maybe [KeyOp],
     jwkAlg :: Maybe Alg,
     jwkKid :: Maybe String,
     jwkX5u :: Maybe Types.URI,
@@ -101,16 +102,16 @@ instance FromJSON JWK where
     o .:? "x5c")
 
 instance ToJSON JWK where
-  toJSON (JWK key use key_ops alg kid x5u x5t x5c) = object $ catMaybes
-    [ fmap ("alg" .=) alg
-    , fmap ("use" .=) use
-    , fmap ("key_ops" .=) key_ops
-    , fmap ("kid" .=) kid
-    , fmap ("x5u" .=) x5u
-    , fmap ("x5t" .=) x5t
-    , fmap ("x5c" .=) x5c
+  toJSON (JWK {..}) = object $ catMaybes
+    [ fmap ("alg" .=) jwkAlg
+    , fmap ("use" .=) jwkUse
+    , fmap ("key_ops" .=) jwkKeyOps
+    , fmap ("kid" .=) jwkKid
+    , fmap ("x5u" .=) jwkX5u
+    , fmap ("x5t" .=) jwkX5t
+    , fmap ("x5c" .=) jwkX5c
     ]
-    ++ Types.objectPairs (toJSON key)
+    ++ Types.objectPairs (toJSON jwkMaterial)
 
 instance Key JWK where
   sign h k = sign h $ jwkMaterial k

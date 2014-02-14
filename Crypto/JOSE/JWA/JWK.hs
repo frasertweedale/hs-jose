@@ -15,6 +15,7 @@
 -- along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Crypto.JOSE.JWA.JWK where
@@ -99,13 +100,13 @@ instance FromJSON RSAPrivateKeyOptionalParameters where
     o .:? "oth")
 
 instance ToJSON RSAPrivateKeyOptionalParameters where
-  toJSON (RSAPrivateKeyOptionalParameters p q dp dq qi oth) = object $ [
-    "p" .= p
-    , "q" .= q
-    , "dp" .= dp
-    , "dq" .= dq
-    , "dq" .= qi
-    ] ++ maybe [] ((:[]) . ("oth" .=)) oth
+  toJSON (RSAPrivateKeyOptionalParameters {..}) = object $ [
+    "p" .= rsaP
+    , "q" .= rsaQ
+    , "dp" .= rsaDp
+    , "dq" .= rsaDq
+    , "dq" .= rsaQi
+    ] ++ maybe [] ((:[]) . ("oth" .=)) rsaOth
 
 
 --
@@ -130,10 +131,10 @@ instance FromJSON ECKeyParameters where
 
 instance ToJSON ECKeyParameters where
   toJSON (ECPrivateKeyParameters d) = object ["d" .= d]
-  toJSON (ECPublicKeyParameters crv x y) = object [
-    "crv" .= crv
-    , "x" .= x
-    , "y" .= y
+  toJSON (ECPublicKeyParameters {..}) = object [
+    "crv" .= ecCrv
+    , "x" .= ecX
+    , "y" .= ecY
     ]
 
 instance Key ECKeyParameters where
@@ -166,11 +167,11 @@ instance FromJSON RSAKeyParameters where
     <|> RSAPublicKeyParameters <$> o .: "n" <*> o .: "e")
 
 instance ToJSON RSAKeyParameters where
-  toJSON (RSAPrivateKeyParameters n e d params) = object $
-    ("n" .= n)
-    : ("e" .= e)
-    : ("d" .= d)
-    : maybe [] (Types.objectPairs . toJSON) params
+  toJSON (RSAPrivateKeyParameters {..}) = object $
+    ("n" .= rsaN)
+    : ("e" .= rsaE)
+    : ("d" .= rsaD)
+    : maybe [] (Types.objectPairs . toJSON) rsaOptionalParameters
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
 
 instance Key RSAKeyParameters where
