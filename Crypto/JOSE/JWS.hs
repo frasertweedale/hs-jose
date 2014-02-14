@@ -86,10 +86,10 @@ data Header = Header
   { headerAlg :: JWA.JWS.Alg
   , headerJku :: Maybe Types.URI  -- JWK Set URL
   , headerJwk :: Maybe JWK
+  , headerKid :: Maybe String  -- interpretation unspecified
   , headerX5u :: Maybe Types.URI
   , headerX5t :: Maybe Types.Base64SHA1
   , headerX5c :: Maybe [Types.Base64X509] -- TODO implement min len of 1
-  , headerKid :: Maybe String  -- interpretation unspecified
   , headerTyp :: Maybe String  -- Content Type (of object)
   , headerCty :: Maybe String  -- Content Type (of payload)
   , headerCrit :: Maybe CritParameters
@@ -100,8 +100,8 @@ data Header = Header
 instance Eq Header where
   a == b =
     let
-      ignoreRaw (Header alg jku jwk x5u x5t x5c kid typ cty crit _)
-        = (alg, jku, jwk, x5u, x5t, x5c, kid, typ, cty, crit)
+      ignoreRaw (Header alg jku jwk kid x5u x5t x5c typ cty crit _)
+        = (alg, jku, jwk, kid, x5u, x5t, x5c, typ, cty, crit)
     in
       ignoreRaw a == ignoreRaw b
 
@@ -114,10 +114,10 @@ parseHeaderWith req opt crit = Header
     <$> req "alg"
     <*> opt "jku"
     <*> opt "jwk"
+    <*> opt "kid"
     <*> opt "x5u"
     <*> opt "x5t"
     <*> opt "x5c"
-    <*> opt "kid"
     <*> opt "typ"
     <*> opt "cty"
     <*> crit
@@ -133,14 +133,14 @@ instance FromJSON Header where
     parseHeaderWith (o .:) (o .:?) (parseCrit o))
 
 instance ToJSON Header where
-  toJSON (Header alg jku jwk x5u x5t x5c kid typ cty crit _) = object $ catMaybes [
+  toJSON (Header alg jku jwk kid x5u x5t x5c typ cty crit _) = object $ catMaybes [
     Just ("alg" .= alg)
     , fmap ("jku" .=) jku
     , fmap ("jwk" .=) jwk
+    , fmap ("kid" .=) kid
     , fmap ("x5u" .=) x5u
     , fmap ("x5t" .=) x5t
     , fmap ("x5c" .=) x5c
-    , fmap ("kid" .=) kid
     , fmap ("typ" .=) typ
     , fmap ("cty" .=) cty
     ]
