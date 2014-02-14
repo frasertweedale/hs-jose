@@ -56,65 +56,20 @@ instance ToJSON Alg where
 
 
 --
--- JWK §3.3.  "use_detail" (Key Use Details) Parameter
+-- JWK §3.3.  "key_ops" (Key Operations) Parameter
 --
 
-$(Crypto.JOSE.TH.deriveJOSEType "KeyUseDetailSig" ["sign", "verify"])
-$(Crypto.JOSE.TH.deriveJOSEType "KeyUseDetailEnc"
-  ["encrypt", "decrypt", "wrap", "unwrap", "deriveKey", "deriveBits"])
-
-data KeyUseDetail
-  = KeyUseDetailSig KeyUseDetailSig
-  | KeyUseDetailEnc KeyUseDetailEnc
-  deriving (Eq, Show)
-
-instance FromJSON KeyUseDetail where
-  parseJSON v
-      = (KeyUseDetailSig <$> parseJSON v)
-    <|> (KeyUseDetailEnc <$> parseJSON v)
-
-instance ToJSON KeyUseDetail where
-  toJSON (KeyUseDetailSig a) = toJSON a
-  toJSON (KeyUseDetailEnc a) = toJSON a
+$(Crypto.JOSE.TH.deriveJOSEType "KeyOp"
+  [ "sign", "verify", "encrypt", "decrypt"
+  , "wrap", "unwrap", "deriveKey", "deriveBits"
+  ])
 
 
 --
--- JWK §3.2.  "use" (Key Use) Parameter
+-- JWK §3.2.  "use" (Public Key Use) Parameter
 --
 
-$(Crypto.JOSE.TH.deriveJOSEType "KeyUseSig" ["sig"])
-$(Crypto.JOSE.TH.deriveJOSEType "KeyUseEnc" ["enc"])
-
-newtype KeyUseOther = Some String deriving (Eq, Show)
-
-instance FromJSON KeyUseOther where
-  parseJSON = withText "other Key Use" (\s -> if s /= "sig" && s /= "enc"
-    then parseJSON (String s)
-    else fail "mixed use_detail must not be used with sig or enc")
-
-instance ToJSON KeyUseOther where
-  toJSON (Some s) = toJSON s
-
-
-data KeyUse
-  = KeyUseSig KeyUseSig (Maybe [KeyUseDetailSig])
-  | KeyUseEnc KeyUseEnc (Maybe [KeyUseDetailEnc])
-  | KeyUseOther (Maybe KeyUseOther) (Maybe [KeyUseDetail])
-  deriving (Eq, Show)
-
-instance FromJSON KeyUse where
-  parseJSON = withObject "Key Use" (\o ->
-    KeyUseSig <$> o .: "use" <*> o .:? "use_details"
-    <|> KeyUseEnc <$> o .: "use" <*> o .:? "use_details"
-    <|> KeyUseOther <$> o .:? "use" <*> o .:? "use_details")
-
-instance ToJSON KeyUse where
-  toJSON (KeyUseSig use det) = object $
-    catMaybes [Just ("use" .= use), fmap ("use_detail" .=) det]
-  toJSON (KeyUseEnc use det) = object $
-    catMaybes [Just ("use" .= use), fmap ("use_detail" .=) det]
-  toJSON (KeyUseOther use det) = object $
-    catMaybes [fmap ("use" .=) use, fmap ("use_detail" .=) det]
+$(Crypto.JOSE.TH.deriveJOSEType "KeyUse" ["sig", "enc"])
 
 
 --
@@ -124,7 +79,8 @@ instance ToJSON KeyUse where
 data JWK =
   JWK {
     jwkMaterial :: JWA.JWK.KeyMaterial,
-    jwkUse :: KeyUse,
+    jwkUse :: Maybe KeyUse,
+    jwkOps :: Maybe [KeyOp],
     jwkAlg :: Maybe Alg,
     jwkKid :: Maybe String,
     jwkX5u :: Maybe Types.URI,
@@ -136,7 +92,8 @@ data JWK =
 instance FromJSON JWK where
   parseJSON = withObject "JWK" (\o -> JWK <$>
     parseJSON (Object o) <*>
-    parseJSON (Object o) <*>
+    o .:? "use" <*>
+    o .:? "key_ops" <*>
     o .:? "alg" <*>
     o .:? "kid" <*>
     o .:? "x5u" <*>
@@ -144,22 +101,23 @@ instance FromJSON JWK where
     o .:? "x5c")
 
 instance ToJSON JWK where
-  toJSON (JWK key use alg kid x5u x5t x5c) = object $ catMaybes
+  toJSON (JWK key use key_ops alg kid x5u x5t x5c) = object $ catMaybes
     [ fmap ("alg" .=) alg
+    , fmap ("use" .=) use
+    , fmap ("key_ops" .=) key_ops
     , fmap ("kid" .=) kid
     , fmap ("x5u" .=) x5u
     , fmap ("x5t" .=) x5t
     , fmap ("x5c" .=) x5c
     ]
     ++ Types.objectPairs (toJSON key)
-    ++ Types.objectPairs (toJSON use)
 
 instance Key JWK where
   sign h k = sign h $ jwkMaterial k
   verify h k = verify h $ jwkMaterial k
 
 materialJWK :: JWA.JWK.KeyMaterial -> JWK
-materialJWK m = JWK m (KeyUseOther n n) n n n n n where n = Nothing
+materialJWK m = JWK m n n n n n n n where n = Nothing
 
 genRSA :: Int -> IO (JWK, JWK)
 genRSA = fmap (materialJWK *** materialJWK) . JWA.JWK.genRSA
