@@ -34,7 +34,7 @@ library
     Crypto.JOSE.TH
 
   build-depends:
-    base == 4.6.*,
+    base == 4.*,
     attoparsec,
     base64-bytestring == 1.0.*,
     byteable == 0.1.*,
