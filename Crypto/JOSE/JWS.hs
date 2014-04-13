@@ -255,7 +255,7 @@ instance ToCompact JWS where
 
 instance FromCompact JWS where
   fromCompact [h, p, s] = do
-    h' <- fmap (\h' -> h' { headerRaw = Just $ BSL.toStrict h }) $ decodeO h
+    h' <- (\h' -> h' { headerRaw = Just $ BSL.toStrict h }) <$> decodeO h
     p' <- maybe (Left "payload decode failed") Right $ decodeS p
     s' <- maybe (Left "sig decode failed") Right $ decodeS s
     return $ JWS p' [Signature h' s']
