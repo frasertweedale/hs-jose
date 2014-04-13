@@ -62,7 +62,7 @@ instance ToJSON Alg where
 
 $(Crypto.JOSE.TH.deriveJOSEType "KeyOp"
   [ "sign", "verify", "encrypt", "decrypt"
-  , "wrap", "unwrap", "deriveKey", "deriveBits"
+  , "wrapKey", "unwrapKey", "deriveKey", "deriveBits"
   ])
 
 
