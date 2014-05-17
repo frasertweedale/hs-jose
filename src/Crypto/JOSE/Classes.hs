@@ -12,12 +12,20 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-|
+
+Type classes for use with the JOSE modules.
+
+-}
 module Crypto.JOSE.Classes where
 
 import qualified Data.ByteString as B
 
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 
+-- | A Key that can sign messages and validate signatures according
+-- to a given 'Alg'.
+--
 class Key k where
   sign :: JWA.JWS.Alg -> k -> B.ByteString -> B.ByteString
   verify :: JWA.JWS.Alg -> k -> B.ByteString -> B.ByteString -> Bool
