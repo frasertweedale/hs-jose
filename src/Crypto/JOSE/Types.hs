@@ -14,6 +14,11 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
+{-|
+
+Data types for the JOSE library.
+
+-}
 module Crypto.JOSE.Types where
 
 import Control.Applicative
@@ -28,6 +33,8 @@ import qualified Network.URI
 import Crypto.JOSE.Types.Internal
 
 
+-- | A base64url encoded octet sequence interpreted as an integer.
+--
 newtype Base64Integer = Base64Integer Integer
   deriving (Eq, Show)
 
@@ -39,6 +46,10 @@ instance ToJSON Base64Integer where
   toJSON (Base64Integer x) = encodeB64Url $ integerToBS x
 
 
+-- | A base64url encoded octet sequence interpreted as an integer
+-- and where the number of octets carries explicit bit-length
+-- information.
+--
 data SizedBase64Integer = SizedBase64Integer Int Integer
   deriving (Eq, Show)
 
@@ -51,6 +62,9 @@ instance ToJSON SizedBase64Integer where
     where zeroPad xs = BS.replicate (s - BS.length xs) 0 `BS.append` xs
 
 
+-- | A base64url encoded string.  This is used for the JWE
+-- /Agreement PartyUInfo/ and /Agreement PartyVInfo/ fields.
+--
 newtype Base64UrlString = Base64UrlString BS.ByteString
   deriving (Eq, Show)
 
@@ -58,6 +72,9 @@ instance FromJSON Base64UrlString where
   parseJSON = withText "base64url string" $ parseB64Url $ pure . Base64UrlString
 
 
+-- | A base64url encoded octet sequence.  Used for payloads,
+-- signatures, symmetric keys, salts, initialisation vectors, etc.
+--
 newtype Base64Octets = Base64Octets BS.ByteString
   deriving (Eq, Show)
 
@@ -68,6 +85,9 @@ instance ToJSON Base64Octets where
   toJSON (Base64Octets bytes) = encodeB64Url bytes
 
 
+-- | A base64url encoded SHA-1 digest.  Used for X.509 certificate
+-- thumbprints.
+--
 newtype Base64SHA1 = Base64SHA1 BS.ByteString
   deriving (Eq, Show)
 
@@ -81,6 +101,8 @@ instance ToJSON Base64SHA1 where
   toJSON (Base64SHA1 bytes) = encodeB64Url bytes
 
 
+-- | A base64 encoded X.509 certificate.
+--
 newtype Base64X509 = Base64X509 X509
   deriving (Eq, Show)
 
@@ -92,6 +114,8 @@ instance ToJSON Base64X509 where
   toJSON (Base64X509 x509) = encodeB64 $ BSL.toStrict $ encodeCertificate x509
 
 
+-- | A URI.  Used for X.509 certificate and JWK Set URLs.
+--
 newtype URI = URI Network.URI.URI deriving (Eq, Show)
 
 instance FromJSON URI where
