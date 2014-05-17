@@ -1,5 +1,5 @@
 -- This file is part of jose - web crypto library
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- jose is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -31,7 +31,9 @@ import qualified Crypto.JOSE.TH
 
 $(Crypto.JOSE.TH.deriveJOSEType "Alg" [
   "RSA1_5"                -- RSAES-PKCS1-V1_5                       Required
-  , "RSA-OAEP"            -- RSAES using OAEP                       Optional
+  , "RSA-OAEP"            -- RSAES OAEP using default parameters    Optional
+  , "RSA-OAEP-256"        -- RSAES OAEP using SHA-256 and MGF1
+                          --   with SHA-256                         Optional
   , "A128KW"              -- AES Key Wrap                           Recommended
   , "A192KW"              -- AES Key Wrap                           Optional
   , "A256KW"              -- AES Key Wrap                           Recommended
