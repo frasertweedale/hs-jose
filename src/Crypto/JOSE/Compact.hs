@@ -14,20 +14,35 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
+{-|
+
+JWS, JWE and some related specifications provide for "compact"
+representations of certain types.  This module defines classes and
+functions for working with such data.
+
+-}
 module Crypto.JOSE.Compact where
 
 import qualified Data.ByteString.Lazy as L
 
 
+-- | Data that can be parsed from a compact representation.
+--
 class FromCompact a where
   fromCompact :: [L.ByteString] -> Either String a
 
+-- | Decode a compact representation.
+--
 decodeCompact :: FromCompact a => L.ByteString -> Either String a
 decodeCompact = fromCompact . L.split 46
 
 
+-- | Data that can be converted to a compact representation.
+--
 class ToCompact a where
   toCompact :: a -> Either String [L.ByteString]
 
+-- | Encode data to a compact representation.
+--
 encodeCompact :: ToCompact a => a -> Either String L.ByteString
 encodeCompact = fmap (L.intercalate ".") . toCompact
