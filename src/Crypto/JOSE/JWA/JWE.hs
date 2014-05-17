@@ -15,6 +15,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+{-|
+
+JSON Web Encryption data types specified under JSON Web Algorithms.
+
+-}
 module Crypto.JOSE.JWA.JWE where
 
 import Crypto.JOSE.JWK
@@ -26,9 +31,8 @@ import Crypto.JOSE.Types
 -- JWA §4.  Cryptographic Algorithms for Encryption
 --
 
+-- | JWA 4.1.  "alg" (Algorithms) Header Parameter Values for JWE
 --
--- JWA 4.1.  "alg" (Algorithms) Header Parameter Values for JWE
-
 data JWEAlgHeaderParameters =
   -- JWA §4.7.1.  Header Parameters Used for ECDH Key Agreement
   ECDHParameters {
@@ -49,10 +53,8 @@ data JWEAlgHeaderParameters =
   deriving (Show)
 
 
+-- | JWA §4.2.  "enc" (Encryption Method) Header Parameters Values for JWE
 --
--- JWA §4.2.  "enc" (Encryption Method) Header Parameters Values for JWE
---
-
 $(deriveJOSEType "Enc" [
   "A128CBC-HS256"   -- AES HMAC SHA authenticated encryption  Required
   , "A192CBC-HS384" -- AES HMAC SHA authenticated encryption  Optional
