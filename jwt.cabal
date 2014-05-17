@@ -38,6 +38,7 @@ library
     , jose == 0.1.0.*
 
   ghc-options:  -Werror -Wall
+  hs-source-dirs: src
 
 test-suite tests
   default-language:    Haskell2010
