@@ -16,7 +16,32 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Crypto.JOSE.JWA.JWK where
+{-|
+
+Cryptographic Algorithms for Keys.
+
+-}
+module Crypto.JOSE.JWA.JWK (
+  -- * \"kty\" (Key Type) Parameter Values
+    EC(..)
+  , RSA(..)
+  , Oct(..)
+
+  -- * Parameters for Elliptic Curve Keys
+  , ECKeyParameters(..)
+
+  -- * Parameters for RSA Keys
+  , RSAPrivateKeyOthElem(..)
+  , RSAPrivateKeyOptionalParameters(..)
+  , RSAKeyParameters(..)
+  , genRSAParams
+  , genRSA
+
+  -- * Parameters for Symmetric Keys
+  , OctKeyParameters(..)
+
+  , KeyMaterial(..)
+  ) where
 
 import Control.Applicative
 import Control.Arrow
@@ -38,26 +63,21 @@ import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
 
 
---
--- JWA §5.1.  "kty" (Key Type) Parameter Values
---
+-- | Elliptic Curve key type (Recommeded+)
+$(Crypto.JOSE.TH.deriveJOSEType "EC" ["EC"])
+-- | RSA key type (Required)
+$(Crypto.JOSE.TH.deriveJOSEType "RSA" ["RSA"])
+-- | Octet sequence (symmetric key) key type (Required)
+$(Crypto.JOSE.TH.deriveJOSEType "Oct" ["oct"])
 
-$(Crypto.JOSE.TH.deriveJOSEType "EC" ["EC"])    -- Recommended+
-$(Crypto.JOSE.TH.deriveJOSEType "RSA" ["RSA"])  -- Required
-$(Crypto.JOSE.TH.deriveJOSEType "Oct" ["oct"])  -- Required
 
-
+-- | \"crv\" (Curve) Parameter
 --
--- JWA §5.2.1.1.  "crv" (Curve) Parameter
---
-
 $(Crypto.JOSE.TH.deriveJOSEType "Crv" ["P-256", "P-384", "P-521"])
 
 
+-- | \"oth\" (Other Primes Info) Parameter
 --
--- JWA §5.3.2.7.  "oth" (Other Primes Info) Parameter
---
-
 data RSAPrivateKeyOthElem = RSAPrivateKeyOthElem {
   rOth :: Types.Base64Integer,
   dOth :: Types.Base64Integer,
@@ -75,10 +95,8 @@ instance ToJSON RSAPrivateKeyOthElem where
   toJSON (RSAPrivateKeyOthElem r d t) = object ["r" .= r, "d" .= d, "t" .= t]
 
 
+-- | Optional parameters for RSA private keys
 --
--- JWA §5.3.2.  JWK Parameters for RSA Private Keys
---
-
 data RSAPrivateKeyOptionalParameters = RSAPrivateKeyOptionalParameters {
   rsaP :: Types.Base64Integer
   , rsaQ :: Types.Base64Integer
@@ -108,10 +126,8 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
     ] ++ maybe [] ((:[]) . ("oth" .=)) rsaOth
 
 
+-- | Parameters for Elliptic Curve Keys
 --
--- JWA §5.  Cryptographic Algorithms for JWK
---
-
 data ECKeyParameters =
   ECPrivateKeyParameters {
     ecD :: Types.SizedBase64Integer
@@ -141,6 +157,8 @@ instance Key ECKeyParameters where
   verify = error "elliptic curve algorithms not implemented"
 
 
+-- | Parameters for RSA Keys
+--
 data RSAKeyParameters =
   RSAPrivateKeyParameters {
     rsaN :: Types.SizedBase64Integer
@@ -211,6 +229,8 @@ verifyRSA h k = Crypto.PubKey.RSA.PKCS15.verify h (publicKey k) where
     (Types.Base64Integer e)
     ) = PublicKey size n e
 
+-- | Generate RSA public and private key parameters.
+--
 genRSAParams :: Int -> IO (RSAKeyParameters, RSAKeyParameters)
 genRSAParams size =
   let
@@ -227,10 +247,14 @@ genRSAParams size =
             (i p) (i q) (i dp) (i dq) (i qi) Nothing))
       )
 
+-- | Generate RSA public and private key material.
+--
 genRSA :: Int -> IO (KeyMaterial, KeyMaterial)
 genRSA = fmap (RSAKeyMaterial RSA *** RSAKeyMaterial RSA) . genRSAParams
 
 
+-- | Symmetric key parameters data.
+--
 newtype OctKeyParameters = OctKeyParameters Types.Base64Octets
   deriving (Eq, Show)
 
@@ -256,6 +280,8 @@ signOct
 signOct a (OctKeyParameters (Types.Base64Octets k)) m = toBytes $ hmacAlg a k m
 
 
+-- | Key material sum type.
+--
 data KeyMaterial =
   ECKeyMaterial EC ECKeyParameters
   | RSAKeyMaterial RSA RSAKeyParameters
