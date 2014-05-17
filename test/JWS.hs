@@ -30,6 +30,7 @@ import Crypto.JOSE.Compact
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
+import Crypto.JOSE.JWS.Internal
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.Types as Types
 
