@@ -2,8 +2,13 @@ name:                jose
 version:             0.1.0.0
 synopsis:            Javascript Object Signing and Encryption
 description:
-  Implementation of the Javascript Object Signing and Encryption
+  .
+  An implementation of the Javascript Object Signing and Encryption
   (jose) formats.
+  .
+  Currently, only JSON Web Key (JWK) and JSON Web Signature (JWS)
+  are implemented, and only the RSA algorithms.
+
 homepage:            https://github.com/frasertweedale/hs-jose
 bug-reports:         https://github.com/frasertweedale/hs-jose/issues
 license:             Apache-2.0
@@ -52,7 +57,7 @@ library
     certificate == 1.3.*,
     vector
 
-  ghc-options:    -Werror -Wall
+  ghc-options:    -Wall
   hs-source-dirs: src
 
 source-repository head
