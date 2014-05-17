@@ -16,6 +16,14 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+{-|
+
+A JSON Web Key (JWK) is a JavaScript Object Notation (JSON) data
+structure that represents a cryptographic key.  This module also
+defines a JSON Web Key Set (JWK Set) JSON data structure for
+representing a set of JWKs.
+
+-}
 module Crypto.JOSE.JWK
   (
     JWK(..)
@@ -40,10 +48,8 @@ import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
 
 
+-- | JWK §3.3.  "alg" (Algorithm) Parameter
 --
--- JWK §3.3.  "alg" (Algorithm) Parameter
---
-
 data Alg = JWSAlg JWA.JWS.Alg | JWEAlg JWA.JWE.Alg
   deriving (Eq, Show)
 
@@ -55,27 +61,21 @@ instance ToJSON Alg where
   toJSON (JWEAlg alg) = toJSON alg
 
 
+-- | JWK §3.3.  "key_ops" (Key Operations) Parameter
 --
--- JWK §3.3.  "key_ops" (Key Operations) Parameter
---
-
 $(Crypto.JOSE.TH.deriveJOSEType "KeyOp"
   [ "sign", "verify", "encrypt", "decrypt"
   , "wrapKey", "unwrapKey", "deriveKey", "deriveBits"
   ])
 
 
+-- | JWK §3.2.  "use" (Public Key Use) Parameter
 --
--- JWK §3.2.  "use" (Public Key Use) Parameter
---
-
 $(Crypto.JOSE.TH.deriveJOSEType "KeyUse" ["sig", "enc"])
 
 
+-- | JWK §3.  JSON Web Key (JWK) Format
 --
--- JWK §3.  JSON Web Key (JWK) Format
---
-
 data JWK =
   JWK {
     jwkMaterial :: JWA.JWK.KeyMaterial,
@@ -116,17 +116,19 @@ instance Key JWK where
   sign h k = sign h $ jwkMaterial k
   verify h k = verify h $ jwkMaterial k
 
+-- | Construct a minimal JWK from key material.
+--
 materialJWK :: JWA.JWK.KeyMaterial -> JWK
 materialJWK m = JWK m n n n n n n n where n = Nothing
 
+-- | Generate a /(public, private)/ RSA keypair.
+--
 genRSA :: Int -> IO (JWK, JWK)
 genRSA = fmap (materialJWK *** materialJWK) . JWA.JWK.genRSA
 
 
+-- | JWK §4.  JSON Web Key Set (JWK Set) Format
 --
--- JWK §4.  JSON Web Key Set (JWK Set) Format
---
-
 data JWKSet = JWKSet [JWK]
 
 instance FromJSON JWKSet where
