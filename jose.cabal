@@ -6,8 +6,8 @@ description:
   (jose) formats.
 homepage:            https://github.com/frasertweedale/hs-jose
 bug-reports:         https://github.com/frasertweedale/hs-jose/issues
-license:             AGPL-3
-license-file:        agpl-3.0.txt
+license:             Apache-2.0
+license-file:        LICENSE
 extra-source-files:
   README.md
 author:              Fraser Tweedale
