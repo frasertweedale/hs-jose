@@ -1,5 +1,5 @@
 name:                jose
-version:             0.1.0.0
+version:             0.1.26.0
 synopsis:            Javascript Object Signing and Encryption
 description:
   .
@@ -8,6 +8,10 @@ description:
   .
   Currently, only JSON Web Key (JWK) and JSON Web Signature (JWS)
   are implemented, and only the RSA algorithms.
+  .
+  The version number tracks the IETF jose working group draft
+  revisions.  For now, expect breaking API changes on any version
+  change except for the final part being incremented.
 
 homepage:            https://github.com/frasertweedale/hs-jose
 bug-reports:         https://github.com/frasertweedale/hs-jose/issues
