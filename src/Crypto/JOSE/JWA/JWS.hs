@@ -15,15 +15,18 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+{-|
+
+JSON Web Signature algorithms.
+
+-}
 module Crypto.JOSE.JWA.JWS where
 
 import qualified Crypto.JOSE.TH
 
 
+-- | JWA §3.1.  "alg" (Algorithm) Header Parameters for JWS
 --
--- JWA §3.1.  "alg" (Algorithm) Header Parameters for JWS
---
-
 $(Crypto.JOSE.TH.deriveJOSEType "Alg" [
   "HS256"   -- HMAC SHA ; REQUIRED
   , "HS384" -- HMAC SHA ; OPTIONAL
