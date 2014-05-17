@@ -1,4 +1,4 @@
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -14,7 +14,17 @@
 
 {-# LANGUAGE TemplateHaskell #-}
 
-module Crypto.JOSE.TH where
+{-|
+
+Template Haskell shorthand for deriving the /many/ nullary JOSE
+data constructors and associated Aeson instances.
+
+-}
+
+module Crypto.JOSE.TH
+  (
+    deriveJOSEType
+  ) where
 
 import Control.Applicative
 import Data.Aeson
@@ -71,7 +81,17 @@ toJSONFun vs = funD 'toJSON (map toJSONClause vs)
 aesonInstance :: String -> Name -> TypeQ
 aesonInstance s n = appT (conT n) (conT $ mkName s)
 
-deriveJOSEType :: String -> [String] -> Q [Dec]
+-- | Derive a JOSE sum type with nullary data constructors, along
+-- with 'ToJSON' and 'FromJSON' instances
+--
+deriveJOSEType
+  :: String
+  -- ^ Type name.
+  -> [String]
+  -- ^ List of JSON string values.  The corresponding constructor
+  -- is derived by upper-casing the first letter and converting
+  -- non-alpha-numeric characters are converted to underscores.
+  -> Q [Dec]
 deriveJOSEType s vs = sequenceQ [
   dataD (cxt []) (mkName s) [] (map conQ vs) (map mkName ["Eq", "Show"])
   , instanceD (cxt []) (aesonInstance s ''FromJSON) [parseJSONFun vs]
