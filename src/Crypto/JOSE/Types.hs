@@ -17,60 +17,15 @@
 module Crypto.JOSE.Types where
 
 import Control.Applicative
-import Data.Tuple (swap)
 
 import Data.Aeson
-import Data.Aeson.Types
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Base64 as B64
-import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.ByteString.Lazy as BSL
 import Data.Certificate.X509
-import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
 import qualified Network.URI
 
-
-objectPairs :: Value -> [Pair]
-objectPairs (Object o) = M.toList o
-objectPairs _ = []
-
-
-pad :: T.Text -> T.Text
-pad s = s `T.append` T.replicate ((4 - T.length s `mod` 4) `mod` 4) "="
-
-unpad :: T.Text -> T.Text
-unpad = T.dropWhileEnd (== '=')
-
-
-decodeB64 :: T.Text -> Either String BS.ByteString
-decodeB64 = B64.decode . E.encodeUtf8
-
-parseB64 :: FromJSON a => (BS.ByteString -> Parser a) -> T.Text -> Parser a
-parseB64 f = either fail f . decodeB64
-
-encodeB64 :: BS.ByteString -> Value
-encodeB64 = String . E.decodeUtf8 . B64.encode
-
-decodeB64Url :: T.Text -> Either String BS.ByteString
-decodeB64Url = B64U.decode . E.encodeUtf8 . pad
-
-parseB64Url :: FromJSON a => (BS.ByteString -> Parser a) -> T.Text -> Parser a
-parseB64Url f = either fail f . decodeB64Url
-
-encodeB64Url :: BS.ByteString -> Value
-encodeB64Url = String . unpad . E.decodeUtf8 . B64U.encode
-
-
-bsToInteger :: BS.ByteString -> Integer
-bsToInteger = BS.foldl (\acc x -> acc * 256 + toInteger x) 0
-
-integerToBS :: Integer -> BS.ByteString
-integerToBS = BS.reverse . BS.unfoldr (fmap swap . f)
-  where
-    f x = if x == 0 then Nothing else Just (toWord8 $ quotRem x 256)
-    toWord8 (seed, x) = (seed, fromIntegral x)
+import Crypto.JOSE.Types.Internal
 
 
 newtype Base64Integer = Base64Integer Integer

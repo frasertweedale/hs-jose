@@ -32,6 +32,7 @@ library
     Crypto.JOSE.JWA.JWE
     Crypto.JOSE.JWA.JWE.Alg
     Crypto.JOSE.TH
+    Crypto.JOSE.Types.Internal
 
   build-depends:
     base == 4.*,

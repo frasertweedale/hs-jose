@@ -39,6 +39,7 @@ import Crypto.JOSE.Compact
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types as Types
+import qualified Crypto.JOSE.Types.Internal as Types
 
 
 critInvalidNames :: [T.Text]

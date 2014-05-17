@@ -24,7 +24,7 @@ import Data.Aeson
 
 import Crypto.JOSE.Classes
 import Crypto.JOSE.JWA.JWK
-import qualified Crypto.JOSE.Types as Types
+import qualified Crypto.JOSE.Types.Internal as Types
 import Crypto.JOSE.TH
 
 
