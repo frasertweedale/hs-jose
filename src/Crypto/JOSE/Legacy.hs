@@ -15,7 +15,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Crypto.JOSE.Legacy where
+{-|
+
+Types to deal with the legacy JSON Web Key formats used with
+Mozilla Persona.
+
+-}
+module Crypto.JOSE.Legacy
+  (
+    JWK'
+  , genRSA'
+  ) where
 
 import Control.Applicative
 import Control.Arrow
@@ -72,6 +82,8 @@ instance Key KeyMaterial' where
   verify h (RSAKeyMaterial' _ k) = verify h k
 
 
+-- | Legacy JSON Web Key data type.
+--
 newtype JWK' = JWK' KeyMaterial' deriving (Eq, Show)
 
 instance FromJSON JWK' where
@@ -86,6 +98,8 @@ instance Key JWK' where
   verify h (JWK' k) = verify h k
 
 
+-- | Generate a legacy RSA keypair.
+--
 genRSA' :: Int -> IO (JWK', JWK')
 genRSA' =
   let f = JWK' . RSAKeyMaterial' RS . RSAKeyParameters'
