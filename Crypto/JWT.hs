@@ -36,7 +36,6 @@ import Control.Monad
 import Data.Maybe
 
 import Data.Aeson
-import Data.Attoparsec.Number
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
@@ -67,11 +66,12 @@ instance ToJSON StringOrURI where
 newtype IntDate = IntDate UTCTime deriving (Eq, Show)
 
 instance FromJSON IntDate where
-  parseJSON = withNumber "IntDate" $
+  parseJSON = withScientific "IntDate" $
     pure . IntDate . posixSecondsToUTCTime . fromRational . toRational
 
 instance ToJSON IntDate where
-  toJSON (IntDate t) = Number $ I $ floor $ utcTimeToPOSIXSeconds t
+  toJSON (IntDate t)
+    = Number $ fromRational $ toRational $ utcTimeToPOSIXSeconds t
 
 
 -- §4.  JWT Claims
