@@ -102,13 +102,13 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
   it "decodes the example to the correct value" $
     decodeCompact compactJWS `shouldBe` Right jws
 
-  it "round-trips correctly" $ do
+  it "round-trips correctly" $
     (encodeCompact jws >>= decodeCompact) `shouldBe` Right jws
 
   it "computes the HMAC correctly" $
     sign alg jwk (L.toStrict signingInput) `shouldBe` BS.pack macOctets
 
-  it "validates the JWS correctly" $ do
+  it "validates the JWS correctly" $
     fmap (verifyJWS jwk) (decodeCompact compactJWS) `shouldBe` Right True
 
   where
@@ -189,10 +189,10 @@ appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" 
 
 
 appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
-  it "encodes the correct JWS" $ do
+  it "encodes the correct JWS" $
     encodeCompact jws `shouldBe` Right exampleJWS
 
-  it "decodes the correct JWS" $ do
+  it "decodes the correct JWS" $
     decodeCompact exampleJWS `shouldBe` Right jws
 
   where

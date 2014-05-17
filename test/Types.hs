@@ -31,12 +31,12 @@ spec = do
   sizedBase64IntegerSpec
   base64X509Spec
 
-base64UrlSpec = describe "Base64UrlString" $ do
+base64UrlSpec = describe "Base64UrlString" $
   it "can be read from JSON" $ do
     decode "[\"QWxpY2U\"]" `shouldBe` Just [Base64UrlString "Alice"]
     decode "[\"Qm9i\"]"`shouldBe` Just [Base64UrlString "Bob"]
 
-base64OctetsSpec = describe "Base64Octets" $ do
+base64OctetsSpec = describe "Base64Octets" $
   it "can be read from JSON" $ do
     decode "[\"AxY8DCtDaGlsbGljb3RoZQ\"]" `shouldBe` Just [Base64Octets iv]
     decode "[\"9hH0vgRfYgPnAHOd8stkvw\"]" `shouldBe` Just [Base64Octets tag]
@@ -52,7 +52,7 @@ uriSpec = describe "URI typeclasses" $ do
     decode "[\"foo\"]" `shouldBe` (Nothing :: Maybe [URI])
 
   it "gets formatted to JSON correctly" $
-    fmap toJSON (fmap URI $ Network.URI.parseURI "http://example.com")
+    fmap (toJSON . URI) (Network.URI.parseURI "http://example.com")
       `shouldBe` Just (String "http://example.com")
 
 base64IntegerSpec = describe "Base64Integer" $ do
@@ -60,7 +60,7 @@ base64IntegerSpec = describe "Base64Integer" $ do
     decode "[\"AQAC\"]" `shouldBe` Just [Base64Integer 65538]
     decode "[\"????\"]" `shouldBe` (Nothing :: Maybe [Base64Integer])
 
-  it "formats to JSON correctly" $ do
+  it "formats to JSON correctly" $
     toJSON (Base64Integer 65538) `shouldBe` "AQAC"
 
 sizedBase64IntegerSpec = describe "SizedBase64Integer" $ do
@@ -68,13 +68,13 @@ sizedBase64IntegerSpec = describe "SizedBase64Integer" $ do
     decode "[\"AQAC\"]" `shouldBe` Just [SizedBase64Integer 3 65538]
     decode "[\"????\"]" `shouldBe` (Nothing :: Maybe [SizedBase64Integer])
 
-  it "formats to JSON correctly" $ do
+  it "formats to JSON correctly" $
     toJSON (SizedBase64Integer 4 1) `shouldBe` "AAAAAQ"
 
-base64X509Spec = describe "Base64X509" $ do
-  it "parses from JSON correctly and encodes to input string" $ do
-    let decoded = decode x5cExample :: Maybe [Base64X509] in
-      fmap encode decoded `shouldBe` Just x5cExample
+base64X509Spec = describe "Base64X509" $
+  it "parses from JSON correctly and encodes to input string" $
+    let decoded = decode x5cExample :: Maybe [Base64X509]
+    in fmap encode decoded `shouldBe` Just x5cExample
 
 -- JWS Appending B.  "x5c" (X.509 Certificate Chain) Examples
 --
