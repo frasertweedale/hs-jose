@@ -15,18 +15,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 
+{-|
+
+JSON Web Encryption algorithms.
+
+-}
 module Crypto.JOSE.JWA.JWE.Alg where
 
 import qualified Crypto.JOSE.TH
 
 
---
--- JWA §4.1.  "alg" (Algorithm) Header Parameter Values for JWE
+-- | JWA §4.1.  "alg" (Algorithm) Header Parameter Values for JWE
 --
 -- This section is shuffled off into its own module to avoid
 -- circular import via Crypto.JOSE.JWK, which needs Alg.
 --
-
 $(Crypto.JOSE.TH.deriveJOSEType "Alg" [
   "RSA1_5"                -- RSAES-PKCS1-V1_5                       Required
   , "RSA-OAEP"            -- RSAES OAEP using default parameters    Optional
