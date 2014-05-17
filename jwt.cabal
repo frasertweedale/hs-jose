@@ -35,7 +35,7 @@ library
     , text >= 1.1
     , time == 1.4.*
     , unordered-containers == 0.2.*
-    , jose == 0.1.0.*
+    , jose >= 0.1.26
 
   ghc-options:  -Werror -Wall
   hs-source-dirs: src
