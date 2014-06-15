@@ -16,21 +16,19 @@
 
 module JWK where
 
-import Data.Maybe
-
 import Data.Aeson
-import Data.Attoparsec.Number
 import qualified Data.ByteString as BS
-import qualified Data.HashMap.Strict as M
 import Test.Hspec
 
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types as Types
 
+spec :: Spec
 spec =
   jwsAppendixA1Spec
 
+jwsAppendixA1Spec :: Spec
 jwsAppendixA1Spec = describe "JWS A.1.1.  JWK" $ do
   -- can't make aeson encode JSON to exact representation used in
   -- IETF doc, be we can go in reverse and then ensure that the
