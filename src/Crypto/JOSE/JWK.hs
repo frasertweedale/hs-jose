@@ -1,4 +1,4 @@
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -76,29 +76,31 @@ $(Crypto.JOSE.TH.deriveJOSEType "KeyUse" ["sig", "enc"])
 
 -- | JWK §3.  JSON Web Key (JWK) Format
 --
-data JWK =
-  JWK {
-    jwkMaterial :: JWA.JWK.KeyMaterial,
-    jwkUse :: Maybe KeyUse,
-    jwkKeyOps :: Maybe [KeyOp],
-    jwkAlg :: Maybe Alg,
-    jwkKid :: Maybe String,
-    jwkX5u :: Maybe Types.URI,
-    jwkX5t :: Maybe Types.Base64SHA1,
-    jwkX5c :: Maybe [Types.Base64X509]
-    }
+data JWK = JWK
+  {
+    jwkMaterial :: JWA.JWK.KeyMaterial
+  , jwkUse :: Maybe KeyUse
+  , jwkKeyOps :: Maybe [KeyOp]
+  , jwkAlg :: Maybe Alg
+  , jwkKid :: Maybe String
+  , jwkX5u :: Maybe Types.URI
+  , jwkX5c :: Maybe [Types.Base64X509]
+  , jwkX5t :: Maybe Types.Base64SHA1
+  , jwkX5tS256 :: Maybe Types.Base64SHA256
+  }
   deriving (Eq, Show)
 
 instance FromJSON JWK where
-  parseJSON = withObject "JWK" (\o -> JWK <$>
-    parseJSON (Object o) <*>
-    o .:? "use" <*>
-    o .:? "key_ops" <*>
-    o .:? "alg" <*>
-    o .:? "kid" <*>
-    o .:? "x5u" <*>
-    o .:? "x5t" <*>
-    o .:? "x5c")
+  parseJSON = withObject "JWK" $ \o -> JWK
+    <$> parseJSON (Object o)
+    <*> o .:? "use"
+    <*> o .:? "key_ops"
+    <*> o .:? "alg"
+    <*> o .:? "kid"
+    <*> o .:? "x5u"
+    <*> o .:? "x5c"
+    <*> o .:? "x5t"
+    <*> o .:? "x5t#S256"
 
 instance ToJSON JWK where
   toJSON (JWK {..}) = object $ catMaybes
@@ -107,8 +109,9 @@ instance ToJSON JWK where
     , fmap ("key_ops" .=) jwkKeyOps
     , fmap ("kid" .=) jwkKid
     , fmap ("x5u" .=) jwkX5u
-    , fmap ("x5t" .=) jwkX5t
     , fmap ("x5c" .=) jwkX5c
+    , fmap ("x5t" .=) jwkX5t
+    , fmap ("x5t#S256" .=) jwkX5tS256
     ]
     ++ Types.objectPairs (toJSON jwkMaterial)
 
@@ -119,7 +122,7 @@ instance Key JWK where
 -- | Construct a minimal JWK from key material.
 --
 materialJWK :: JWA.JWK.KeyMaterial -> JWK
-materialJWK m = JWK m n n n n n n n where n = Nothing
+materialJWK m = JWK m n n n n n n n n where n = Nothing
 
 -- | Generate a /(public, private)/ RSA keypair.
 --

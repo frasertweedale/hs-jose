@@ -1,4 +1,4 @@
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -99,6 +99,22 @@ instance FromJSON Base64SHA1 where
 
 instance ToJSON Base64SHA1 where
   toJSON (Base64SHA1 bytes) = encodeB64Url bytes
+
+
+-- | A base64url encoded SHA-256 digest.  Used for X.509 certificate
+-- thumbprints.
+--
+newtype Base64SHA256 = Base64SHA256 BS.ByteString
+  deriving (Eq, Show)
+
+instance FromJSON Base64SHA256 where
+  parseJSON = withText "base64url SHA-256" $ parseB64Url (\bytes ->
+    case BS.length bytes of
+      32 -> pure $ Base64SHA256 bytes
+      _  -> fail "incorrect number of bytes")
+
+instance ToJSON Base64SHA256 where
+  toJSON (Base64SHA256 bytes) = encodeB64Url bytes
 
 
 -- | A base64 encoded X.509 certificate.

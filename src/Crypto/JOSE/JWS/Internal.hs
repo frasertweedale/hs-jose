@@ -1,4 +1,4 @@
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -50,6 +50,7 @@ critInvalidNames = [
   , "jwk"
   , "x5u"
   , "x5t"
+  , "x5t#S256"
   , "x5c"
   , "kid"
   , "typ"
@@ -89,8 +90,9 @@ data Header = Header
   , headerJwk :: Maybe JWK
   , headerKid :: Maybe String  -- ^ interpretation unspecified
   , headerX5u :: Maybe Types.URI
-  , headerX5t :: Maybe Types.Base64SHA1
   , headerX5c :: Maybe [Types.Base64X509] -- ^ TODO implement min len of 1
+  , headerX5t :: Maybe Types.Base64SHA1
+  , headerX5tS256 :: Maybe Types.Base64SHA256
   , headerTyp :: Maybe String  -- ^ Content Type (of object)
   , headerCty :: Maybe String  -- ^ Content Type (of payload)
   , headerCrit :: Maybe CritParameters
@@ -101,8 +103,8 @@ data Header = Header
 instance Eq Header where
   a == b =
     let
-      ignoreRaw (Header alg jku jwk kid x5u x5t x5c typ cty crit _)
-        = (alg, jku, jwk, kid, x5u, x5t, x5c, typ, cty, crit)
+      ignoreRaw (Header alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit _)
+        = (alg, jku, jwk, kid, x5u, x5c, x5t, x5tS256, typ, cty, crit)
     in
       ignoreRaw a == ignoreRaw b
 
@@ -118,6 +120,7 @@ parseHeaderWith req opt crit = Header
     <*> opt "kid"
     <*> opt "x5u"
     <*> opt "x5t"
+    <*> opt "x5t#S256"
     <*> opt "x5c"
     <*> opt "typ"
     <*> opt "cty"
@@ -134,14 +137,15 @@ instance FromJSON Header where
     parseHeaderWith (o .:) (o .:?) (parseCrit o))
 
 instance ToJSON Header where
-  toJSON (Header alg jku jwk kid x5u x5t x5c typ cty crit _) = object $ catMaybes [
+  toJSON (Header alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit _) = object $ catMaybes [
     Just ("alg" .= alg)
     , fmap ("jku" .=) jku
     , fmap ("jwk" .=) jwk
     , fmap ("kid" .=) kid
     , fmap ("x5u" .=) x5u
-    , fmap ("x5t" .=) x5t
     , fmap ("x5c" .=) x5c
+    , fmap ("x5t" .=) x5t
+    , fmap ("x5t#S256" .=) x5tS256
     , fmap ("typ" .=) typ
     , fmap ("cty" .=) cty
     ]
@@ -150,7 +154,7 @@ instance ToJSON Header where
 
 -- construct a minimal header with the given alg
 algHeader :: JWA.JWS.Alg -> Header
-algHeader alg = Header alg n n n n n n n n n n where n = Nothing
+algHeader alg = Header alg n n n n n n n n n n n where n = Nothing
 
 
 (.::) :: (FromJSON a) => Object -> Object -> T.Text -> Parser a
