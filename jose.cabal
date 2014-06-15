@@ -1,5 +1,5 @@
 name:                jose
-version:             0.1.26.0
+version:             0.1.27.0
 synopsis:            Javascript Object Signing and Encryption
 description:
   .
@@ -21,7 +21,7 @@ extra-source-files:
   README.md
 author:              Fraser Tweedale
 maintainer:          frase@frase.id.au
-copyright:           Copyright (C) 2013  Fraser Tweedale
+copyright:           Copyright (C) 2013, 2014  Fraser Tweedale
 category:            Cryptography
 build-type:          Simple
 cabal-version:       >= 1.8
