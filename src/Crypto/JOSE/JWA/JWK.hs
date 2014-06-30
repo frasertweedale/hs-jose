@@ -1,4 +1,4 @@
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -129,27 +129,42 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
 -- | Parameters for Elliptic Curve Keys
 --
 data ECKeyParameters =
-  ECPrivateKeyParameters {
-    ecD :: Types.SizedBase64Integer
+  ECPrivateKeyParameters
+    { ecCrv :: Crv
+    , ecX :: Types.SizedBase64Integer
+    , ecY :: Types.SizedBase64Integer
+    , ecD :: Types.SizedBase64Integer
     }
-  | ECPublicKeyParameters {
-    ecCrv :: Crv,
-    ecX :: Types.SizedBase64Integer,
-    ecY :: Types.SizedBase64Integer
+  | ECPublicKeyParameters
+    { ecCrv' :: Crv
+    , ecX' :: Types.SizedBase64Integer
+    , ecY' :: Types.SizedBase64Integer
     }
   deriving (Eq, Show)
 
 instance FromJSON ECKeyParameters where
-  parseJSON = withObject "EC" (\o ->
-    ECPrivateKeyParameters    <$> o .: "d"
-    <|> ECPublicKeyParameters <$> o .: "crv" <*> o .: "x" <*> o .: "y")
+  parseJSON = withObject "EC" $ \o ->
+    ECPrivateKeyParameters
+      <$> o .: "crv"
+      <*> o .: "x"
+      <*> o .: "y"
+      <*> o .: "d"
+    <|> ECPublicKeyParameters
+      <$> o .: "crv"
+      <*> o .: "x"
+      <*> o .: "y"
 
 instance ToJSON ECKeyParameters where
-  toJSON (ECPrivateKeyParameters d) = object ["d" .= d]
-  toJSON (ECPublicKeyParameters {..}) = object [
-    "crv" .= ecCrv
+  toJSON (ECPrivateKeyParameters {..}) = object
+    [ "crv" .= ecCrv
     , "x" .= ecX
     , "y" .= ecY
+    , "d" .= ecD
+    ]
+  toJSON (ECPublicKeyParameters {..}) = object
+    [ "crv" .= ecCrv'
+    , "x" .= ecX'
+    , "y" .= ecY'
     ]
 
 instance Key ECKeyParameters where
