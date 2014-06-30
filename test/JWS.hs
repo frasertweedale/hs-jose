@@ -34,6 +34,7 @@ import Crypto.JOSE.JWS.Internal
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.Types as Types
 
+spec :: Spec
 spec = do
   critSpec
   critSpec'
@@ -43,6 +44,7 @@ spec = do
   appendixA5Spec
   appendixA6Spec
 
+critSpec :: Spec
 critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $
   it "parses from JSON correctly" $ do
     decode good `shouldBe`
@@ -59,6 +61,7 @@ critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $
       critValueNotString = "{\"alg\":\"ES256\",\"crit\":[1234]}"
       critValueNotValid = "{\"alg\":\"ES256\",\"crit\":[\"crit\"]}"
 
+critSpec' :: Spec
 critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $
   it "parses from JSON correctly" $
     decode s `shouldBe` Just ((algHeader JWA.JWS.ES256) { headerCrit = Just critValue })
@@ -67,6 +70,7 @@ critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $
       critValue = CritParameters $ M.fromList [("exp", Number 1363284000)]
 
 
+headerSpec :: Spec
 headerSpec = describe "(unencoded) Header" $ do
   it "parses from JSON correctly" $
     let
@@ -95,6 +99,7 @@ examplePayload = Types.Base64Octets "\
   \ \"http://example.com/is_root\":true}"
 
 
+appendixA1Spec :: Spec
 appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
   -- can't make aeson encode JSON to exact representation used in
   -- IETF doc, be we can go in reverse and then ensure that the
@@ -107,18 +112,18 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     (encodeCompact jws >>= decodeCompact) `shouldBe` Right jws
 
   it "computes the HMAC correctly" $
-    sign alg jwk (L.toStrict signingInput) `shouldBe` BS.pack macOctets
+    sign alg jwk (L.toStrict signingInput') `shouldBe` BS.pack macOctets
 
   it "validates the JWS correctly" $
     fmap (verifyJWS jwk) (decodeCompact compactJWS) `shouldBe` Right True
 
   where
-    signingInput = "\
+    signingInput' = "\
       \eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
-    compactJWS = signingInput `L.append` "\
+    compactJWS = signingInput' `L.append` "\
       \.\
       \dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     jws = JWS examplePayload [signature]
@@ -138,15 +143,16 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
        192,205,154,245,103,208,128,163]
 
 
+appendixA2Spec :: Spec
 appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
-    sign JWA.JWS.RS256 jwk signingInput `shouldBe` sig
+    sign JWA.JWS.RS256 jwk signingInput' `shouldBe` sig
 
   it "validates the signature correctly" $
-    verify JWA.JWS.RS256 jwk signingInput sig `shouldBe` True
+    verify JWA.JWS.RS256 jwk signingInput' sig `shouldBe` True
 
   where
-    signingInput = "\
+    signingInput' = "\
       \eyJhbGciOiJSUzI1NiJ9\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
@@ -189,6 +195,7 @@ appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" 
       251, 71]
 
 
+appendixA5Spec :: Spec
 appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
   it "encodes the correct JWS" $
     encodeCompact jws `shouldBe` Right exampleJWS
@@ -205,6 +212,7 @@ appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
       \."
 
 
+appendixA6Spec :: Spec
 appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
   it "decodes the correct JWS" $
     eitherDecode exampleJWS `shouldBe` Right jws
