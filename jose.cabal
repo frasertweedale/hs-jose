@@ -7,7 +7,13 @@ description:
   (jose) formats.
   .
   Currently, only JSON Web Key (JWK) and JSON Web Signature (JWS)
-  are implemented, and only the RSA algorithms.
+  are implemented.  JSON Web Encryption (JWE) is not yet
+  implemented.
+  .
+  JWS algorithms implemented are HMAC, RSASSA-PKCS-v1_5 and ECDSA.
+  RSASSA-PSS is not yet implemented.  The ECDSA implementation used
+  is vulnerable to timing attacks and should therefore be used only
+  for JWS verification.
   .
   The version number tracks the IETF jose working group draft
   revisions.  For now, expect breaking API changes on any version
@@ -49,7 +55,8 @@ library
     , attoparsec
     , base64-bytestring == 1.0.*
     , byteable == 0.1.*
-    , crypto-pubkey == 0.2.*
+    , crypto-pubkey >= 0.2.3
+    , crypto-pubkey-types >= 0.3.2
     , crypto-random == 0.0.7.*
     , cryptohash == 0.11.*
     , template-haskell >= 2.4
@@ -79,6 +86,7 @@ test-suite tests
     , base64-bytestring
     , byteable
     , crypto-pubkey
+    , crypto-pubkey-types
     , crypto-random
     , cryptohash
     , template-haskell

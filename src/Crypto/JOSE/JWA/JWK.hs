@@ -45,11 +45,15 @@ module Crypto.JOSE.JWA.JWK (
 
 import Control.Applicative
 import Control.Arrow
+import Data.Maybe
 
 import Crypto.Hash
 import Crypto.PubKey.HashDescr
-import Crypto.PubKey.RSA
+import qualified Crypto.PubKey.ECC.ECDSA
+import qualified Crypto.PubKey.RSA
 import qualified Crypto.PubKey.RSA.PKCS15
+import qualified Crypto.Types.PubKey.ECC
+import qualified Crypto.Types.PubKey.ECDSA
 import Crypto.Random
 import Data.Aeson
 import Data.Byteable
@@ -168,8 +172,59 @@ instance ToJSON ECKeyParameters where
     ]
 
 instance Key ECKeyParameters where
-  sign = error "elliptic curve algorithms not implemented"
-  verify = error "elliptic curve algorithms not implemented"
+  sign JWA.JWS.ES256 k@(ECPrivateKeyParameters { ecCrv = P_256 }) =
+    signEC hashDescrSHA256 k
+  sign JWA.JWS.ES384 k@(ECPrivateKeyParameters { ecCrv = P_384 }) =
+    signEC hashDescrSHA384 k
+  sign JWA.JWS.ES512 k@(ECPrivateKeyParameters { ecCrv = P_521 }) =
+    signEC hashDescrSHA512 k
+  sign h _ = error $ "alg/key mismatch: " ++ show h ++ "/ECDSA"
+  verify JWA.JWS.ES256 = verifyEC hashDescrSHA256
+  verify JWA.JWS.ES384 = verifyEC hashDescrSHA384
+  verify JWA.JWS.ES512 = verifyEC hashDescrSHA512
+  verify h = error $ "alg/key mismatch: " ++ show h ++ "/ECDSA"
+
+signEC :: HashDescr -> ECKeyParameters -> B.ByteString -> B.ByteString
+signEC h k@(ECPrivateKeyParameters {..}) m =
+  fromMaybe (error "failed to sign") $ sigToBS <$> sig where
+    sig = Crypto.PubKey.ECC.ECDSA.signWith 0 privateKey (hashFunction h) m
+    sigToBS (Crypto.Types.PubKey.ECDSA.Signature r s) =
+      Types.integerToBS r `B.append` Types.integerToBS s
+    privateKey = Crypto.Types.PubKey.ECDSA.PrivateKey (curve k) (d ecD)
+    d (Types.SizedBase64Integer _ n) = n
+signEC _ _ _ = error "not a private key"
+
+verifyEC
+  :: HashDescr
+  -> ECKeyParameters
+  -> B.ByteString
+  -> B.ByteString
+  -> Bool
+verifyEC h k m s = Crypto.PubKey.ECC.ECDSA.verify (hashFunction h) pubkey sig m
+  where
+    pubkey = Crypto.Types.PubKey.ECDSA.PublicKey (curve k) (point k)
+    sig = uncurry Crypto.Types.PubKey.ECDSA.Signature
+      $ Types.bsToInteger *** Types.bsToInteger
+      $ B.splitAt (B.length s `div` 2) s
+
+curve :: ECKeyParameters -> Crypto.Types.PubKey.ECC.Curve
+curve k = case k of
+ ECPrivateKeyParameters {..} -> curve' ecCrv
+ ECPublicKeyParameters {..} -> curve' ecCrv'
+ where
+  curve' c = Crypto.Types.PubKey.ECC.getCurveByName (curveName c)
+  curveName P_256 = Crypto.Types.PubKey.ECC.SEC_p256r1
+  curveName P_384 = Crypto.Types.PubKey.ECC.SEC_p384r1
+  curveName P_521 = Crypto.Types.PubKey.ECC.SEC_p521r1
+
+point :: ECKeyParameters -> Crypto.Types.PubKey.ECC.Point
+point k = case k of
+ ECPrivateKeyParameters {..} -> point' ecX ecY
+ ECPublicKeyParameters {..} -> point' ecX' ecY'
+ where
+  point' x y = Crypto.Types.PubKey.ECC.Point (integer x) (integer y)
+  integer (Types.SizedBase64Integer _ n) = n
+
 
 
 -- | Parameters for RSA Keys
@@ -223,7 +278,8 @@ signRSA h k m = either (error . show) id $
       (Types.SizedBase64Integer size n)
       (Types.Base64Integer e)
       (Types.Base64Integer d)
-      _) = PrivateKey (PublicKey size n e) d 0 0 0 0 0
+      _) = Crypto.PubKey.RSA.PrivateKey
+        (Crypto.PubKey.RSA.PublicKey size n e) d 0 0 0 0 0
     privateKey _ = error "not an RSA private key"
 
 verifyRSA
@@ -238,11 +294,11 @@ verifyRSA h k = Crypto.PubKey.RSA.PKCS15.verify h (publicKey k) where
     (Types.Base64Integer e)
     _
     _
-    ) = PublicKey size n e
+    ) = Crypto.PubKey.RSA.PublicKey size n e
   publicKey (RSAPublicKeyParameters
     (Types.SizedBase64Integer size n)
     (Types.Base64Integer e)
-    ) = PublicKey size n e
+    ) = Crypto.PubKey.RSA.PublicKey size n e
 
 -- | Generate RSA public and private key parameters.
 --
@@ -253,8 +309,8 @@ genRSAParams size =
     si = Types.SizedBase64Integer
   in do
     ent <- createEntropyPool
-    ((PublicKey s n e, PrivateKey _ d p q dp dq qi), _) <-
-      return $ generate (cprgCreate ent :: SystemRNG) size 65537
+    ((Crypto.PubKey.RSA.PublicKey s n e, Crypto.PubKey.RSA.PrivateKey _ d p q dp dq qi), _) <-
+      return $ Crypto.PubKey.RSA.generate (cprgCreate ent :: SystemRNG) size 65537
     return
       ( RSAPublicKeyParameters (si s n) (i e)
       , RSAPrivateKeyParameters (si s n) (i e) (i d)

@@ -41,6 +41,7 @@ spec = do
   headerSpec
   appendixA1Spec
   appendixA2Spec
+  appendixA3Spec
   appendixA5Spec
   appendixA6Spec
 
@@ -194,6 +195,31 @@ appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" 
       193, 167, 72, 160, 112, 223, 200, 163, 42, 70, 149, 67, 208, 25, 238,
       251, 71]
 
+
+appendixA3Spec :: Spec
+appendixA3Spec = describe "JWS A.3.  Example JWS using ECDSA P-256 SHA-256" $
+  it "validates the signature correctly" $
+    verify JWA.JWS.ES256 jwk signingInput' sig `shouldBe` True
+  where
+    signingInput' = "\
+      \eyJhbGciOiJFUzI1NiJ9\
+      \.\
+      \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
+      \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
+    jwk = fromJust $ decode "\
+      \{\"kty\":\"EC\",\
+      \ \"crv\":\"P-256\",\
+      \ \"x\":\"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU\",\
+      \ \"y\":\"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0\",\
+      \ \"d\":\"jpsQnnGQmL-YBIffH1136cspYG6-0iY7X1fCE9-E9LI\"\
+      \}" :: JWK
+    sig = BS.pack
+      [14, 209, 33, 83, 121, 99, 108, 72, 60, 47, 127, 21, 88,
+      7, 212, 2, 163, 178, 40, 3, 58, 249, 124, 126, 23, 129,
+      154, 195, 22, 158, 166, 101,
+      197, 10, 7, 211, 140, 60, 112, 229, 216, 241, 45, 175,
+      8, 74, 84, 128, 166, 101, 144, 197, 242, 147, 80, 154,
+      143, 63, 127, 138, 131, 163, 84, 213]
 
 appendixA5Spec :: Spec
 appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
