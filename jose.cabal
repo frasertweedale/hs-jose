@@ -36,6 +36,7 @@ library
   exposed-modules:
     Crypto.JOSE.Classes
     Crypto.JOSE.Compact
+    Crypto.JOSE.Error
     Crypto.JOSE.Types
     Crypto.JOSE.JWA.JWK
     Crypto.JOSE.JWA.JWS

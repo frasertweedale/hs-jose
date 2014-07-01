@@ -19,6 +19,7 @@
 module Crypto.JOSE.JWS.Internal where
 
 import Control.Applicative
+import Control.Arrow
 import Data.Char
 import Data.Maybe
 
@@ -37,6 +38,7 @@ import qualified Data.Vector as V
 
 import Crypto.JOSE.Classes
 import Crypto.JOSE.Compact
+import Crypto.JOSE.Error
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types as Types
@@ -235,12 +237,6 @@ encodeO = BSL.reverse . BSL.dropWhile (== c) . BSL.reverse
   . B64UL.encode . encode
   where c = fromIntegral $ ord '='
 
-decodeO :: FromJSON a => BSL.ByteString -> Either String a
-decodeO s = B64UL.decode (pad s) >>= eitherDecode
-  where
-    pad t = t `BSL.append` BSL.replicate ((4 - BSL.length t `mod` 4) `mod` 4) c
-    c = fromIntegral $ ord '='
-
 encodeS :: ToJSON a => a -> BSL.ByteString
 encodeS = BSL.init . BSL.tail . encode
 
@@ -260,16 +256,22 @@ signingInput h p = BSL.intercalate "."
 --
 instance ToCompact JWS where
   toCompact (JWS p [Signature h s]) = Right [signingInput h p, encodeS s]
-  toCompact (JWS _ xs) =
-    Left $ "cannot compact serialize JWS with " ++ show (length xs) ++ " sigs"
+  toCompact (JWS _ xs) = Left $ CompactEncodeError $
+    "cannot compact serialize JWS with " ++ show (length xs) ++ " sigs"
 
 instance FromCompact JWS where
-  fromCompact [h, p, s] = do
-    h' <- (\h' -> h' { headerRaw = Just $ BSL.toStrict h }) <$> decodeO h
-    p' <- maybe (Left "payload decode failed") Right $ decodeS p
-    s' <- maybe (Left "sig decode failed") Right $ decodeS s
-    return $ JWS p' [Signature h' s']
-  fromCompact xs = Left $ "expected 3 parts, got " ++ show (length xs)
+  fromCompact xs = case xs of
+    [h, p, s] -> do
+      h' <- (\h' -> h' { headerRaw = Just $ BSL.toStrict h }) <$> decodeO h
+      p' <- maybe (err "payload decode failed") Right $ decodeS p
+      s' <- maybe (err "sig decode failed") Right $ decodeS s
+      return $ JWS p' [Signature h' s']
+    xs' -> err $ "expected 3 parts, got " ++ show (length xs')
+    where
+      err = Left . CompactDecodeError
+      decodeO s = either err Right $ B64UL.decode (pad s) >>= eitherDecode
+      pad t = t `BSL.append` BSL.replicate ((4 - BSL.length t `mod` 4) `mod` 4) c
+      c = fromIntegral $ ord '='
 
 
 -- §5.1. Message Signing or MACing
@@ -282,10 +284,11 @@ signJWS
   -> JWS      -- ^ JWS to sign
   -> Header   -- ^ Header for signature
   -> JWK      -- ^ Key with which to sign
-  -> (JWS, g) -- ^ JWS with new signature appended
-signJWS g (JWS p sigs) h k =
-  let (sig, g') = sign (headerAlg h) k g (BSL.toStrict $ signingInput h p)
-  in (JWS p (Signature h (Types.Base64Octets sig):sigs), g')
+  -> (Either Error JWS, g) -- ^ JWS with new signature appended
+signJWS g (JWS p sigs) h k = first (either Left (Right . appendSig)) $
+  sign (headerAlg h) k g (BSL.toStrict $ signingInput h p)
+  where
+    appendSig sig = JWS p (Signature h (Types.Base64Octets sig):sigs)
 
 -- | Verify a JWS.
 --
@@ -293,8 +296,8 @@ signJWS g (JWS p sigs) h k =
 -- validated with the given 'Key'.
 --
 verifyJWS :: JWK -> JWS -> Bool
-verifyJWS k (JWS p sigs) = any (verifySig k p) sigs
+verifyJWS k (JWS p sigs) = any ((== Right True) . verifySig k p) sigs
 
-verifySig :: JWK -> Types.Base64Octets -> Signature -> Bool
+verifySig :: JWK -> Types.Base64Octets -> Signature -> Either Error Bool
 verifySig k m (Signature h (Types.Base64Octets s))
   = verify (headerAlg h) k (BSL.toStrict $ signingInput h m) s

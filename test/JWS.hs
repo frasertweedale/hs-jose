@@ -118,7 +118,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
 
   it "computes the HMAC correctly" $
     fst (sign alg jwk gen (L.toStrict signingInput'))
-      `shouldBe` BS.pack macOctets
+      `shouldBe` Right (BS.pack macOctets)
 
   it "validates the JWS correctly" $
     fmap (verifyJWS jwk) (decodeCompact compactJWS) `shouldBe` Right True
@@ -152,10 +152,10 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
 appendixA2Spec :: Spec
 appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
-    fst (sign JWA.JWS.RS256 jwk gen signingInput') `shouldBe` sig
+    fst (sign JWA.JWS.RS256 jwk gen signingInput') `shouldBe` Right sig
 
   it "validates the signature correctly" $
-    verify JWA.JWS.RS256 jwk signingInput' sig `shouldBe` True
+    verify JWA.JWS.RS256 jwk signingInput' sig `shouldBe` Right True
 
   where
     signingInput' = "\
@@ -204,7 +204,7 @@ appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" 
 appendixA3Spec :: Spec
 appendixA3Spec = describe "JWS A.3.  Example JWS using ECDSA P-256 SHA-256" $
   it "validates the signature correctly" $
-    verify JWA.JWS.ES256 jwk signingInput' sig `shouldBe` True
+    verify JWA.JWS.ES256 jwk signingInput' sig `shouldBe` Right True
   where
     signingInput' = "\
       \eyJhbGciOiJFUzI1NiJ9\
@@ -229,10 +229,10 @@ appendixA3Spec = describe "JWS A.3.  Example JWS using ECDSA P-256 SHA-256" $
 appendixA5Spec :: Spec
 appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
   it "encodes the correct JWS" $
-    encodeCompact jws `shouldBe` Right exampleJWS
+    (jws >>= encodeCompact) `shouldBe` Right exampleJWS
 
   it "decodes the correct JWS" $
-    decodeCompact exampleJWS `shouldBe` Right jws
+    decodeCompact exampleJWS `shouldBe` jws
 
   where
     jws = fst $

@@ -1,4 +1,4 @@
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -25,24 +25,26 @@ module Crypto.JOSE.Compact where
 
 import qualified Data.ByteString.Lazy as L
 
+import Crypto.JOSE.Error
+
 
 -- | Data that can be parsed from a compact representation.
 --
 class FromCompact a where
-  fromCompact :: [L.ByteString] -> Either String a
+  fromCompact :: [L.ByteString] -> Either Error a
 
 -- | Decode a compact representation.
 --
-decodeCompact :: FromCompact a => L.ByteString -> Either String a
+decodeCompact :: FromCompact a => L.ByteString -> Either Error a
 decodeCompact = fromCompact . L.split 46
 
 
 -- | Data that can be converted to a compact representation.
 --
 class ToCompact a where
-  toCompact :: a -> Either String [L.ByteString]
+  toCompact :: a -> Either Error [L.ByteString]
 
 -- | Encode data to a compact representation.
 --
-encodeCompact :: ToCompact a => a -> Either String L.ByteString
+encodeCompact :: ToCompact a => a -> Either Error L.ByteString
 encodeCompact = fmap (L.intercalate ".") . toCompact

@@ -28,10 +28,24 @@ import qualified Data.ByteString as B
 import Crypto.Random
 
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
+import Crypto.JOSE.Error
 
 -- | A Key that can sign messages and validate signatures according
 -- to a given 'Alg'.
 --
+-- Can fail with 'AlgorithmMismatch'
+--
 class Key k where
-  sign :: CPRG g => JWA.JWS.Alg -> k -> g -> B.ByteString -> (B.ByteString, g)
-  verify :: JWA.JWS.Alg -> k -> B.ByteString -> B.ByteString -> Bool
+  sign
+    :: CPRG g
+    => JWA.JWS.Alg
+    -> k
+    -> g
+    -> B.ByteString
+    -> (Either Error B.ByteString, g)
+  verify
+    :: JWA.JWS.Alg
+    -> k
+    -> B.ByteString
+    -> B.ByteString
+    -> Either Error Bool

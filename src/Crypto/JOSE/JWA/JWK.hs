@@ -60,6 +60,7 @@ import Data.Byteable
 import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
 
+import Crypto.JOSE.Error
 import Crypto.JOSE.Classes
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.TH
@@ -178,11 +179,13 @@ instance Key ECKeyParameters where
     signEC hashDescrSHA384 k
   sign JWA.JWS.ES512 k@(ECPrivateKeyParameters { ecCrv = P_521 }) =
     signEC hashDescrSHA512 k
-  sign h _ = error $ "alg/key mismatch: " ++ show h ++ "/ECDSA"
+  sign h _ = \g _ ->
+    (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key", g)
   verify JWA.JWS.ES256 = verifyEC hashDescrSHA256
   verify JWA.JWS.ES384 = verifyEC hashDescrSHA384
   verify JWA.JWS.ES512 = verifyEC hashDescrSHA512
-  verify h = error $ "alg/key mismatch: " ++ show h ++ "/ECDSA"
+  verify h = \_ _ _ ->
+    Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key"
 
 signEC
   :: CPRG g
@@ -190,22 +193,24 @@ signEC
   -> ECKeyParameters
   -> g
   -> B.ByteString
-  -> (B.ByteString, g)
-signEC h k@(ECPrivateKeyParameters {..}) g m = first sigToBS sig where
+  -> (Either Error B.ByteString, g)
+signEC h k@(ECPrivateKeyParameters {..}) g m = first (Right . sigToBS) sig
+  where
   sig = Crypto.PubKey.ECC.ECDSA.sign g privateKey (hashFunction h) m
   sigToBS (Crypto.Types.PubKey.ECDSA.Signature r s) =
     Types.integerToBS r `B.append` Types.integerToBS s
   privateKey = Crypto.Types.PubKey.ECDSA.PrivateKey (curve k) (d ecD)
   d (Types.SizedBase64Integer _ n) = n
-signEC _ _ _ _ = error "not a private key"
+signEC _ _ g _ = (Left $ KeyMismatch "not an EC private key", g)
 
 verifyEC
   :: HashDescr
   -> ECKeyParameters
   -> B.ByteString
   -> B.ByteString
-  -> Bool
-verifyEC h k m s = Crypto.PubKey.ECC.ECDSA.verify (hashFunction h) pubkey sig m
+  -> Either Error Bool
+verifyEC h k m s = Right $
+  Crypto.PubKey.ECC.ECDSA.verify (hashFunction h) pubkey sig m
   where
     pubkey = Crypto.Types.PubKey.ECDSA.PublicKey (curve k) (point k)
     sig = uncurry Crypto.Types.PubKey.ECDSA.Signature
@@ -270,11 +275,13 @@ instance Key RSAKeyParameters where
   sign JWA.JWS.RS256 = signRSA hashDescrSHA256
   sign JWA.JWS.RS384 = signRSA hashDescrSHA384
   sign JWA.JWS.RS512 = signRSA hashDescrSHA512
-  sign h = error $ "alg/key mismatch: " ++ show h ++ "/RSA"
+  sign h = \_ g -> const
+    (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key", g)
   verify JWA.JWS.RS256 = verifyRSA hashDescrSHA256
   verify JWA.JWS.RS384 = verifyRSA hashDescrSHA384
   verify JWA.JWS.RS512 = verifyRSA hashDescrSHA512
-  verify h = error $ "alg/key mismatch: " ++ show h ++ "/RSA"
+  verify h = \_ _ _ ->
+    Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key"
 
 signRSA
   :: CPRG g
@@ -282,24 +289,30 @@ signRSA
   -> RSAKeyParameters
   -> g
   -> B.ByteString
-  -> (B.ByteString, g)
-signRSA h k g m = first (either (error . show) id) $
-  Crypto.PubKey.RSA.PKCS15.signSafer g h (privateKey k) m where
-    privateKey (RSAPrivateKeyParameters
-      (Types.SizedBase64Integer size n)
-      (Types.Base64Integer e)
-      (Types.Base64Integer d)
-      _) = Crypto.PubKey.RSA.PrivateKey
-        (Crypto.PubKey.RSA.PublicKey size n e) d 0 0 0 0 0
-    privateKey _ = error "not an RSA private key"
+  -> (Either Error B.ByteString, g)
+signRSA h k g m = case k of
+  RSAPrivateKeyParameters
+    (Types.SizedBase64Integer size n)
+    (Types.Base64Integer e)
+    (Types.Base64Integer d)
+    _
+    ->
+      let
+        k' = Crypto.PubKey.RSA.PrivateKey
+          (Crypto.PubKey.RSA.PublicKey size n e) d 0 0 0 0 0
+      in
+        first (either (Left . RSAError) Right) $
+          Crypto.PubKey.RSA.PKCS15.signSafer g h k' m
+  _ -> (Left $ KeyMismatch "not an RSA private key", g)
 
 verifyRSA
   :: HashDescr
   -> RSAKeyParameters
   -> B.ByteString
   -> B.ByteString
-  -> Bool
-verifyRSA h k = Crypto.PubKey.RSA.PKCS15.verify h (publicKey k) where
+  -> Either Error Bool
+verifyRSA h k m = Right . Crypto.PubKey.RSA.PKCS15.verify h (publicKey k) m
+  where
   publicKey (RSAPrivateKeyParameters
     (Types.SizedBase64Integer size n)
     (Types.Base64Integer e)
@@ -347,11 +360,12 @@ instance ToJSON OctKeyParameters where
   toJSON (OctKeyParameters k) = toJSON k
 
 instance Key OctKeyParameters where
-  sign JWA.JWS.HS256 k g = (,g) . signOct SHA256 k
-  sign JWA.JWS.HS384 k g = (,g) . signOct SHA384 k
-  sign JWA.JWS.HS512 k g = (,g) . signOct SHA512 k
-  sign h _ _ = error $ "alg/key mismatch: " ++ show h ++ "/Oct"
-  verify h k m s = fst (sign h k (undefined :: SystemRNG) m) == s
+  sign JWA.JWS.HS256 k g = first Right . (,g) . signOct SHA256 k
+  sign JWA.JWS.HS384 k g = first Right . (,g) . signOct SHA384 k
+  sign JWA.JWS.HS512 k g = first Right . (,g) . signOct SHA512 k
+  sign h _ g = const
+    (Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key", g)
+  verify h k m s = fst (sign h k (undefined :: SystemRNG) m) >>= Right . (== s)
 
 signOct
   :: HashAlgorithm a
@@ -382,11 +396,11 @@ instance ToJSON KeyMaterial where
   toJSON (OctKeyMaterial k i) = object ["kty" .= k, "k" .= i]
 
 instance Key KeyMaterial where
-  sign JWA.JWS.None _ = \g _ -> ("", g)
+  sign JWA.JWS.None _ = \g _ -> (Right "", g)
   sign h (ECKeyMaterial _ k)  = sign h k
   sign h (RSAKeyMaterial _ k) = sign h k
   sign h (OctKeyMaterial _ k) = sign h k
-  verify JWA.JWS.None _ = \_ s -> s == ""
+  verify JWA.JWS.None _ = \_ s -> Right $ s == ""
   verify h (ECKeyMaterial _ k)  = verify h k
   verify h (RSAKeyMaterial _ k) = verify h k
   verify h (OctKeyMaterial _ k) = verify h k
