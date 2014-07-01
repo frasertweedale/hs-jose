@@ -1,4 +1,4 @@
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -17,9 +17,15 @@
 Type classes for use with the JOSE modules.
 
 -}
-module Crypto.JOSE.Classes where
+module Crypto.JOSE.Classes
+  (
+    module Crypto.Random
+  , Key(..)
+  ) where
 
 import qualified Data.ByteString as B
+
+import Crypto.Random
 
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 
@@ -27,5 +33,5 @@ import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 -- to a given 'Alg'.
 --
 class Key k where
-  sign :: JWA.JWS.Alg -> k -> B.ByteString -> B.ByteString
+  sign :: CPRG g => JWA.JWS.Alg -> k -> g -> B.ByteString -> (B.ByteString, g)
   verify :: JWA.JWS.Alg -> k -> B.ByteString -> B.ByteString -> Bool

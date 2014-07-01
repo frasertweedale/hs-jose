@@ -277,13 +277,15 @@ instance FromCompact JWS where
 -- | Create a new signature on a JWS.
 --
 signJWS
-  :: JWS      -- ^ JWS to sign
+  :: CPRG g
+  => g        -- ^ Random number generator
+  -> JWS      -- ^ JWS to sign
   -> Header   -- ^ Header for signature
   -> JWK      -- ^ Key with which to sign
-  -> JWS      -- ^ JWS with new signature appended
-signJWS (JWS p sigs) h k = JWS p (sig:sigs) where
-  sig = Signature h $ Types.Base64Octets $
-    sign (headerAlg h) k (BSL.toStrict $ signingInput h p)
+  -> (JWS, g) -- ^ JWS with new signature appended
+signJWS g (JWS p sigs) h k =
+  let (sig, g') = sign (headerAlg h) k g (BSL.toStrict $ signingInput h p)
+  in (JWS p (Signature h (Types.Base64Octets sig):sigs), g')
 
 -- | Verify a JWS.
 --
