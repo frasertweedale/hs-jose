@@ -1,5 +1,5 @@
 -- This file is part of jwt - JSON Web Token
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- jwt is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -32,6 +32,7 @@ module Crypto.JWT
   ) where
 
 import Control.Applicative
+import Control.Arrow
 import Control.Monad
 import Data.Maybe
 
@@ -42,7 +43,9 @@ import qualified Data.Text as T
 import Data.Time
 import Data.Time.Clock.POSIX
 
+import Crypto.JOSE.Classes
 import Crypto.JOSE.Compact
+import Crypto.JOSE.Error
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
 import Crypto.JOSE.Types
@@ -159,7 +162,8 @@ data JWT = JWT
 instance FromCompact JWT where
   fromCompact = fromCompact >=> toJWT where
     toJWT (JWTJWS jws) =
-      fmap (JWT (JWTJWS jws)) $ eitherDecode $ Crypto.JOSE.JWS.jwsPayload jws
+      either (Left . CompactDecodeError) (Right . JWT (JWTJWS jws))
+        $ eitherDecode $ Crypto.JOSE.JWS.jwsPayload jws
 
 instance ToCompact JWT where
   toCompact = toCompact . jwtCrypto
@@ -171,7 +175,14 @@ validateJWT k (JWT (JWTJWS jws) _) = verifyJWS k jws
 
 data JWTHeader = JWSHeader Crypto.JOSE.JWS.Header  -- TODO JWE
 
-createJWT :: JWK -> JWTHeader -> ClaimsSet -> JWT
-createJWT k (JWSHeader h) c = JWT (JWTJWS jws) c where
-  payload = Base64Octets $ BSL.toStrict $ encode c
-  jws = signJWS (Crypto.JOSE.JWS.JWS payload []) h k
+createJWT
+  :: CPRG g
+  => g
+  -> JWK
+  -> JWTHeader
+  -> ClaimsSet
+  -> (Either Error JWT, g)
+createJWT g k (JWSHeader h) c = first (fmap $ \jws -> JWT (JWTJWS jws) c) $
+  signJWS g (Crypto.JOSE.JWS.JWS payload []) h k
+  where
+    payload = Base64Octets $ BSL.toStrict $ encode c
