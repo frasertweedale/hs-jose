@@ -296,13 +296,14 @@ signRSA h k g m = case k of
     (Types.Base64Integer e)
     (Types.Base64Integer d)
     _
-    ->
+    | size >= 2048 `div` 8 ->
       let
         k' = Crypto.PubKey.RSA.PrivateKey
           (Crypto.PubKey.RSA.PublicKey size n e) d 0 0 0 0 0
       in
         first (either (Left . RSAError) Right) $
           Crypto.PubKey.RSA.PKCS15.signSafer g h k' m
+    | otherwise -> (Left KeySizeTooSmall, g)
   _ -> (Left $ KeyMismatch "not an RSA private key", g)
 
 verifyRSA

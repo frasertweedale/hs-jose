@@ -27,7 +27,8 @@ import qualified Crypto.PubKey.RSA as RSA
 data Error
   = AlgorithmNotImplemented   -- ^ A requested algorithm is not implemented
   | AlgorithmMismatch String  -- ^ A requested algorithm cannot be used
-  | KeyMismatch String        -- ^ A given key cannot be used
+  | KeyMismatch String        -- ^ Wrong type of key was given
+  | KeySizeTooSmall           -- ^ Key size is too small
   | RSAError RSA.Error        -- ^ RSA encryption, decryption or signing error
   | CompactEncodeError String -- ^ Cannot produce compact representation of data
   | CompactDecodeError String -- ^ Cannot decode compact representation
