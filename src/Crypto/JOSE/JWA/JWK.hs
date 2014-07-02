@@ -290,21 +290,10 @@ signRSA
   -> g
   -> B.ByteString
   -> (Either Error B.ByteString, g)
-signRSA h k g m = case k of
-  RSAPrivateKeyParameters
-    (Types.SizedBase64Integer size n)
-    (Types.Base64Integer e)
-    (Types.Base64Integer d)
-    _
-    | size >= 2048 `div` 8 ->
-      let
-        k' = Crypto.PubKey.RSA.PrivateKey
-          (Crypto.PubKey.RSA.PublicKey size n e) d 0 0 0 0 0
-      in
-        first (either (Left . RSAError) Right) $
-          Crypto.PubKey.RSA.PKCS15.signSafer g h k' m
-    | otherwise -> (Left KeySizeTooSmall, g)
-  _ -> (Left $ KeyMismatch "not an RSA private key", g)
+signRSA h k g m = case rsaPrivateKey k of
+  Left e -> (Left e, g)
+  Right k' -> first (either (Left . RSAError) Right) $
+    Crypto.PubKey.RSA.PKCS15.signSafer g h k' m
 
 verifyRSA
   :: HashDescr
@@ -312,18 +301,29 @@ verifyRSA
   -> B.ByteString
   -> B.ByteString
   -> Either Error Bool
-verifyRSA h k m = Right . Crypto.PubKey.RSA.PKCS15.verify h (publicKey k) m
-  where
-  publicKey (RSAPrivateKeyParameters
-    (Types.SizedBase64Integer size n)
-    (Types.Base64Integer e)
-    _
-    _
-    ) = Crypto.PubKey.RSA.PublicKey size n e
-  publicKey (RSAPublicKeyParameters
-    (Types.SizedBase64Integer size n)
-    (Types.Base64Integer e)
-    ) = Crypto.PubKey.RSA.PublicKey size n e
+verifyRSA h k m = Right . Crypto.PubKey.RSA.PKCS15.verify h (rsaPublicKey k) m
+
+rsaPrivateKey :: RSAKeyParameters -> Either Error Crypto.PubKey.RSA.PrivateKey
+rsaPrivateKey (RSAPrivateKeyParameters
+  (Types.SizedBase64Integer size n)
+  (Types.Base64Integer e)
+  (Types.Base64Integer d)
+  _)
+  | size >= 2048 `div` 8 = Right $ Crypto.PubKey.RSA.PrivateKey
+    (Crypto.PubKey.RSA.PublicKey size n e) d 0 0 0 0 0
+  | otherwise = Left KeySizeTooSmall
+rsaPrivateKey _ = Left $ KeyMismatch "not an RSA private key"
+
+rsaPublicKey :: RSAKeyParameters -> Crypto.PubKey.RSA.PublicKey
+rsaPublicKey (RSAPrivateKeyParameters
+  (Types.SizedBase64Integer size n)
+  (Types.Base64Integer e) _ _)
+  = Crypto.PubKey.RSA.PublicKey size n e
+rsaPublicKey (RSAPublicKeyParameters
+  (Types.SizedBase64Integer size n)
+  (Types.Base64Integer e))
+  = Crypto.PubKey.RSA.PublicKey size n e
+
 
 -- | Generate RSA public and private key parameters.
 --
