@@ -32,4 +32,6 @@ data Error
   | RSAError RSA.Error        -- ^ RSA encryption, decryption or signing error
   | CompactEncodeError String -- ^ Cannot produce compact representation of data
   | CompactDecodeError String -- ^ Cannot decode compact representation
+  | JSONDecodeError String
+  -- ^ Cannot decode JSON data (including within compact representation)
   deriving (Eq, Show)

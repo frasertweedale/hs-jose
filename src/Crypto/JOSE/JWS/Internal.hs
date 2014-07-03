@@ -240,11 +240,6 @@ encodeO = BSL.reverse . BSL.dropWhile (== c) . BSL.reverse
 encodeS :: ToJSON a => a -> BSL.ByteString
 encodeS = BSL.init . BSL.tail . encode
 
-decodeS :: FromJSON a => BSL.ByteString -> Maybe a
-decodeS s = do
-  v <- A.maybeResult $ A.parse value $ BSL.intercalate s ["\"", "\""]
-  parseMaybe parseJSON v
-
 signingInput :: Header -> Types.Base64Octets -> BSL.ByteString
 signingInput h p = BSL.intercalate "."
   [maybe (encodeO h) BSL.fromStrict (headerRaw h), encodeS p]
@@ -262,14 +257,23 @@ instance ToCompact JWS where
 instance FromCompact JWS where
   fromCompact xs = case xs of
     [h, p, s] -> do
-      h' <- (\h' -> h' { headerRaw = Just $ BSL.toStrict h }) <$> decodeO h
-      p' <- maybe (err "payload decode failed") Right $ decodeS p
-      s' <- maybe (err "sig decode failed") Right $ decodeS s
+      h' <- (\h' -> h' { headerRaw = Just $ BSL.toStrict h })
+        <$> decodeO "header" h
+      p' <- decodeS "payload" p
+      s' <- decodeS "signature" s
       return $ JWS p' [Signature h' s']
-    xs' -> err $ "expected 3 parts, got " ++ show (length xs')
+    xs' -> compactErr "compact representation"
+      $ "expected 3 parts, got " ++ show (length xs')
     where
-      err = Left . CompactDecodeError
-      decodeO s = either err Right $ B64UL.decode (pad s) >>= eitherDecode
+      compactErr s = Left . CompactDecodeError . ((s ++ " decode failed: ") ++)
+      jsonErr = Left . JSONDecodeError
+      decodeO desc s =
+        either (compactErr desc) Right (B64UL.decode (pad s))
+        >>= either jsonErr Right . eitherDecode
+      decodeS desc s =
+        either (compactErr desc) Right
+          (A.eitherResult $ A.parse value $ BSL.intercalate s ["\"", "\""])
+        >>= either jsonErr Right . parseEither parseJSON
       pad t = t `BSL.append` BSL.replicate ((4 - BSL.length t `mod` 4) `mod` 4) c
       c = fromIntegral $ ord '='
 
