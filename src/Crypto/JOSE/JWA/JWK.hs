@@ -52,6 +52,7 @@ import Crypto.PubKey.HashDescr
 import qualified Crypto.PubKey.ECC.ECDSA
 import qualified Crypto.PubKey.RSA
 import qualified Crypto.PubKey.RSA.PKCS15
+import qualified Crypto.PubKey.RSA.PSS as PSS
 import qualified Crypto.Types.PubKey.ECC
 import qualified Crypto.Types.PubKey.ECDSA
 import Crypto.Random
@@ -272,36 +273,63 @@ instance ToJSON RSAKeyParameters where
   toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
 
 instance Key RSAKeyParameters where
-  sign JWA.JWS.RS256 = signRSA hashDescrSHA256
-  sign JWA.JWS.RS384 = signRSA hashDescrSHA384
-  sign JWA.JWS.RS512 = signRSA hashDescrSHA512
+  sign JWA.JWS.RS256 = signPKCS15 hashDescrSHA256
+  sign JWA.JWS.RS384 = signPKCS15 hashDescrSHA384
+  sign JWA.JWS.RS512 = signPKCS15 hashDescrSHA512
+  sign JWA.JWS.PS256 = signPSS hashDescrSHA256
+  sign JWA.JWS.PS384 = signPSS hashDescrSHA384
+  sign JWA.JWS.PS512 = signPSS hashDescrSHA512
   sign h = \_ g -> const
     (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key", g)
-  verify JWA.JWS.RS256 = verifyRSA hashDescrSHA256
-  verify JWA.JWS.RS384 = verifyRSA hashDescrSHA384
-  verify JWA.JWS.RS512 = verifyRSA hashDescrSHA512
+  verify JWA.JWS.RS256 = verifyPKCS15 hashDescrSHA256
+  verify JWA.JWS.RS384 = verifyPKCS15 hashDescrSHA384
+  verify JWA.JWS.RS512 = verifyPKCS15 hashDescrSHA512
+  verify JWA.JWS.PS256 = verifyPSS hashDescrSHA256
+  verify JWA.JWS.PS384 = verifyPSS hashDescrSHA384
+  verify JWA.JWS.PS512 = verifyPSS hashDescrSHA512
   verify h = \_ _ _ ->
     Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key"
 
-signRSA
+signPKCS15
   :: CPRG g
   => HashDescr
   -> RSAKeyParameters
   -> g
   -> B.ByteString
   -> (Either Error B.ByteString, g)
-signRSA h k g m = case rsaPrivateKey k of
+signPKCS15 h k g m = case rsaPrivateKey k of
   Left e -> (Left e, g)
   Right k' -> first (either (Left . RSAError) Right) $
     Crypto.PubKey.RSA.PKCS15.signSafer g h k' m
 
-verifyRSA
+verifyPKCS15
   :: HashDescr
   -> RSAKeyParameters
   -> B.ByteString
   -> B.ByteString
   -> Either Error Bool
-verifyRSA h k m = Right . Crypto.PubKey.RSA.PKCS15.verify h (rsaPublicKey k) m
+verifyPKCS15 h k m = Right . Crypto.PubKey.RSA.PKCS15.verify h (rsaPublicKey k) m
+
+signPSS
+  :: CPRG g
+  => HashDescr
+  -> RSAKeyParameters
+  -> g
+  -> B.ByteString
+  -> (Either Error B.ByteString, g)
+signPSS h k g m = case rsaPrivateKey k of
+  Left e -> (Left e, g)
+  Right k' -> first (either (Left . RSAError) Right) $
+   PSS.signSafer g (PSS.defaultPSSParams (hashFunction h)) k' m
+
+verifyPSS
+  :: HashDescr
+  -> RSAKeyParameters
+  -> B.ByteString
+  -> B.ByteString
+  -> Either Error Bool
+verifyPSS h k m = Right .
+  PSS.verify (PSS.defaultPSSParams (hashFunction h)) (rsaPublicKey k) m
 
 rsaPrivateKey :: RSAKeyParameters -> Either Error Crypto.PubKey.RSA.PrivateKey
 rsaPrivateKey (RSAPrivateKeyParameters
