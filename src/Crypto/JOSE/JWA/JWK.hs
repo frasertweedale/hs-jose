@@ -46,6 +46,7 @@ module Crypto.JOSE.JWA.JWK (
 
 import Control.Applicative
 import Control.Arrow
+import Data.Maybe
 
 import Crypto.Hash
 import Crypto.PubKey.HashDescr
@@ -133,51 +134,37 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
 
 -- | Parameters for Elliptic Curve Keys
 --
-data ECKeyParameters =
-  ECPrivateKeyParameters
-    { ecCrv :: Crv
-    , ecX :: Types.SizedBase64Integer
-    , ecY :: Types.SizedBase64Integer
-    , ecD :: Types.SizedBase64Integer
-    }
-  | ECPublicKeyParameters
-    { ecCrv' :: Crv
-    , ecX' :: Types.SizedBase64Integer
-    , ecY' :: Types.SizedBase64Integer
-    }
+data ECKeyParameters = ECKeyParameters
+  {
+    ecKty :: EC
+  , ecCrv :: Crv
+  , ecX :: Types.SizedBase64Integer
+  , ecY :: Types.SizedBase64Integer
+  , ecD :: Maybe Types.SizedBase64Integer
+  }
   deriving (Eq, Show)
 
 instance FromJSON ECKeyParameters where
-  parseJSON = withObject "EC" $ \o ->
-    ECPrivateKeyParameters
-      <$> o .: "crv"
-      <*> o .: "x"
-      <*> o .: "y"
-      <*> o .: "d"
-    <|> ECPublicKeyParameters
-      <$> o .: "crv"
-      <*> o .: "x"
-      <*> o .: "y"
+  parseJSON = withObject "EC" $ \o -> ECKeyParameters
+    <$> o .: "kty"
+    <*> o .: "crv"
+    <*> o .: "x"
+    <*> o .: "y"
+    <*> o .:? "d"
 
 instance ToJSON ECKeyParameters where
-  toJSON (ECPrivateKeyParameters {..}) = object
+  toJSON (ECKeyParameters {..}) = object $
     [ "crv" .= ecCrv
     , "x" .= ecX
     , "y" .= ecY
-    , "d" .= ecD
-    ]
-  toJSON (ECPublicKeyParameters {..}) = object
-    [ "crv" .= ecCrv'
-    , "x" .= ecX'
-    , "y" .= ecY'
-    ]
+    ] ++ fmap ("d" .=) (maybeToList ecD)
 
 instance Key ECKeyParameters where
-  sign JWA.JWS.ES256 k@(ECPrivateKeyParameters { ecCrv = P_256 }) =
+  sign JWA.JWS.ES256 k@(ECKeyParameters { ecCrv = P_256 }) =
     signEC hashDescrSHA256 k
-  sign JWA.JWS.ES384 k@(ECPrivateKeyParameters { ecCrv = P_384 }) =
+  sign JWA.JWS.ES384 k@(ECKeyParameters { ecCrv = P_384 }) =
     signEC hashDescrSHA384 k
-  sign JWA.JWS.ES512 k@(ECPrivateKeyParameters { ecCrv = P_521 }) =
+  sign JWA.JWS.ES512 k@(ECKeyParameters { ecCrv = P_521 }) =
     signEC hashDescrSHA512 k
   sign h _ = \g _ ->
     (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key", g)
@@ -194,14 +181,14 @@ signEC
   -> g
   -> B.ByteString
   -> (Either Error B.ByteString, g)
-signEC h k@(ECPrivateKeyParameters {..}) g m = first (Right . sigToBS) sig
-  where
-  sig = ECDSA.sign g privateKey (hashFunction h) m
-  sigToBS (ECDSA.Signature r s) =
-    Types.integerToBS r `B.append` Types.integerToBS s
-  privateKey = ECDSA.PrivateKey (curve k) (d ecD)
-  d (Types.SizedBase64Integer _ n) = n
-signEC _ _ g _ = (Left $ KeyMismatch "not an EC private key", g)
+signEC h k@(ECKeyParameters {..}) g m = case ecD of
+  Just ecD' -> first (Right . sigToBS) sig where
+    sig = ECDSA.sign g privateKey (hashFunction h) m
+    sigToBS (ECDSA.Signature r s) =
+      Types.integerToBS r `B.append` Types.integerToBS s
+    privateKey = ECDSA.PrivateKey (curve k) (d ecD')
+    d (Types.SizedBase64Integer _ n) = n
+  Nothing -> (Left $ KeyMismatch "not an EC private key", g)
 
 verifyEC
   :: HashDescr
@@ -217,23 +204,14 @@ verifyEC h k m s = Right $ ECDSA.verify (hashFunction h) pubkey sig m
     $ B.splitAt (B.length s `div` 2) s
 
 curve :: ECKeyParameters -> ECC.Curve
-curve k = case k of
- ECPrivateKeyParameters {..} -> curve' ecCrv
- ECPublicKeyParameters {..} -> curve' ecCrv'
- where
-  curve' c = ECC.getCurveByName (curveName c)
+curve ECKeyParameters {..} = ECC.getCurveByName (curveName ecCrv) where
   curveName P_256 = ECC.SEC_p256r1
   curveName P_384 = ECC.SEC_p384r1
   curveName P_521 = ECC.SEC_p521r1
 
 point :: ECKeyParameters -> ECC.Point
-point k = case k of
- ECPrivateKeyParameters {..} -> point' ecX ecY
- ECPublicKeyParameters {..} -> point' ecX' ecY'
- where
-  point' x y = ECC.Point (integer x) (integer y)
+point ECKeyParameters {..} = ECC.Point (integer ecX) (integer ecY) where
   integer (Types.SizedBase64Integer _ n) = n
-
 
 
 -- | Parameters for RSA Keys
@@ -406,28 +384,28 @@ signOct a (OctKeyParameters (Types.Base64Octets k)) m = toBytes $ hmacAlg a k m
 -- | Key material sum type.
 --
 data KeyMaterial =
-  ECKeyMaterial EC ECKeyParameters
+  ECKeyMaterial ECKeyParameters
   | RSAKeyMaterial RSA RSAKeyParameters
   | OctKeyMaterial Oct OctKeyParameters
   deriving (Eq, Show)
 
 instance FromJSON KeyMaterial where
   parseJSON = withObject "KeyMaterial" (\o ->
-    ECKeyMaterial      <$> o .: "kty" <*> parseJSON (Object o)
+    ECKeyMaterial      <$> parseJSON (Object o)
     <|> RSAKeyMaterial <$> o .: "kty" <*> parseJSON (Object o)
     <|> OctKeyMaterial <$> o .: "kty" <*> o .: "k")
 
 instance ToJSON KeyMaterial where
-  toJSON (ECKeyMaterial k p)  = object $ ("kty" .= k) : Types.objectPairs (toJSON p)
+  toJSON (ECKeyMaterial p)  = object $ Types.objectPairs (toJSON p)
   toJSON (RSAKeyMaterial k p) = object $ ("kty" .= k) : Types.objectPairs (toJSON p)
   toJSON (OctKeyMaterial k i) = object ["kty" .= k, "k" .= i]
 
 instance Key KeyMaterial where
   sign JWA.JWS.None _ = \g _ -> (Right "", g)
-  sign h (ECKeyMaterial _ k)  = sign h k
+  sign h (ECKeyMaterial k)  = sign h k
   sign h (RSAKeyMaterial _ k) = sign h k
   sign h (OctKeyMaterial _ k) = sign h k
   verify JWA.JWS.None _ = \_ s -> Right $ s == ""
-  verify h (ECKeyMaterial _ k)  = verify h k
+  verify h (ECKeyMaterial k)  = verify h k
   verify h (RSAKeyMaterial _ k) = verify h k
   verify h (OctKeyMaterial _ k) = verify h k
