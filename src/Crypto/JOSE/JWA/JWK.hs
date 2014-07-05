@@ -34,6 +34,7 @@ module Crypto.JOSE.JWA.JWK (
   -- * Parameters for RSA Keys
   , RSAPrivateKeyOthElem(..)
   , RSAPrivateKeyOptionalParameters(..)
+  , RSAPrivateKeyParameters(..)
   , RSAKeyParameters(..)
   , genRSAParams
   , genRSA
@@ -132,6 +133,27 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
     ] ++ maybe [] ((:[]) . ("oth" .=)) rsaOth
 
 
+-- | RSA private key parameters
+--
+data RSAPrivateKeyParameters = RSAPrivateKeyParameters
+  { rsaD :: Types.Base64Integer
+  , rsaOptionalParameters :: Maybe RSAPrivateKeyOptionalParameters
+  }
+  deriving (Eq, Show)
+
+instance FromJSON RSAPrivateKeyParameters where
+  parseJSON = withObject "RSA private key parameters" $ \o ->
+    RSAPrivateKeyParameters
+    <$> o .: "d"
+    <*> (if any (`M.member` o) ["p", "q", "dp", "dq", "qi", "oth"]
+      then Just <$> parseJSON (Object o)
+      else pure Nothing)
+
+instance ToJSON RSAPrivateKeyParameters where
+  toJSON RSAPrivateKeyParameters {..} = object $
+    ("d" .= rsaD) : maybe [] (Types.objectPairs . toJSON) rsaOptionalParameters
+
+
 -- | Parameters for Elliptic Curve Keys
 --
 data ECKeyParameters = ECKeyParameters
@@ -216,37 +238,28 @@ point ECKeyParameters {..} = ECC.Point (integer ecX) (integer ecY) where
 
 -- | Parameters for RSA Keys
 --
-data RSAKeyParameters =
-  RSAPrivateKeyParameters {
-    rsaN :: Types.SizedBase64Integer
-    , rsaE :: Types.Base64Integer
-    , rsaD :: Types.Base64Integer
-    , rsaOptionalParameters :: Maybe RSAPrivateKeyOptionalParameters
-    }
-  | RSAPublicKeyParameters {
-    rsaN' :: Types.SizedBase64Integer
-    , rsaE' :: Types.Base64Integer
-    }
+data RSAKeyParameters = RSAKeyParameters
+  { rsaKty :: RSA
+  , rsaN :: Types.SizedBase64Integer
+  , rsaE :: Types.Base64Integer
+  , rsaPrivateKeyParameters :: Maybe RSAPrivateKeyParameters
+  }
   deriving (Eq, Show)
 
 instance FromJSON RSAKeyParameters where
-  parseJSON = withObject "RSA" (\o ->
-    RSAPrivateKeyParameters
-      <$> o .: "n"
+  parseJSON = withObject "RSA" $ \o ->
+    RSAKeyParameters
+      <$> o .: "kty"
+      <*> o .: "n"
       <*> o .: "e"
-      <*> o .: "d"
-      <*> (if any (`M.member` o) ["p", "q", "dp", "dq", "qi", "oth"]
-        then Just <$> parseJSON (Object o)
-        else pure Nothing)
-    <|> RSAPublicKeyParameters <$> o .: "n" <*> o .: "e")
+      <*> parseJSON (Object o)
 
 instance ToJSON RSAKeyParameters where
-  toJSON (RSAPrivateKeyParameters {..}) = object $
-    ("n" .= rsaN)
+  toJSON RSAKeyParameters {..} = object $
+      ("kty" .= rsaKty)
+    : ("n" .= rsaN)
     : ("e" .= rsaE)
-    : ("d" .= rsaD)
-    : maybe [] (Types.objectPairs . toJSON) rsaOptionalParameters
-  toJSON (RSAPublicKeyParameters n e) = object ["n" .= n, "e" .= e]
+    : maybe [] (Types.objectPairs . toJSON) rsaPrivateKeyParameters
 
 instance Key RSAKeyParameters where
   sign JWA.JWS.RS256 = signPKCS15 hashDescrSHA256
@@ -308,30 +321,24 @@ verifyPSS h k m = Right .
   PSS.verify (PSS.defaultPSSParams (hashFunction h)) (rsaPublicKey k) m
 
 rsaPrivateKey :: RSAKeyParameters -> Either Error RSA.PrivateKey
-rsaPrivateKey (RSAPrivateKeyParameters
+rsaPrivateKey (RSAKeyParameters _
   (Types.SizedBase64Integer size n)
   (Types.Base64Integer e)
-  (Types.Base64Integer d)
-  _)
+  (Just (RSAPrivateKeyParameters (Types.Base64Integer d) _)))
   | size >= 2048 `div` 8 = Right $
     RSA.PrivateKey (RSA.PublicKey size n e) d 0 0 0 0 0
   | otherwise = Left KeySizeTooSmall
 rsaPrivateKey _ = Left $ KeyMismatch "not an RSA private key"
 
 rsaPublicKey :: RSAKeyParameters -> RSA.PublicKey
-rsaPublicKey (RSAPrivateKeyParameters
-  (Types.SizedBase64Integer size n)
-  (Types.Base64Integer e) _ _)
-  = RSA.PublicKey size n e
-rsaPublicKey (RSAPublicKeyParameters
-  (Types.SizedBase64Integer size n)
-  (Types.Base64Integer e))
+rsaPublicKey (RSAKeyParameters _
+  (Types.SizedBase64Integer size n) (Types.Base64Integer e) _)
   = RSA.PublicKey size n e
 
 
 -- | Generate RSA public and private key parameters.
 --
-genRSAParams :: Int -> IO (RSAKeyParameters, RSAKeyParameters)
+genRSAParams :: Int -> IO RSAKeyParameters
 genRSAParams size =
   let
     i = Types.Base64Integer
@@ -340,17 +347,16 @@ genRSAParams size =
     ent <- createEntropyPool
     ((RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi), _) <-
       return $ RSA.generate (cprgCreate ent :: SystemRNG) size 65537
-    return
-      ( RSAPublicKeyParameters (si s n) (i e)
-      , RSAPrivateKeyParameters (si s n) (i e) (i d)
+    return $
+      RSAKeyParameters RSA (si s n) (i e) $
+        Just (RSAPrivateKeyParameters (i d)
           (Just (RSAPrivateKeyOptionalParameters
-            (i p) (i q) (i dp) (i dq) (i qi) Nothing))
-      )
+            (i p) (i q) (i dp) (i dq) (i qi) Nothing)))
 
 -- | Generate RSA public and private key material.
 --
-genRSA :: Int -> IO (KeyMaterial, KeyMaterial)
-genRSA = fmap (RSAKeyMaterial RSA *** RSAKeyMaterial RSA) . genRSAParams
+genRSA :: Int -> IO KeyMaterial
+genRSA = fmap RSAKeyMaterial . genRSAParams
 
 
 -- | Symmetric key parameters data.
@@ -385,27 +391,27 @@ signOct a (OctKeyParameters (Types.Base64Octets k)) m = toBytes $ hmacAlg a k m
 --
 data KeyMaterial =
   ECKeyMaterial ECKeyParameters
-  | RSAKeyMaterial RSA RSAKeyParameters
+  | RSAKeyMaterial RSAKeyParameters
   | OctKeyMaterial Oct OctKeyParameters
   deriving (Eq, Show)
 
 instance FromJSON KeyMaterial where
   parseJSON = withObject "KeyMaterial" (\o ->
     ECKeyMaterial      <$> parseJSON (Object o)
-    <|> RSAKeyMaterial <$> o .: "kty" <*> parseJSON (Object o)
+    <|> RSAKeyMaterial <$> parseJSON (Object o)
     <|> OctKeyMaterial <$> o .: "kty" <*> o .: "k")
 
 instance ToJSON KeyMaterial where
   toJSON (ECKeyMaterial p)  = object $ Types.objectPairs (toJSON p)
-  toJSON (RSAKeyMaterial k p) = object $ ("kty" .= k) : Types.objectPairs (toJSON p)
+  toJSON (RSAKeyMaterial p) = object $ Types.objectPairs (toJSON p)
   toJSON (OctKeyMaterial k i) = object ["kty" .= k, "k" .= i]
 
 instance Key KeyMaterial where
   sign JWA.JWS.None _ = \g _ -> (Right "", g)
   sign h (ECKeyMaterial k)  = sign h k
-  sign h (RSAKeyMaterial _ k) = sign h k
+  sign h (RSAKeyMaterial k) = sign h k
   sign h (OctKeyMaterial _ k) = sign h k
   verify JWA.JWS.None _ = \_ s -> Right $ s == ""
   verify h (ECKeyMaterial k)  = verify h k
-  verify h (RSAKeyMaterial _ k) = verify h k
+  verify h (RSAKeyMaterial k) = verify h k
   verify h (OctKeyMaterial _ k) = verify h k

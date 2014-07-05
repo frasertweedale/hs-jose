@@ -28,7 +28,6 @@ module Crypto.JOSE.Legacy
   ) where
 
 import Control.Applicative
-import Control.Arrow
 
 import Data.Aeson
 
@@ -45,22 +44,18 @@ newtype RSAKeyParameters' = RSAKeyParameters' RSAKeyParameters
   deriving (Eq, Show)
 
 instance FromJSON RSAKeyParameters' where
-  parseJSON = withObject "RSA" (\o ->
-    RSAKeyParameters' <$> (RSAPrivateKeyParameters
-      <$> o .: "modulus"
+  parseJSON = withObject "RSA" $ \o ->
+    fmap RSAKeyParameters' $ RSAKeyParameters
+      <$> pure RSA
+      <*> o .: "modulus"
       <*> o .: "exponent"
-      <*> o .: "secretExponent"
-      <*> pure Nothing)
-    <|> RSAKeyParameters' <$> (RSAPublicKeyParameters
-      <$> o .: "modulus"
-      <*> o .: "exponent")
-    )
+      <*> (fmap (`RSAPrivateKeyParameters` Nothing) <$> (o .:? "secretExponent"))
 
 instance ToJSON RSAKeyParameters' where
-  toJSON (RSAKeyParameters' (RSAPrivateKeyParameters n e d _)) = object
-    ["modulus" .= n ,"exponent" .= e ,"secretExponent" .= d]
-  toJSON (RSAKeyParameters' (RSAPublicKeyParameters n e))
-    = object ["modulus" .= n, "exponent" .= e]
+  toJSON (RSAKeyParameters' (RSAKeyParameters _ n e priv))
+    = object $ ["modulus" .= n ,"exponent" .= e] ++ case priv of
+      Just (RSAPrivateKeyParameters d _) -> ["secretExponent" .= d]
+      Nothing -> []
 
 instance Key RSAKeyParameters' where
   sign h (RSAKeyParameters' k) = sign h k
@@ -100,7 +95,5 @@ instance Key JWK' where
 
 -- | Generate a legacy RSA keypair.
 --
-genRSA' :: Int -> IO (JWK', JWK')
-genRSA' =
-  let f = JWK' . RSAKeyMaterial' RS . RSAKeyParameters'
-  in fmap (f *** f) . genRSAParams
+genRSA' :: Int -> IO JWK'
+genRSA' = fmap (JWK' . RSAKeyMaterial' RS . RSAKeyParameters') . genRSAParams

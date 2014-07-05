@@ -34,7 +34,6 @@ module Crypto.JOSE.JWK
   ) where
 
 import Control.Applicative
-import Control.Arrow
 import Data.Maybe (catMaybes)
 
 import Data.Aeson
@@ -126,8 +125,8 @@ materialJWK m = JWK m n n n n n n n n where n = Nothing
 
 -- | Generate a /(public, private)/ RSA keypair.
 --
-genRSA :: Int -> IO (JWK, JWK)
-genRSA = fmap (materialJWK *** materialJWK) . JWA.JWK.genRSA
+genRSA :: Int -> IO JWK
+genRSA = fmap materialJWK . JWA.JWK.genRSA
 
 
 -- | JWK §4.  JSON Web Key Set (JWK Set) Format
