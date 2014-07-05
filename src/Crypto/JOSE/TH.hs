@@ -55,14 +55,18 @@ guard s = normalGE (guardPred s) (guardExp s)
 endGuardPred :: ExpQ
 endGuardPred = [e| otherwise |]
 
-endGuardExp :: ExpQ
-endGuardExp = [e| fail "unrecognised value" |]
+-- | Expression for an end guard.  Arg describes type it was expecting.
+--
+endGuardExp :: String -> ExpQ
+endGuardExp s = [e| fail ("unrecognised value; expected: " ++ s) |]
 
-endGuard :: Q (Guard, Exp)
-endGuard = normalGE endGuardPred endGuardExp
+-- | Build a catch-all guard that fails.  String describes what is expected.
+--
+endGuard :: String -> Q (Guard, Exp)
+endGuard s = normalGE endGuardPred (endGuardExp s)
 
 guardedBody :: [String] -> BodyQ
-guardedBody vs = guardedB (map guard vs ++ [endGuard])
+guardedBody vs = guardedB (map guard vs ++ [endGuard (show vs)])
 
 parseJSONClauseQ :: [String] -> ClauseQ
 parseJSONClauseQ vs = clause [varP $ mkName "s"] (guardedBody vs) []
