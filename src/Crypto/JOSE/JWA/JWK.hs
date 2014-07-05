@@ -128,7 +128,7 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
     , "q" .= rsaQ
     , "dp" .= rsaDp
     , "dq" .= rsaDq
-    , "dq" .= rsaQi
+    , "qi" .= rsaQi
     ] ++ maybe [] ((:[]) . ("oth" .=)) rsaOth
 
 
