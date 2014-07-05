@@ -16,19 +16,24 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
+{-|
+
+JSON Web Token implementation.
+
+-}
 module Crypto.JWT
   (
-    StringOrURI(..)
-
-  , IntDate(..)
-  , Audience(..)
+    JWT(..)
+  , createJWSJWT
+  , validateJWSJWT
 
   , ClaimsSet(..)
   , emptyClaimsSet
 
-  , JWT(..)
-  , createJWSJWT
-  , validateJWSJWT
+  , Audience(..)
+
+  , StringOrURI(..)
+  , IntDate(..)
   ) where
 
 import Control.Applicative
@@ -49,6 +54,10 @@ import Crypto.JOSE.Types
 
 -- §2.  Terminology
 
+-- | A JSON string value, with the additional requirement that while
+--   arbitrary string values MAY be used, any value containing a /:/
+--   character MUST be a URI.
+--
 data StringOrURI = Arbitrary T.Text | OrURI URI deriving (Eq, Show)
 
 instance FromJSON StringOrURI where
@@ -62,6 +71,9 @@ instance ToJSON StringOrURI where
   toJSON (OrURI uri)    = toJSON $ show uri
 
 
+-- | A JSON numeric value representing the number of seconds from
+--   1970-01-01T0:0:0Z UTC until the specified UTC date\/time.
+--
 newtype IntDate = IntDate UTCTime deriving (Eq, Show)
 
 instance FromJSON IntDate where
@@ -73,10 +85,12 @@ instance ToJSON IntDate where
     = Number $ fromRational $ toRational $ utcTimeToPOSIXSeconds t
 
 
--- §4.  JWT Claims
-
--- $4.1.3.  "aud" (Audience Claim)
-
+-- | Audience data.  In the general case, the /aud/ value is an
+-- array of case-sensitive strings, each containing a 'StringOrURI'
+-- value.  In the special case when the JWT has one audience, the
+-- /aud/ value MAY be a single case-sensitive string containing a
+-- 'StringOrURI' value.
+--
 data Audience = General [StringOrURI] | Special StringOrURI deriving (Eq, Show)
 
 instance FromJSON Audience where
@@ -87,30 +101,60 @@ instance ToJSON Audience where
   toJSON (Special aud)  = toJSON aud
 
 
-data ClaimsSet = ClaimsSet {
-  claimIss :: Maybe StringOrURI     -- Issuer Claim
-  , claimSub :: Maybe StringOrURI   -- Subject Claim
-  , claimAud :: Maybe Audience      -- Audience Claim
-  -- §4.1.4.  "exp" (Expiration Time) Claim
-  --
-  -- processing of "exp" claim requires that current date/time
-  -- MUST be before expiration date/time listed.  Implementers
-  -- MAY provide leeway to account for clock skew.  Value MUST
-  -- be a number containing an IntDate value
+-- | The JWT Claims Set represents a JSON object whose members are
+--   the claims conveyed by the JWT.
+--
+data ClaimsSet = ClaimsSet
+  { claimIss :: Maybe StringOrURI
+  -- ^ The issuer claim identifies the principal that issued the
+  -- JWT.  The processing of this claim is generally application
+  -- specific.
+  , claimSub :: Maybe StringOrURI
+  -- ^ The subject claim identifies the principal that is the
+  -- subject of the JWT.  The Claims in a JWT are normally
+  -- statements about the subject.  The subject value MAY be scoped
+  -- to be locally unique in the context of the issuer or MAY be
+  -- globally unique.  The processing of this claim is generally
+  -- application specific.
+  , claimAud :: Maybe Audience
+  -- ^ The audience claim identifies the recipients that the JWT is
+  -- intended for.  Each principal intended to process the JWT MUST
+  -- identify itself with a value in the audience claim.  If the
+  -- principal processing the claim does not identify itself with a
+  -- value in the /aud/ claim when this claim is present, then the
+  -- JWT MUST be rejected.
   , claimExp :: Maybe IntDate
-  -- §4.1.4.  "nbf" (Not Before) Claim
-  --
-  -- processing of "nbf" claim requires that current date/time MUST
-  -- be >= date/time listed.  Implementers MAY provide leeway to
-  -- account for clock skew.  Value MUST be a number containing an
-  -- IntDate value
+  -- ^ The expiration time claim identifies the expiration time on
+  -- or after which the JWT MUST NOT be accepted for processing.
+  -- The processing of /exp/ claim requires that the current
+  -- date\/time MUST be before expiration date\/time listed in the
+  -- /exp/ claim.  Implementers MAY provide for some small leeway,
+  -- usually no more than a few minutes, to account for clock skew.
   , claimNbf :: Maybe IntDate
-  , claimIat :: Maybe IntDate -- Issued At
-  , claimJti :: Maybe T.Text -- JWT ID; Case-insensitive string
+  -- ^ The not before claim identifies the time before which the JWT
+  -- MUST NOT be accepted for processing.  The processing of the
+  -- /nbf/ claim requires that the current date\/time MUST be after
+  -- or equal to the not-before date\/time listed in the /nbf/
+  -- claim.  Implementers MAY provide for some small leeway, usually
+  -- no more than a few minutes, to account for clock skew.
+  , claimIat :: Maybe IntDate
+  -- ^ The issued at claim identifies the time at which the JWT was
+  -- issued.  This claim can be used to determine the age of the
+  -- JWT.
+  , claimJti :: Maybe T.Text
+  -- ^ The JWT ID claim provides a unique identifier for the JWT.
+  -- The identifier value MUST be assigned in a manner that ensures
+  -- that there is a negligible probability that the same value will
+  -- be accidentally assigned to a different data object.  The /jti/
+  -- claim can be used to prevent the JWT from being replayed.  The
+  -- /jti/ value is a case-sensitive string.
   , unregisteredClaims :: M.HashMap T.Text Value
+  -- ^ Claim Names can be defined at will by those using JWTs.
   }
   deriving (Eq, Show)
 
+-- | Return an empty claims set.
+--
 emptyClaimsSet :: ClaimsSet
 emptyClaimsSet = ClaimsSet n n n n n n n M.empty where n = Nothing
 
@@ -141,6 +185,8 @@ instance ToJSON ClaimsSet where
     ] ++ M.toList (filterUnregistered o)
 
 
+-- | Data representing the JOSE aspects of a JWT.
+--
 data JWTCrypto = JWTJWS JWS deriving (Eq, Show)
 
 instance FromCompact JWTCrypto where
@@ -150,9 +196,11 @@ instance ToCompact JWTCrypto where
   toCompact (JWTJWS jws) = toCompact jws
 
 
+-- | JSON Web Token data.
+--
 data JWT = JWT
-  { jwtCrypto     :: JWTCrypto
-  , jwtClaimsSet  :: ClaimsSet
+  { jwtCrypto     :: JWTCrypto  -- ^ JOSE aspect of the JWT.
+  , jwtClaimsSet  :: ClaimsSet  -- ^ Claims of the JWT.
   } deriving (Eq, Show)
 
 instance FromCompact JWT where
@@ -165,10 +213,13 @@ instance ToCompact JWT where
   toCompact = toCompact . jwtCrypto
 
 
+-- | Validate a JWT as a JWS (JSON Web Signature).
+--
 validateJWSJWT :: JWK -> JWT -> Bool
 validateJWSJWT k (JWT (JWTJWS jws) _) = verifyJWS k jws
 
-
+-- | Create a JWT that is a JWS.
+--
 createJWSJWT
   :: CPRG g
   => g
