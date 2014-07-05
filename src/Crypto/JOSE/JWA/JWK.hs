@@ -361,14 +361,18 @@ genRSA = fmap RSAKeyMaterial . genRSAParams
 
 -- | Symmetric key parameters data.
 --
-newtype OctKeyParameters = OctKeyParameters Types.Base64Octets
+data OctKeyParameters = OctKeyParameters
+  { octKty :: Oct
+  , octK :: Types.Base64Octets
+  }
   deriving (Eq, Show)
 
 instance FromJSON OctKeyParameters where
-  parseJSON = (OctKeyParameters <$>) . parseJSON
+  parseJSON = withObject "symmetric key" $ \o ->
+    OctKeyParameters <$> o .: "kty" <*> o .: "k"
 
 instance ToJSON OctKeyParameters where
-  toJSON (OctKeyParameters k) = toJSON k
+  toJSON OctKeyParameters {..} = object ["kty" .= octKty, "k" .= octK]
 
 instance Key OctKeyParameters where
   sign JWA.JWS.HS256 k g = first Right . (,g) . signOct SHA256 k
@@ -384,34 +388,35 @@ signOct
   -> OctKeyParameters
   -> B.ByteString
   -> B.ByteString
-signOct a (OctKeyParameters (Types.Base64Octets k)) m = toBytes $ hmacAlg a k m
+signOct a (OctKeyParameters _ (Types.Base64Octets k)) m
+  = toBytes $ hmacAlg a k m
 
 
 -- | Key material sum type.
 --
-data KeyMaterial =
-  ECKeyMaterial ECKeyParameters
+data KeyMaterial
+  = ECKeyMaterial ECKeyParameters
   | RSAKeyMaterial RSAKeyParameters
-  | OctKeyMaterial Oct OctKeyParameters
+  | OctKeyMaterial OctKeyParameters
   deriving (Eq, Show)
 
 instance FromJSON KeyMaterial where
-  parseJSON = withObject "KeyMaterial" (\o ->
+  parseJSON = withObject "KeyMaterial" $ \o ->
     ECKeyMaterial      <$> parseJSON (Object o)
     <|> RSAKeyMaterial <$> parseJSON (Object o)
-    <|> OctKeyMaterial <$> o .: "kty" <*> o .: "k")
+    <|> OctKeyMaterial <$> parseJSON (Object o)
 
 instance ToJSON KeyMaterial where
   toJSON (ECKeyMaterial p)  = object $ Types.objectPairs (toJSON p)
   toJSON (RSAKeyMaterial p) = object $ Types.objectPairs (toJSON p)
-  toJSON (OctKeyMaterial k i) = object ["kty" .= k, "k" .= i]
+  toJSON (OctKeyMaterial p) = object $ Types.objectPairs (toJSON p)
 
 instance Key KeyMaterial where
   sign JWA.JWS.None _ = \g _ -> (Right "", g)
   sign h (ECKeyMaterial k)  = sign h k
   sign h (RSAKeyMaterial k) = sign h k
-  sign h (OctKeyMaterial _ k) = sign h k
+  sign h (OctKeyMaterial k) = sign h k
   verify JWA.JWS.None _ = \_ s -> Right $ s == ""
   verify h (ECKeyMaterial k)  = verify h k
   verify h (RSAKeyMaterial k) = verify h k
-  verify h (OctKeyMaterial _ k) = verify h k
+  verify h (OctKeyMaterial k) = verify h k
