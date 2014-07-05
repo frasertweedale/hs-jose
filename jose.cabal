@@ -34,17 +34,18 @@ cabal-version:       >= 1.8
 
 library
   exposed-modules:
+    Crypto.JOSE
     Crypto.JOSE.Classes
     Crypto.JOSE.Compact
     Crypto.JOSE.Error
-    Crypto.JOSE.Types
-    Crypto.JOSE.JWA.JWK
-    Crypto.JOSE.JWA.JWS
     Crypto.JOSE.JWK
     Crypto.JOSE.JWS
     Crypto.JOSE.Legacy
+    Crypto.JOSE.Types
 
   other-modules:
+    Crypto.JOSE.JWA.JWK
+    Crypto.JOSE.JWA.JWS
     Crypto.JOSE.JWA.JWE
     Crypto.JOSE.JWA.JWE.Alg
     Crypto.JOSE.JWS.Internal
