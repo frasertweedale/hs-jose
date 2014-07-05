@@ -1,5 +1,5 @@
 -- This file is part of jwt - JSON Web Token
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- jwt is free software: you can redistribute it and/or modify
 -- it under the terms of the GNU Affero General Public License as published by
@@ -80,4 +80,4 @@ main = hspec $ do
         k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
       in do
         fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-        fmap (validateJWT k) jwt `shouldBe` Right True
+        fmap (validateJWSJWT k) jwt `shouldBe` Right True

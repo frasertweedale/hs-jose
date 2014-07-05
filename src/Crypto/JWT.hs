@@ -27,8 +27,8 @@ module Crypto.JWT
   , emptyClaimsSet
 
   , JWT(..)
-  , createJWT
-  , validateJWT
+  , createJWSJWT
+  , validateJWSJWT
   ) where
 
 import Control.Applicative
@@ -43,11 +43,7 @@ import qualified Data.Text as T
 import Data.Time
 import Data.Time.Clock.POSIX
 
-import Crypto.JOSE.Classes
-import Crypto.JOSE.Compact
-import Crypto.JOSE.Error
-import Crypto.JOSE.JWK
-import Crypto.JOSE.JWS
+import Crypto.JOSE
 import Crypto.JOSE.Types
 
 
@@ -163,26 +159,24 @@ instance FromCompact JWT where
   fromCompact = fromCompact >=> toJWT where
     toJWT (JWTJWS jws) =
       either (Left . CompactDecodeError) (Right . JWT (JWTJWS jws))
-        $ eitherDecode $ Crypto.JOSE.JWS.jwsPayload jws
+        $ eitherDecode $ jwsPayload jws
 
 instance ToCompact JWT where
   toCompact = toCompact . jwtCrypto
 
 
-validateJWT :: JWK -> JWT -> Bool
-validateJWT k (JWT (JWTJWS jws) _) = verifyJWS k jws
+validateJWSJWT :: JWK -> JWT -> Bool
+validateJWSJWT k (JWT (JWTJWS jws) _) = verifyJWS k jws
 
 
-data JWTHeader = JWSHeader Crypto.JOSE.JWS.Header  -- TODO JWE
-
-createJWT
+createJWSJWT
   :: CPRG g
   => g
   -> JWK
-  -> JWTHeader
+  -> JWSHeader
   -> ClaimsSet
   -> (Either Error JWT, g)
-createJWT g k (JWSHeader h) c = first (fmap $ \jws -> JWT (JWTJWS jws) c) $
-  signJWS g (Crypto.JOSE.JWS.JWS payload []) h k
+createJWSJWT g k h c = first (fmap $ \jws -> JWT (JWTJWS jws) c) $
+  signJWS g (JWS payload []) h k
   where
     payload = Base64Octets $ BSL.toStrict $ encode c
