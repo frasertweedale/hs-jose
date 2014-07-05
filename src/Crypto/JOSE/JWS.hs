@@ -21,7 +21,7 @@ Object Notation (JSON) based data structures.
 -}
 module Crypto.JOSE.JWS
   (
-    Header(..)
+    JWSHeader(..)
 
   , JWS(..)
   , jwsPayload

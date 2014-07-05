@@ -86,7 +86,7 @@ instance ToJSON CritParameters where
 
 
 -- | JWS Header data type.
-data Header = Header
+data JWSHeader = JWSHeader
   { headerAlg :: JWA.JWS.Alg
   , headerJku :: Maybe Types.URI  -- ^ JWK Set URL
   , headerJwk :: Maybe JWK
@@ -102,10 +102,10 @@ data Header = Header
   }
   deriving (Show)
 
-instance Eq Header where
+instance Eq JWSHeader where
   a == b =
     let
-      ignoreRaw (Header alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit _)
+      ignoreRaw (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit _)
         = (alg, jku, jwk, kid, x5u, x5c, x5t, x5tS256, typ, cty, crit)
     in
       ignoreRaw a == ignoreRaw b
@@ -114,8 +114,8 @@ parseHeaderWith
   :: (forall a. FromJSON a => T.Text -> Parser a)
   -> (forall a. FromJSON a => T.Text -> Parser (Maybe a))
   -> Parser (Maybe CritParameters)
-  -> Parser Header
-parseHeaderWith req opt crit = Header
+  -> Parser JWSHeader
+parseHeaderWith req opt crit = JWSHeader
     <$> req "alg"
     <*> opt "jku"
     <*> opt "jwk"
@@ -134,29 +134,29 @@ parseCrit o = if M.member "crit" o
   then Just <$> parseJSON (Object o)
   else pure Nothing
 
-instance FromJSON Header where
+instance FromJSON JWSHeader where
   parseJSON = withObject "JWS Header" (\o ->
     parseHeaderWith (o .:) (o .:?) (parseCrit o))
 
-instance ToJSON Header where
-  toJSON (Header alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit _) = object $ catMaybes [
-    Just ("alg" .= alg)
-    , fmap ("jku" .=) jku
-    , fmap ("jwk" .=) jwk
-    , fmap ("kid" .=) kid
-    , fmap ("x5u" .=) x5u
-    , fmap ("x5c" .=) x5c
-    , fmap ("x5t" .=) x5t
-    , fmap ("x5t#S256" .=) x5tS256
-    , fmap ("typ" .=) typ
-    , fmap ("cty" .=) cty
-    ]
-    ++ Types.objectPairs (toJSON crit)
+instance ToJSON JWSHeader where
+  toJSON (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit _) =
+    object $ catMaybes
+      [ Just ("alg" .= alg)
+      , fmap ("jku" .=) jku
+      , fmap ("jwk" .=) jwk
+      , fmap ("kid" .=) kid
+      , fmap ("x5u" .=) x5u
+      , fmap ("x5c" .=) x5c
+      , fmap ("x5t" .=) x5t
+      , fmap ("x5t#S256" .=) x5tS256
+      , fmap ("typ" .=) typ
+      , fmap ("cty" .=) cty
+      ] ++ Types.objectPairs (toJSON crit)
 
 
 -- construct a minimal header with the given alg
-algHeader :: JWA.JWS.Alg -> Header
-algHeader alg = Header alg n n n n n n n n n n n where n = Nothing
+algHeader :: JWA.JWS.Alg -> JWSHeader
+algHeader alg = JWSHeader alg n n n n n n n n n n n where n = Nothing
 
 
 (.::) :: (FromJSON a) => Object -> Object -> T.Text -> Parser a
@@ -174,10 +174,10 @@ algHeader alg = Header alg n n n n n n n n n n n where n = Nothing
   _                 -> pure Nothing
 
 
-data Signature = Signature Header Types.Base64Octets
+data Signature = Signature JWSHeader Types.Base64Octets
   deriving (Eq, Show)
 
-parseHeader :: Maybe Object -> Maybe Object -> Parser Header
+parseHeader :: Maybe Object -> Maybe Object -> Parser JWSHeader
 parseHeader (Just p) (Just u) = parseHeaderWith ((.::) p u) ((.::?) p u) (parseCrit p)
 parseHeader (Just p) _ = parseHeaderWith (p .:) (p .:?) (parseCrit p)
 parseHeader _ (Just u) = parseHeaderWith (u .:) (u .:?) (if M.member "crit" u
@@ -240,7 +240,7 @@ encodeO = BSL.reverse . BSL.dropWhile (== c) . BSL.reverse
 encodeS :: ToJSON a => a -> BSL.ByteString
 encodeS = BSL.init . BSL.tail . encode
 
-signingInput :: Header -> Types.Base64Octets -> BSL.ByteString
+signingInput :: JWSHeader -> Types.Base64Octets -> BSL.ByteString
 signingInput h p = BSL.intercalate "."
   [maybe (encodeO h) BSL.fromStrict (headerRaw h), encodeS p]
 
@@ -286,7 +286,7 @@ signJWS
   :: CPRG g
   => g        -- ^ Random number generator
   -> JWS      -- ^ JWS to sign
-  -> Header   -- ^ Header for signature
+  -> JWSHeader  -- ^ Header for signature
   -> JWK      -- ^ Key with which to sign
   -> (Either Error JWS, g) -- ^ JWS with new signature appended
 signJWS g (JWS p sigs) h k = first (either Left (Right . appendSig)) $
