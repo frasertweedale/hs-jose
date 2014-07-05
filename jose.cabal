@@ -10,10 +10,10 @@ description:
   are implemented.  JSON Web Encryption (JWE) is not yet
   implemented.
   .
-  JWS algorithms implemented are HMAC, RSASSA-PKCS-v1_5 and ECDSA.
-  RSASSA-PSS is not yet implemented.  The ECDSA implementation used
-  is vulnerable to timing attacks and should therefore be used only
-  for JWS verification.
+  All JWS algorithms (HMAC, ECDSA, RSASSA-PKCS-v1_5 and RSASSA-PSS)
+  are implemented, however, the ECDSA implementation is is
+  vulnerable to timing attacks and should therefore be used only for
+  JWS verification.
   .
   The version number tracks the IETF jose working group draft
   revisions.  For now, expect breaking API changes on any version
