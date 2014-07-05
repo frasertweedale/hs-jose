@@ -49,12 +49,11 @@ import Control.Arrow
 
 import Crypto.Hash
 import Crypto.PubKey.HashDescr
-import qualified Crypto.PubKey.ECC.ECDSA
-import qualified Crypto.PubKey.RSA
-import qualified Crypto.PubKey.RSA.PKCS15
+import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
+import qualified Crypto.PubKey.RSA as RSA
+import qualified Crypto.PubKey.RSA.PKCS15 as PKCS15
 import qualified Crypto.PubKey.RSA.PSS as PSS
-import qualified Crypto.Types.PubKey.ECC
-import qualified Crypto.Types.PubKey.ECDSA
+import qualified Crypto.Types.PubKey.ECC as ECC
 import Crypto.Random
 import Data.Aeson
 import Data.Byteable
@@ -197,10 +196,10 @@ signEC
   -> (Either Error B.ByteString, g)
 signEC h k@(ECPrivateKeyParameters {..}) g m = first (Right . sigToBS) sig
   where
-  sig = Crypto.PubKey.ECC.ECDSA.sign g privateKey (hashFunction h) m
-  sigToBS (Crypto.Types.PubKey.ECDSA.Signature r s) =
+  sig = ECDSA.sign g privateKey (hashFunction h) m
+  sigToBS (ECDSA.Signature r s) =
     Types.integerToBS r `B.append` Types.integerToBS s
-  privateKey = Crypto.Types.PubKey.ECDSA.PrivateKey (curve k) (d ecD)
+  privateKey = ECDSA.PrivateKey (curve k) (d ecD)
   d (Types.SizedBase64Integer _ n) = n
 signEC _ _ g _ = (Left $ KeyMismatch "not an EC private key", g)
 
@@ -210,30 +209,29 @@ verifyEC
   -> B.ByteString
   -> B.ByteString
   -> Either Error Bool
-verifyEC h k m s = Right $
-  Crypto.PubKey.ECC.ECDSA.verify (hashFunction h) pubkey sig m
+verifyEC h k m s = Right $ ECDSA.verify (hashFunction h) pubkey sig m
   where
-    pubkey = Crypto.Types.PubKey.ECDSA.PublicKey (curve k) (point k)
-    sig = uncurry Crypto.Types.PubKey.ECDSA.Signature
-      $ Types.bsToInteger *** Types.bsToInteger
-      $ B.splitAt (B.length s `div` 2) s
+  pubkey = ECDSA.PublicKey (curve k) (point k)
+  sig = uncurry ECDSA.Signature
+    $ Types.bsToInteger *** Types.bsToInteger
+    $ B.splitAt (B.length s `div` 2) s
 
-curve :: ECKeyParameters -> Crypto.Types.PubKey.ECC.Curve
+curve :: ECKeyParameters -> ECC.Curve
 curve k = case k of
  ECPrivateKeyParameters {..} -> curve' ecCrv
  ECPublicKeyParameters {..} -> curve' ecCrv'
  where
-  curve' c = Crypto.Types.PubKey.ECC.getCurveByName (curveName c)
-  curveName P_256 = Crypto.Types.PubKey.ECC.SEC_p256r1
-  curveName P_384 = Crypto.Types.PubKey.ECC.SEC_p384r1
-  curveName P_521 = Crypto.Types.PubKey.ECC.SEC_p521r1
+  curve' c = ECC.getCurveByName (curveName c)
+  curveName P_256 = ECC.SEC_p256r1
+  curveName P_384 = ECC.SEC_p384r1
+  curveName P_521 = ECC.SEC_p521r1
 
-point :: ECKeyParameters -> Crypto.Types.PubKey.ECC.Point
+point :: ECKeyParameters -> ECC.Point
 point k = case k of
  ECPrivateKeyParameters {..} -> point' ecX ecY
  ECPublicKeyParameters {..} -> point' ecX' ecY'
  where
-  point' x y = Crypto.Types.PubKey.ECC.Point (integer x) (integer y)
+  point' x y = ECC.Point (integer x) (integer y)
   integer (Types.SizedBase64Integer _ n) = n
 
 
@@ -300,7 +298,7 @@ signPKCS15
 signPKCS15 h k g m = case rsaPrivateKey k of
   Left e -> (Left e, g)
   Right k' -> first (either (Left . RSAError) Right) $
-    Crypto.PubKey.RSA.PKCS15.signSafer g h k' m
+    PKCS15.signSafer g h k' m
 
 verifyPKCS15
   :: HashDescr
@@ -308,7 +306,7 @@ verifyPKCS15
   -> B.ByteString
   -> B.ByteString
   -> Either Error Bool
-verifyPKCS15 h k m = Right . Crypto.PubKey.RSA.PKCS15.verify h (rsaPublicKey k) m
+verifyPKCS15 h k m = Right . PKCS15.verify h (rsaPublicKey k) m
 
 signPSS
   :: CPRG g
@@ -331,26 +329,26 @@ verifyPSS
 verifyPSS h k m = Right .
   PSS.verify (PSS.defaultPSSParams (hashFunction h)) (rsaPublicKey k) m
 
-rsaPrivateKey :: RSAKeyParameters -> Either Error Crypto.PubKey.RSA.PrivateKey
+rsaPrivateKey :: RSAKeyParameters -> Either Error RSA.PrivateKey
 rsaPrivateKey (RSAPrivateKeyParameters
   (Types.SizedBase64Integer size n)
   (Types.Base64Integer e)
   (Types.Base64Integer d)
   _)
-  | size >= 2048 `div` 8 = Right $ Crypto.PubKey.RSA.PrivateKey
-    (Crypto.PubKey.RSA.PublicKey size n e) d 0 0 0 0 0
+  | size >= 2048 `div` 8 = Right $
+    RSA.PrivateKey (RSA.PublicKey size n e) d 0 0 0 0 0
   | otherwise = Left KeySizeTooSmall
 rsaPrivateKey _ = Left $ KeyMismatch "not an RSA private key"
 
-rsaPublicKey :: RSAKeyParameters -> Crypto.PubKey.RSA.PublicKey
+rsaPublicKey :: RSAKeyParameters -> RSA.PublicKey
 rsaPublicKey (RSAPrivateKeyParameters
   (Types.SizedBase64Integer size n)
   (Types.Base64Integer e) _ _)
-  = Crypto.PubKey.RSA.PublicKey size n e
+  = RSA.PublicKey size n e
 rsaPublicKey (RSAPublicKeyParameters
   (Types.SizedBase64Integer size n)
   (Types.Base64Integer e))
-  = Crypto.PubKey.RSA.PublicKey size n e
+  = RSA.PublicKey size n e
 
 
 -- | Generate RSA public and private key parameters.
@@ -362,8 +360,8 @@ genRSAParams size =
     si = Types.SizedBase64Integer
   in do
     ent <- createEntropyPool
-    ((Crypto.PubKey.RSA.PublicKey s n e, Crypto.PubKey.RSA.PrivateKey _ d p q dp dq qi), _) <-
-      return $ Crypto.PubKey.RSA.generate (cprgCreate ent :: SystemRNG) size 65537
+    ((RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi), _) <-
+      return $ RSA.generate (cprgCreate ent :: SystemRNG) size 65537
     return
       ( RSAPublicKeyParameters (si s n) (i e)
       , RSAPrivateKeyParameters (si s n) (i e) (i d)
