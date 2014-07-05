@@ -19,11 +19,17 @@ Prelude for the  library.
 -}
 module Crypto.JOSE
   (
-    module JOSE
+    module Crypto.JOSE.Classes
+  , module Crypto.JOSE.Compact
+  , module Crypto.JOSE.Error
+  , module Crypto.JOSE.JWK
+  , module Crypto.JOSE.JWS
   ) where
 
-import Crypto.JOSE.Classes as JOSE
-import Crypto.JOSE.Compact as JOSE
-import Crypto.JOSE.Error as JOSE
-import Crypto.JOSE.JWK as JOSE
-import Crypto.JOSE.JWS as JOSE
+import Crypto.JOSE.Classes
+import Crypto.JOSE.Compact
+import Crypto.JOSE.Error
+import Crypto.JOSE.JWK
+import Crypto.JOSE.JWS
+
+{-# ANN module "HLint: ignore Use import/export shortcut" #-}
