@@ -252,7 +252,9 @@ instance FromJSON RSAKeyParameters where
       <$> o .: "kty"
       <*> o .: "n"
       <*> o .: "e"
-      <*> parseJSON (Object o)
+      <*> if M.member "d" o
+        then Just <$> parseJSON (Object o)
+        else pure Nothing
 
 instance ToJSON RSAKeyParameters where
   toJSON RSAKeyParameters {..} = object $

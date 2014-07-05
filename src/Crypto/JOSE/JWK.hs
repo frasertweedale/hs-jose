@@ -131,7 +131,7 @@ genRSA = fmap materialJWK . JWA.JWK.genRSA
 
 -- | JWK §4.  JSON Web Key Set (JWK Set) Format
 --
-data JWKSet = JWKSet [JWK]
+newtype JWKSet = JWKSet [JWK] deriving (Eq, Show)
 
 instance FromJSON JWKSet where
   parseJSON = withObject "JWKSet" (\o -> JWKSet <$> o .: "keys")
