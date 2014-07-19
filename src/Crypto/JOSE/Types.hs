@@ -24,8 +24,8 @@ module Crypto.JOSE.Types where
 import Control.Applicative
 
 import Data.Aeson
-import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
 import Data.Certificate.X509
 import qualified Data.Text as T
 import qualified Network.URI
@@ -55,17 +55,17 @@ data SizedBase64Integer = SizedBase64Integer Int Integer
 
 instance FromJSON SizedBase64Integer where
   parseJSON = withText "full size base64url integer" $ parseB64Url (\bytes ->
-    pure $ SizedBase64Integer (BS.length bytes) (bsToInteger bytes))
+    pure $ SizedBase64Integer (B.length bytes) (bsToInteger bytes))
 
 instance ToJSON SizedBase64Integer where
   toJSON (SizedBase64Integer s x) = encodeB64Url $ zeroPad $ integerToBS x
-    where zeroPad xs = BS.replicate (s - BS.length xs) 0 `BS.append` xs
+    where zeroPad xs = B.replicate (s - B.length xs) 0 `B.append` xs
 
 
 -- | A base64url encoded string.  This is used for the JWE
 -- /Agreement PartyUInfo/ and /Agreement PartyVInfo/ fields.
 --
-newtype Base64UrlString = Base64UrlString BS.ByteString
+newtype Base64UrlString = Base64UrlString B.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64UrlString where
@@ -75,7 +75,7 @@ instance FromJSON Base64UrlString where
 -- | A base64url encoded octet sequence.  Used for payloads,
 -- signatures, symmetric keys, salts, initialisation vectors, etc.
 --
-newtype Base64Octets = Base64Octets BS.ByteString
+newtype Base64Octets = Base64Octets B.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64Octets where
@@ -88,12 +88,12 @@ instance ToJSON Base64Octets where
 -- | A base64url encoded SHA-1 digest.  Used for X.509 certificate
 -- thumbprints.
 --
-newtype Base64SHA1 = Base64SHA1 BS.ByteString
+newtype Base64SHA1 = Base64SHA1 B.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64SHA1 where
   parseJSON = withText "base64url SHA-1" $ parseB64Url (\bytes ->
-    case BS.length bytes of
+    case B.length bytes of
       20 -> pure $ Base64SHA1 bytes
       _  -> fail "incorrect number of bytes")
 
@@ -104,12 +104,12 @@ instance ToJSON Base64SHA1 where
 -- | A base64url encoded SHA-256 digest.  Used for X.509 certificate
 -- thumbprints.
 --
-newtype Base64SHA256 = Base64SHA256 BS.ByteString
+newtype Base64SHA256 = Base64SHA256 B.ByteString
   deriving (Eq, Show)
 
 instance FromJSON Base64SHA256 where
   parseJSON = withText "base64url SHA-256" $ parseB64Url (\bytes ->
-    case BS.length bytes of
+    case B.length bytes of
       32 -> pure $ Base64SHA256 bytes
       _  -> fail "incorrect number of bytes")
 
@@ -124,10 +124,10 @@ newtype Base64X509 = Base64X509 X509
 
 instance FromJSON Base64X509 where
   parseJSON = withText "base64url X.509 certificate" $ parseB64 $
-    either fail (pure . Base64X509) . decodeCertificate . BSL.fromStrict
+    either fail (pure . Base64X509) . decodeCertificate . L.fromStrict
 
 instance ToJSON Base64X509 where
-  toJSON (Base64X509 x509) = encodeB64 $ BSL.toStrict $ encodeCertificate x509
+  toJSON (Base64X509 x509) = encodeB64 $ L.toStrict $ encodeCertificate x509
 
 
 -- | A URI.  Used for X.509 certificate and JWK Set URLs.
