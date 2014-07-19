@@ -24,7 +24,9 @@ module Crypto.JOSE.Types where
 import Control.Applicative
 
 import Data.Aeson
+import Data.Byteable
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.ByteString.Lazy as L
 import Data.Certificate.X509
 import qualified Data.Text as T
@@ -77,6 +79,9 @@ instance FromJSON Base64UrlString where
 --
 newtype Base64Octets = Base64Octets B.ByteString
   deriving (Eq, Show)
+
+instance Byteable Base64Octets where
+  toBytes (Base64Octets s) = unpad $ B64U.encode s
 
 instance FromJSON Base64Octets where
   parseJSON = withText "Base64Octets" $ parseB64Url (pure . Base64Octets)

@@ -27,6 +27,7 @@ import Data.Aeson
 import Data.Aeson.Parser
 import Data.Aeson.Types
 import qualified Data.Attoparsec.ByteString.Lazy as A
+import Data.Byteable
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
@@ -237,12 +238,9 @@ encodeO = BSL.reverse . BSL.dropWhile (== c) . BSL.reverse
   . B64UL.encode . encode
   where c = fromIntegral $ ord '='
 
-encodeS :: ToJSON a => a -> BSL.ByteString
-encodeS = BSL.init . BSL.tail . encode
-
 signingInput :: JWSHeader -> Types.Base64Octets -> BSL.ByteString
 signingInput h p = BSL.intercalate "."
-  [maybe (encodeO h) BSL.fromStrict (headerRaw h), encodeS p]
+  [maybe (encodeO h) BSL.fromStrict (headerRaw h), BSL.fromStrict $ toBytes p]
 
 -- Convert JWS to compact serialization.
 --
@@ -250,7 +248,8 @@ signingInput h p = BSL.intercalate "."
 -- signature and returns Nothing otherwise
 --
 instance ToCompact JWS where
-  toCompact (JWS p [Signature h s]) = Right [signingInput h p, encodeS s]
+  toCompact (JWS p [Signature h s]) =
+    Right [signingInput h p, BSL.fromStrict $ toBytes s]
   toCompact (JWS _ xs) = Left $ CompactEncodeError $
     "cannot compact serialize JWS with " ++ show (length xs) ++ " sigs"
 
