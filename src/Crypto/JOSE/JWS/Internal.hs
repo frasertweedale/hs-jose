@@ -30,6 +30,7 @@ import qualified Data.Attoparsec.ByteString.Lazy as A
 import Data.Byteable
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
@@ -233,14 +234,13 @@ jwsPayload :: JWS -> BSL.ByteString
 jwsPayload (JWS (Types.Base64Octets s) _) = BSL.fromStrict s
 
 
-encodeO :: ToJSON a => a -> BSL.ByteString
-encodeO = BSL.reverse . BSL.dropWhile (== c) . BSL.reverse
-  . B64UL.encode . encode
-  where c = fromIntegral $ ord '='
-
-signingInput :: JWSHeader -> Types.Base64Octets -> BSL.ByteString
-signingInput h p = BSL.intercalate "."
-  [maybe (encodeO h) BSL.fromStrict (headerRaw h), BSL.fromStrict $ toBytes p]
+signingInput :: JWSHeader -> Types.Base64Octets -> BS.ByteString
+signingInput h p = BS.intercalate "."
+  [ fromMaybe
+    (Types.unpad $ B64U.encode $ BSL.toStrict $ encode h)
+    (headerRaw h)
+  , toBytes p
+  ]
 
 -- Convert JWS to compact serialization.
 --
@@ -249,7 +249,7 @@ signingInput h p = BSL.intercalate "."
 --
 instance ToCompact JWS where
   toCompact (JWS p [Signature h s]) =
-    Right [signingInput h p, BSL.fromStrict $ toBytes s]
+    Right [BSL.fromStrict $ signingInput h p, BSL.fromStrict $ toBytes s]
   toCompact (JWS _ xs) = Left $ CompactEncodeError $
     "cannot compact serialize JWS with " ++ show (length xs) ++ " sigs"
 
@@ -289,7 +289,7 @@ signJWS
   -> JWK      -- ^ Key with which to sign
   -> (Either Error JWS, g) -- ^ JWS with new signature appended
 signJWS g (JWS p sigs) h k = first (either Left (Right . appendSig)) $
-  sign (headerAlg h) k g (BSL.toStrict $ signingInput h p)
+  sign (headerAlg h) k g (signingInput h p)
   where
     appendSig sig = JWS p (Signature h (Types.Base64Octets sig):sigs)
 
@@ -303,4 +303,4 @@ verifyJWS k (JWS p sigs) = any ((== Right True) . verifySig k p) sigs
 
 verifySig :: JWK -> Types.Base64Octets -> Signature -> Either Error Bool
 verifySig k m (Signature h (Types.Base64Octets s))
-  = verify (headerAlg h) k (BSL.toStrict $ signingInput h m) s
+  = verify (headerAlg h) k (signingInput h m) s
