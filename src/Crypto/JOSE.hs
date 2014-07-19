@@ -32,4 +32,4 @@ import Crypto.JOSE.Error
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
 
-{-# ANN module "HLint: ignore Use import/export shortcut" #-}
+{-# ANN module ("HLint: ignore Use import/export shortcut" :: String) #-}
