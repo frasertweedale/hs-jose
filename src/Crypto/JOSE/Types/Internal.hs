@@ -50,20 +50,25 @@ parseB64 f = either fail f . decodeB64
 encodeB64 :: B.ByteString -> Value
 encodeB64 = String . E.decodeUtf8 . B64.encode
 
+-- | Add appropriate base64 '=' padding.
+--
+pad :: B.ByteString -> B.ByteString
+pad s = s `B.append` B.replicate ((4 - B.length s `mod` 4) `mod` 4) 61
+
+-- | Strip base64 '=' padding.
+--
+unpad :: B.ByteString -> B.ByteString
+unpad = B.reverse . B.dropWhile (== 61) . B.reverse
+
 -- | Produce a parser of base64url encoded text from a bytestring parser.
 --
 parseB64Url :: FromJSON a => (B.ByteString -> Parser a) -> T.Text -> Parser a
-parseB64Url f = either fail f . decodeB64Url
-  where
-    decodeB64Url = B64U.decode . E.encodeUtf8 . pad
-    pad s = s `T.append` T.replicate ((4 - T.length s `mod` 4) `mod` 4) "="
+parseB64Url f = either fail f . B64U.decode . pad . E.encodeUtf8
 
 -- | Convert a bytestring to a base64url encoded JSON 'String'
 --
 encodeB64Url :: B.ByteString -> Value
-encodeB64Url = String . unpad . E.decodeUtf8 . B64U.encode
-  where
-    unpad = T.dropWhileEnd (== '=')
+encodeB64Url = String . E.decodeUtf8 . unpad . B64U.encode
 
 -- | Convert an unsigned big endian octet sequence to the integer
 -- it represents.
