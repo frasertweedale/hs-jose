@@ -15,6 +15,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 {-|
 
@@ -28,12 +29,12 @@ module Crypto.JOSE.JWK
   (
     JWK(..)
   , materialJWK
-  , genRSA
 
   , JWKSet(..)
   ) where
 
 import Control.Applicative
+import Control.Arrow
 import Data.Maybe (catMaybes)
 
 import Data.Aeson
@@ -115,6 +116,8 @@ instance ToJSON JWK where
     ++ Types.objectPairs (toJSON jwkMaterial)
 
 instance Key JWK where
+  type KeyGenParam JWK = JWA.JWK.KeyMaterialGenParam
+  gen p = first materialJWK . gen p
   sign h k = sign h $ jwkMaterial k
   verify h k = verify h $ jwkMaterial k
 
@@ -122,11 +125,6 @@ instance Key JWK where
 --
 materialJWK :: JWA.JWK.KeyMaterial -> JWK
 materialJWK m = JWK m n n n n n n n n where n = Nothing
-
--- | Generate a /(public, private)/ RSA keypair.
---
-genRSA :: Int -> IO JWK
-genRSA = fmap materialJWK . JWA.JWK.genRSA
 
 
 -- | JWK §4.  JSON Web Key Set (JWK Set) Format

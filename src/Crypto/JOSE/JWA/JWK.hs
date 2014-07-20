@@ -16,6 +16,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeFamilies #-}
 
 {-|
 
@@ -36,12 +37,11 @@ module Crypto.JOSE.JWA.JWK (
   , RSAPrivateKeyOptionalParameters(..)
   , RSAPrivateKeyParameters(..)
   , RSAKeyParameters(..)
-  , genRSAParams
-  , genRSA
 
   -- * Parameters for Symmetric Keys
   , OctKeyParameters(..)
 
+  , KeyMaterialGenParam(..)
   , KeyMaterial(..)
   ) where
 
@@ -182,6 +182,8 @@ instance ToJSON ECKeyParameters where
     ] ++ fmap ("d" .=) (maybeToList ecD)
 
 instance Key ECKeyParameters where
+  type KeyGenParam ECKeyParameters = Crv
+  gen = undefined  -- TODO implement
   sign JWA.JWS.ES256 k@(ECKeyParameters { ecCrv = P_256 }) =
     signEC hashDescrSHA256 k
   sign JWA.JWS.ES384 k@(ECKeyParameters { ecCrv = P_384 }) =
@@ -264,6 +266,20 @@ instance ToJSON RSAKeyParameters where
     : maybe [] (Types.objectPairs . toJSON) rsaPrivateKeyParameters
 
 instance Key RSAKeyParameters where
+  type KeyGenParam RSAKeyParameters = Int
+  gen size g =
+    let
+      i = Types.Base64Integer
+      si = Types.SizedBase64Integer
+    in
+      let
+        ((RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi), g') =
+          RSA.generate g size 65537
+      in
+        (RSAKeyParameters RSA (si s n) (i e) $
+          Just (RSAPrivateKeyParameters (i d)
+            (Just (RSAPrivateKeyOptionalParameters
+              (i p) (i q) (i dp) (i dq) (i qi) Nothing))), g')
   sign JWA.JWS.RS256 = signPKCS15 hashDescrSHA256
   sign JWA.JWS.RS384 = signPKCS15 hashDescrSHA384
   sign JWA.JWS.RS512 = signPKCS15 hashDescrSHA512
@@ -338,29 +354,6 @@ rsaPublicKey (RSAKeyParameters _
   = RSA.PublicKey size n e
 
 
--- | Generate RSA public and private key parameters.
---
-genRSAParams :: Int -> IO RSAKeyParameters
-genRSAParams size =
-  let
-    i = Types.Base64Integer
-    si = Types.SizedBase64Integer
-  in do
-    ent <- createEntropyPool
-    ((RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi), _) <-
-      return $ RSA.generate (cprgCreate ent :: SystemRNG) size 65537
-    return $
-      RSAKeyParameters RSA (si s n) (i e) $
-        Just (RSAPrivateKeyParameters (i d)
-          (Just (RSAPrivateKeyOptionalParameters
-            (i p) (i q) (i dp) (i dq) (i qi) Nothing)))
-
--- | Generate RSA public and private key material.
---
-genRSA :: Int -> IO KeyMaterial
-genRSA = fmap RSAKeyMaterial . genRSAParams
-
-
 -- | Symmetric key parameters data.
 --
 data OctKeyParameters = OctKeyParameters
@@ -377,6 +370,8 @@ instance ToJSON OctKeyParameters where
   toJSON OctKeyParameters {..} = object ["kty" .= octKty, "k" .= octK]
 
 instance Key OctKeyParameters where
+  type KeyGenParam OctKeyParameters = Int
+  gen = undefined  -- TODO implement
   sign JWA.JWS.HS256 k g = first Right . (,g) . signOct SHA256 k
   sign JWA.JWS.HS384 k g = first Right . (,g) . signOct SHA384 k
   sign JWA.JWS.HS512 k g = first Right . (,g) . signOct SHA512 k
@@ -413,7 +408,16 @@ instance ToJSON KeyMaterial where
   toJSON (RSAKeyMaterial p) = object $ Types.objectPairs (toJSON p)
   toJSON (OctKeyMaterial p) = object $ Types.objectPairs (toJSON p)
 
+data KeyMaterialGenParam
+  = ECGenParam Crv
+  | RSAGenParam Int
+  | OctGenParam Int
+
 instance Key KeyMaterial where
+  type KeyGenParam KeyMaterial = KeyMaterialGenParam
+  gen (ECGenParam a) = first ECKeyMaterial . gen a
+  gen (RSAGenParam a) = first RSAKeyMaterial . gen a
+  gen (OctGenParam a) = first OctKeyMaterial . gen a
   sign JWA.JWS.None _ = \g _ -> (Right "", g)
   sign h (ECKeyMaterial k)  = sign h k
   sign h (RSAKeyMaterial k) = sign h k

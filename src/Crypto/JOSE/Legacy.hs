@@ -14,6 +14,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
 
 {-|
 
@@ -24,10 +25,10 @@ Mozilla Persona.
 module Crypto.JOSE.Legacy
   (
     JWK'
-  , genRSA'
   ) where
 
 import Control.Applicative
+import Control.Arrow
 
 import Data.Aeson
 
@@ -58,6 +59,8 @@ instance ToJSON RSAKeyParameters' where
       Nothing -> []
 
 instance Key RSAKeyParameters' where
+  type KeyGenParam RSAKeyParameters' = Int
+  gen p = first RSAKeyParameters' . gen p
   sign h (RSAKeyParameters' k) = sign h k
   verify h (RSAKeyParameters' k) = verify h k
 
@@ -73,6 +76,8 @@ instance ToJSON KeyMaterial' where
     = object $ ("algorithm" .= a) : Types.objectPairs (toJSON k)
 
 instance Key KeyMaterial' where
+  type KeyGenParam KeyMaterial' = Int
+  gen p = first (RSAKeyMaterial' RS . RSAKeyParameters') . gen p
   sign h (RSAKeyMaterial' _ k) = sign h k
   verify h (RSAKeyMaterial' _ k) = verify h k
 
@@ -89,11 +94,7 @@ instance ToJSON JWK' where
     "version" .= ("2012.08.15" :: String) : Types.objectPairs (toJSON k)
 
 instance Key JWK' where
+  type KeyGenParam JWK' = Int
+  gen p g = first JWK' $ gen p g
   sign h (JWK' k) = sign h k
   verify h (JWK' k) = verify h k
-
-
--- | Generate a legacy RSA keypair.
---
-genRSA' :: Int -> IO JWK'
-genRSA' = fmap (JWK' . RSAKeyMaterial' RS . RSAKeyParameters') . genRSAParams

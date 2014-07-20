@@ -12,6 +12,8 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE TypeFamilies #-}
+
 {-|
 
 Type classes for use with the JOSE modules.
@@ -36,6 +38,8 @@ import Crypto.JOSE.Error
 -- Can fail with 'AlgorithmMismatch'
 --
 class Key k where
+  type KeyGenParam k
+  gen :: CPRG g => KeyGenParam k -> g -> (k, g)
   sign
     :: CPRG g
     => JWA.JWS.Alg
