@@ -28,7 +28,6 @@ representing a set of JWKs.
 module Crypto.JOSE.JWK
   (
     JWK(..)
-  , materialJWK
 
   , JWKSet(..)
   ) where
@@ -117,14 +116,9 @@ instance ToJSON JWK where
 
 instance Key JWK where
   type KeyGenParam JWK = JWA.JWK.KeyMaterialGenParam
-  gen p = first materialJWK . gen p
+  gen p = first (\m -> JWK m z z z z z z z z) . gen p where z = Nothing
   sign h k = sign h $ jwkMaterial k
   verify h k = verify h $ jwkMaterial k
-
--- | Construct a minimal JWK from key material.
---
-materialJWK :: JWA.JWK.KeyMaterial -> JWK
-materialJWK m = JWK m n n n n n n n n where n = Nothing
 
 
 -- | JWK §4.  JSON Web Key Set (JWK Set) Format

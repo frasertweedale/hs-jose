@@ -53,8 +53,9 @@ jwsAppendixA1Spec = describe "JWS A.1.1.  JWK" $ do
       \ \"k\":\"AyM1SysPpbyDfgZld3umj1qzKObwVMkoqQ-EstJQLr_T-1qS0gZH75\
                \aKtMN3Yj0iPS4hcgUuTwjAzZr1Z9CAow\"\
       \}"
-    jwk = materialJWK (OctKeyMaterial (OctKeyParameters Oct octOctets))
-    octOctets = Types.Base64Octets $ foldr B.cons B.empty
+    jwk = JWK (OctKeyMaterial octKeyMaterial) z z z z z z z z where z = Nothing
+    octKeyMaterial = OctKeyParameters Oct $ Types.Base64Octets $
+      foldr B.cons B.empty
       [3,35,53,75,43,15,165,188,131,126,6,101,119,123,166,143,90,179,40,
        230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
        210,6,71,239,150,138,180,195,119,98,61,34,61,46,33,114,5,46,79,8,
