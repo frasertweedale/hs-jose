@@ -30,6 +30,8 @@ module Crypto.JOSE.JWK
     JWK(..)
 
   , JWKSet(..)
+
+  , module JWA.JWK
   ) where
 
 import Control.Applicative
@@ -40,7 +42,7 @@ import Data.Aeson
 
 import Crypto.JOSE.Classes
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
-import qualified Crypto.JOSE.JWA.JWK as JWA.JWK
+import Crypto.JOSE.JWA.JWK as JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
