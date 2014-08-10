@@ -31,6 +31,7 @@ import Control.Applicative
 import Control.Arrow
 
 import Data.Aeson
+import Data.Aeson.Types
 
 import Crypto.JOSE.Classes
 import Crypto.JOSE.JWA.JWK
@@ -41,50 +42,31 @@ import Crypto.JOSE.TH
 $(Crypto.JOSE.TH.deriveJOSEType "RS" ["RS"])
 
 
-newtype RSAKeyParameters' = RSAKeyParameters' RSAKeyParameters
+newtype RSKeyParameters = RSKeyParameters RSAKeyParameters
   deriving (Eq, Show)
 
-instance FromJSON RSAKeyParameters' where
-  parseJSON = withObject "RSA" $ \o ->
-    fmap RSAKeyParameters' $ RSAKeyParameters
-      <$> pure RSA
-      <*> o .: "modulus"
-      <*> o .: "exponent"
-      <*> (fmap (`RSAPrivateKeyParameters` Nothing) <$> (o .:? "secretExponent"))
+instance FromJSON RSKeyParameters where
+  parseJSON = withObject "RS" $ \o -> fmap RSKeyParameters $ RSAKeyParameters
+    <$> ((o .: "algorithm" :: Parser RS) *> pure RSA)
+    <*> o .: "modulus"
+    <*> o .: "exponent"
+    <*> (fmap (`RSAPrivateKeyParameters` Nothing) <$> (o .:? "secretExponent"))
 
-instance ToJSON RSAKeyParameters' where
-  toJSON (RSAKeyParameters' (RSAKeyParameters _ n e priv))
-    = object $ ["modulus" .= n ,"exponent" .= e] ++ case priv of
-      Just (RSAPrivateKeyParameters d _) -> ["secretExponent" .= d]
-      Nothing -> []
+instance ToJSON RSKeyParameters where
+  toJSON (RSKeyParameters (RSAKeyParameters _ n e priv))
+    = object $ ["algorithm" .= RS, "modulus" .= n ,"exponent" .= e]
+      ++ maybe [] (\p -> ["secretExponent" .= rsaD p]) priv
 
-instance Key RSAKeyParameters' where
-  type KeyGenParam RSAKeyParameters' = Int
-  gen p = first RSAKeyParameters' . gen p
-  sign h (RSAKeyParameters' k) = sign h k
-  verify h (RSAKeyParameters' k) = verify h k
-
-
-data KeyMaterial' = RSAKeyMaterial' RS RSAKeyParameters' deriving (Eq, Show)
-
-instance FromJSON KeyMaterial' where
-  parseJSON = withObject "KeyMaterial'" (\o ->
-    RSAKeyMaterial' <$> o .: "algorithm" <*> parseJSON (Object o))
-
-instance ToJSON KeyMaterial' where
-  toJSON (RSAKeyMaterial' a k)
-    = object $ ("algorithm" .= a) : Types.objectPairs (toJSON k)
-
-instance Key KeyMaterial' where
-  type KeyGenParam KeyMaterial' = Int
-  gen p = first (RSAKeyMaterial' RS . RSAKeyParameters') . gen p
-  sign h (RSAKeyMaterial' _ k) = sign h k
-  verify h (RSAKeyMaterial' _ k) = verify h k
+instance Key RSKeyParameters where
+  type KeyGenParam RSKeyParameters = Int
+  gen p = first RSKeyParameters . gen p
+  sign h (RSKeyParameters k) = sign h k
+  verify h (RSKeyParameters k) = verify h k
 
 
 -- | Legacy JSON Web Key data type.
 --
-newtype JWK' = JWK' KeyMaterial' deriving (Eq, Show)
+newtype JWK' = JWK' RSKeyParameters deriving (Eq, Show)
 
 instance FromJSON JWK' where
   parseJSON = withObject "JWK'" $ \o -> JWK' <$> parseJSON (Object o)
