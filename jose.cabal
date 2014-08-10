@@ -38,13 +38,13 @@ library
     Crypto.JOSE.Classes
     Crypto.JOSE.Compact
     Crypto.JOSE.Error
+    Crypto.JOSE.JWA.JWK
     Crypto.JOSE.JWK
     Crypto.JOSE.JWS
     Crypto.JOSE.Legacy
     Crypto.JOSE.Types
 
   other-modules:
-    Crypto.JOSE.JWA.JWK
     Crypto.JOSE.JWA.JWS
     Crypto.JOSE.JWA.JWE
     Crypto.JOSE.JWA.JWE.Alg
