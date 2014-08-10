@@ -1,23 +1,22 @@
 name:                jose
-version:             0.1.27.0
-synopsis:            Javascript Object Signing and Encryption
+version:             0.2.31.0
+synopsis:
+  Javascript Object Signing and Encryption and JSON Web Token library
 description:
   .
   An implementation of the Javascript Object Signing and Encryption
-  (jose) formats.
+  (JOSE) and JSON Web Token (JWT) formats.
   .
-  Currently, only JSON Web Key (JWK) and JSON Web Signature (JWS)
-  are implemented.  JSON Web Encryption (JWE) is not yet
-  implemented.
+  Web Encryption (JWE) is not yet implemented.
   .
   All JWS algorithms (HMAC, ECDSA, RSASSA-PKCS-v1_5 and RSASSA-PSS)
   are implemented, however, the ECDSA implementation is is
-  vulnerable to timing attacks and should therefore be used only for
+  vulnerable to timing attacks and should therefore only be used for
   JWS verification.
   .
   The version number tracks the IETF jose working group draft
   revisions.  For now, expect breaking API changes on any version
-  change except for the final part being incremented.
+  change except for the final (fourth) part being incremented.
 
 homepage:            https://github.com/frasertweedale/hs-jose
 bug-reports:         https://github.com/frasertweedale/hs-jose/issues
@@ -42,6 +41,7 @@ library
     Crypto.JOSE.JWS
     Crypto.JOSE.Legacy
     Crypto.JOSE.Types
+    Crypto.JWT
 
   other-modules:
     Crypto.JOSE.JWA.JWK
