@@ -59,7 +59,9 @@ instance ToJSON RSKeyParameters where
 
 instance Key RSKeyParameters where
   type KeyGenParam RSKeyParameters = Int
-  gen p = first RSKeyParameters . gen p
+  type KeyContent RSKeyParameters = RSAKeyParameters
+  gen p = first fromKeyContent . gen p
+  fromKeyContent = RSKeyParameters
   sign h (RSKeyParameters k) = sign h k
   verify h (RSKeyParameters k) = verify h k
 
@@ -77,6 +79,8 @@ instance ToJSON JWK' where
 
 instance Key JWK' where
   type KeyGenParam JWK' = Int
+  type KeyContent JWK' = RSKeyParameters
   gen p g = first JWK' $ gen p g
+  fromKeyContent = JWK'
   sign h (JWK' k) = sign h k
   verify h (JWK' k) = verify h k

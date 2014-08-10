@@ -116,7 +116,9 @@ instance ToJSON JWK where
 
 instance Key JWK where
   type KeyGenParam JWK = JWA.JWK.KeyMaterialGenParam
-  gen p = first (\m -> JWK m z z z z z z z z) . gen p where z = Nothing
+  type KeyContent JWK = JWA.JWK.KeyMaterial
+  gen p = first fromKeyContent . gen p
+  fromKeyContent k = JWK k z z z z z z z z where z = Nothing
   sign h k = sign h $ jwkMaterial k
   verify h k = verify h $ jwkMaterial k
 

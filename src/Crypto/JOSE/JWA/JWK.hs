@@ -183,7 +183,9 @@ instance ToJSON ECKeyParameters where
 
 instance Key ECKeyParameters where
   type KeyGenParam ECKeyParameters = Crv
+  type KeyContent ECKeyParameters = ECKeyParameters
   gen = undefined  -- TODO implement
+  fromKeyContent = id
   sign JWA.JWS.ES256 k@(ECKeyParameters { ecCrv = P_256 }) =
     signEC hashDescrSHA256 k
   sign JWA.JWS.ES384 k@(ECKeyParameters { ecCrv = P_384 }) =
@@ -267,19 +269,25 @@ instance ToJSON RSAKeyParameters where
 
 instance Key RSAKeyParameters where
   type KeyGenParam RSAKeyParameters = Int
+  type KeyContent RSAKeyParameters =
+    ( Types.SizedBase64Integer
+    , Types.Base64Integer
+    , Maybe RSAPrivateKeyParameters
+    )
   gen size g =
     let
       i = Types.Base64Integer
-      si = Types.SizedBase64Integer
+      ((RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi), g') =
+        RSA.generate g size 65537
     in
-      let
-        ((RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi), g') =
-          RSA.generate g size 65537
-      in
-        (RSAKeyParameters RSA (si s n) (i e) $
-          Just (RSAPrivateKeyParameters (i d)
-            (Just (RSAPrivateKeyOptionalParameters
-              (i p) (i q) (i dp) (i dq) (i qi) Nothing))), g')
+      ( fromKeyContent
+        ( Types.SizedBase64Integer s n
+        , i e
+        , Just (RSAPrivateKeyParameters (i d)
+          (Just (RSAPrivateKeyOptionalParameters
+            (i p) (i q) (i dp) (i dq) (i qi) Nothing))))
+      , g')
+  fromKeyContent (n, e, p) = RSAKeyParameters RSA n e p
   sign JWA.JWS.RS256 = signPKCS15 hashDescrSHA256
   sign JWA.JWS.RS384 = signPKCS15 hashDescrSHA384
   sign JWA.JWS.RS512 = signPKCS15 hashDescrSHA512
@@ -371,7 +379,9 @@ instance ToJSON OctKeyParameters where
 
 instance Key OctKeyParameters where
   type KeyGenParam OctKeyParameters = Int
+  type KeyContent OctKeyParameters = Types.Base64Octets
   gen = undefined  -- TODO implement
+  fromKeyContent = OctKeyParameters Oct
   sign JWA.JWS.HS256 k g = first Right . (,g) . signOct SHA256 k
   sign JWA.JWS.HS384 k g = first Right . (,g) . signOct SHA384 k
   sign JWA.JWS.HS512 k g = first Right . (,g) . signOct SHA512 k
@@ -415,9 +425,11 @@ data KeyMaterialGenParam
 
 instance Key KeyMaterial where
   type KeyGenParam KeyMaterial = KeyMaterialGenParam
+  type KeyContent KeyMaterial = KeyMaterial
   gen (ECGenParam a) = first ECKeyMaterial . gen a
   gen (RSAGenParam a) = first RSAKeyMaterial . gen a
   gen (OctGenParam a) = first OctKeyMaterial . gen a
+  fromKeyContent = id
   sign JWA.JWS.None _ = \g _ -> (Right "", g)
   sign h (ECKeyMaterial k)  = sign h k
   sign h (RSAKeyMaterial k) = sign h k

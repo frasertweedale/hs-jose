@@ -39,7 +39,9 @@ import Crypto.JOSE.Error
 --
 class Key k where
   type KeyGenParam k
+  type KeyContent k
   gen :: CPRG g => KeyGenParam k -> g -> (k, g)
+  fromKeyContent :: KeyContent k -> k
   sign
     :: CPRG g
     => JWA.JWS.Alg
