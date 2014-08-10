@@ -66,6 +66,7 @@ library
     , unordered-containers == 0.2.*
     , bytestring == 0.10.*
     , text == 1.1.*
+    , time == 1.4.*
     , network >= 2.4
     , certificate == 1.3.*
     , vector
@@ -91,11 +92,13 @@ test-suite tests
     , crypto-pubkey-types
     , crypto-random
     , cryptohash
+    , old-locale
     , template-haskell
     , aeson
     , unordered-containers
     , bytestring
     , text
+    , time
     , network
     , certificate
     , vector
