@@ -19,12 +19,14 @@ module JWT where
 import Data.Maybe
 
 import Data.Aeson
+import Data.Default.Class (def)
 import Data.HashMap.Strict
 import Data.Time
 import System.Locale
 import Test.Hspec
 
-import Crypto.JOSE.Compact
+import Crypto.JOSE
+import Crypto.JOSE.JWA.JWS (Alg(None))
 
 import Crypto.JWT
 
@@ -68,7 +70,7 @@ spec = do
       decode "[1382245921]" `shouldBe` fmap (:[]) (intDate "2013-10-20 05:12:01")
       decode "[\"notnum\"]"       `shouldBe` (Nothing :: Maybe [IntDate])
 
-  describe "§6.1.  Example Plaintext JWT" $
+  describe "§6.1.  Example Unsecured JWT" $
     it "can be decoded and validated" $
       let
         exampleJWT = "eyJhbGciOiJub25lIn0\
@@ -80,4 +82,5 @@ spec = do
         k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
       in do
         fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-        fmap (validateJWSJWT k) jwt `shouldBe` Right True
+        fmap (validateJWSJWT algs def k) jwt `shouldBe` Right True
+          where algs = ValidationAlgorithms [None]

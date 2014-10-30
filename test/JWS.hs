@@ -22,6 +22,7 @@ import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64.URL as B64U
+import Data.Default.Class
 import qualified Data.HashMap.Strict as M
 import Test.Hspec
 
@@ -121,7 +122,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
       `shouldBe` Right (BS.pack macOctets)
 
   it "validates the JWS correctly" $
-    fmap (verifyJWS jwk) (decodeCompact compactJWS) `shouldBe` Right True
+    fmap (verifyJWS def def jwk) (decodeCompact compactJWS) `shouldBe` Right True
 
   where
     signingInput' = "\

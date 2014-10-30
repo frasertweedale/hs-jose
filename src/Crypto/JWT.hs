@@ -213,8 +213,13 @@ instance ToCompact JWT where
 
 -- | Validate a JWT as a JWS (JSON Web Signature).
 --
-validateJWSJWT :: JWK -> JWT -> Bool
-validateJWSJWT k (JWT (JWTJWS jws) _) = verifyJWS k jws
+validateJWSJWT
+  :: ValidationAlgorithms
+  -> ValidationPolicy
+  -> JWK
+  -> JWT
+  -> Bool
+validateJWSJWT algs policy k (JWT (JWTJWS jws) _) = verifyJWS algs policy k jws
 
 -- | Create a JWT that is a JWS.
 --

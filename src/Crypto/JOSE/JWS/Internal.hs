@@ -32,6 +32,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
+import Data.Default.Class
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
@@ -293,13 +294,56 @@ signJWS g (JWS p sigs) h k = first (either Left (Right . appendSig)) $
   where
     appendSig sig = JWS p (Signature h (Types.Base64Octets sig):sigs)
 
+
+-- | Algorithms for which validation will be attempted.  The default
+-- value includes all algorithms except 'None'.
+--
+newtype ValidationAlgorithms = ValidationAlgorithms [JWA.JWS.Alg]
+
+instance Default ValidationAlgorithms where
+  def = ValidationAlgorithms
+    [ JWA.JWS.HS256, JWA.JWS.HS384, JWA.JWS.HS512
+    , JWA.JWS.RS256, JWA.JWS.RS384, JWA.JWS.RS512
+    , JWA.JWS.ES256, JWA.JWS.ES384, JWA.JWS.ES512
+    , JWA.JWS.PS256, JWA.JWS.PS384, JWA.JWS.PS512
+    ]
+
+-- | Validation policy.  The default policy is 'AllValidated'.
+--
+data ValidationPolicy
+  = AnyValidated
+  -- ^ One successfully validated signature is sufficient
+  | AllValidated
+  -- ^ All signatures for which validation is attempted must be validated
+
+instance Default ValidationPolicy where
+  def = AllValidated
+
+
 -- | Verify a JWS.
 --
 -- Verification succeeds if any signature on the JWS is successfully
 -- validated with the given 'Key'.
 --
-verifyJWS :: JWK -> JWS -> Bool
-verifyJWS k (JWS p sigs) = any ((== Right True) . verifySig k p) sigs
+-- If only specific signatures need to be validated, and the
+-- 'ValidationPolicy' argument is not enough to express this,
+-- the caller is responsible for removing irrelevant signatures
+-- prior to calling 'verifyJWS'.
+--
+verifyJWS
+  :: ValidationAlgorithms
+  -> ValidationPolicy
+  -> JWK
+  -> JWS
+  -> Bool
+verifyJWS (ValidationAlgorithms algs) policy k (JWS p sigs) =
+  applyPolicy policy $ map validate $ filter shouldValidateSig sigs
+  where
+  shouldValidateSig (Signature h _) = headerAlg h `elem` algs
+  applyPolicy AnyValidated xs = or xs
+  applyPolicy AllValidated [] = False
+  applyPolicy AllValidated xs = and xs
+  validate = (== Right True) . verifySig k p
 
 verifySig :: JWK -> Types.Base64Octets -> Signature -> Either Error Bool
 verifySig k m (Signature h (Types.Base64Octets s))

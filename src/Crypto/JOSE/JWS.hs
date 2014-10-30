@@ -1,4 +1,4 @@
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2014  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -26,6 +26,9 @@ module Crypto.JOSE.JWS
   , JWS(..)
   , jwsPayload
   , signJWS
+
+  , ValidationAlgorithms(..)
+  , ValidationPolicy(..)
   , verifyJWS
   ) where
 
