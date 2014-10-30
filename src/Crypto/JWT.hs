@@ -31,7 +31,7 @@ module Crypto.JWT
   , Audience(..)
 
   , StringOrURI(..)
-  , IntDate(..)
+  , NumericDate(..)
   ) where
 
 import Control.Applicative
@@ -72,14 +72,14 @@ instance ToJSON StringOrURI where
 -- | A JSON numeric value representing the number of seconds from
 --   1970-01-01T0:0:0Z UTC until the specified UTC date\/time.
 --
-newtype IntDate = IntDate UTCTime deriving (Eq, Show)
+newtype NumericDate = NumericDate UTCTime deriving (Eq, Show)
 
-instance FromJSON IntDate where
-  parseJSON = withScientific "IntDate" $
-    pure . IntDate . posixSecondsToUTCTime . fromRational . toRational
+instance FromJSON NumericDate where
+  parseJSON = withScientific "NumericDate" $
+    pure . NumericDate . posixSecondsToUTCTime . fromRational . toRational
 
-instance ToJSON IntDate where
-  toJSON (IntDate t)
+instance ToJSON NumericDate where
+  toJSON (NumericDate t)
     = Number $ fromRational $ toRational $ utcTimeToPOSIXSeconds t
 
 
@@ -121,21 +121,21 @@ data ClaimsSet = ClaimsSet
   -- principal processing the claim does not identify itself with a
   -- value in the /aud/ claim when this claim is present, then the
   -- JWT MUST be rejected.
-  , claimExp :: Maybe IntDate
+  , claimExp :: Maybe NumericDate
   -- ^ The expiration time claim identifies the expiration time on
   -- or after which the JWT MUST NOT be accepted for processing.
   -- The processing of /exp/ claim requires that the current
   -- date\/time MUST be before expiration date\/time listed in the
   -- /exp/ claim.  Implementers MAY provide for some small leeway,
   -- usually no more than a few minutes, to account for clock skew.
-  , claimNbf :: Maybe IntDate
+  , claimNbf :: Maybe NumericDate
   -- ^ The not before claim identifies the time before which the JWT
   -- MUST NOT be accepted for processing.  The processing of the
   -- /nbf/ claim requires that the current date\/time MUST be after
   -- or equal to the not-before date\/time listed in the /nbf/
   -- claim.  Implementers MAY provide for some small leeway, usually
   -- no more than a few minutes, to account for clock skew.
-  , claimIat :: Maybe IntDate
+  , claimIat :: Maybe NumericDate
   -- ^ The issued at claim identifies the time at which the JWT was
   -- issued.  This claim can be used to determine the age of the
   -- JWT.

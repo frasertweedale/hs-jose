@@ -31,8 +31,8 @@ import Crypto.JOSE.JWA.JWS (Alg(None))
 import Crypto.JWT
 
 
-intDate :: String -> Maybe IntDate
-intDate = fmap IntDate . parseTime defaultTimeLocale "%F %T"
+intDate :: String -> Maybe NumericDate
+intDate = fmap NumericDate . parseTime defaultTimeLocale "%F %T"
 
 exampleClaimsSet :: ClaimsSet
 exampleClaimsSet = emptyClaimsSet {
@@ -64,11 +64,11 @@ spec = do
       decode "[\":\"]" `shouldBe` (Nothing :: Maybe [StringOrURI])
       decode "[12345]" `shouldBe` (Nothing :: Maybe [StringOrURI])
 
-  describe "IntDate" $
+  describe "NumericDate" $
     it "parses from JSON correctly" $ do
       decode "[0]"          `shouldBe` fmap (:[]) (intDate "1970-01-01 00:00:00")
       decode "[1382245921]" `shouldBe` fmap (:[]) (intDate "2013-10-20 05:12:01")
-      decode "[\"notnum\"]"       `shouldBe` (Nothing :: Maybe [IntDate])
+      decode "[\"notnum\"]"       `shouldBe` (Nothing :: Maybe [NumericDate])
 
   describe "§6.1.  Example Unsecured JWT" $
     it "can be decoded and validated" $
