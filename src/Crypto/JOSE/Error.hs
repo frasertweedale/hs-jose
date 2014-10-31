@@ -38,4 +38,8 @@ data Error
   | CompactEncodeError String -- ^ Cannot produce compact representation of data
   | CompactDecodeError String -- ^ Cannot decode compact representation
   | JSONDecodeError String    -- ^ Cannot decode JSON data
+  | JWSMissingHeader
+  | JWSMissingAlg
+  | JWSCritUnprotected
+  | JWSDuplicateHeaderParameter
   deriving (Eq, Show)

@@ -51,6 +51,7 @@ library
     Crypto.JOSE.JWS.Internal
     Crypto.JOSE.TH
     Crypto.JOSE.Types.Internal
+    Crypto.JOSE.Types.Armour
 
   build-depends:
     base == 4.*

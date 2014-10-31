@@ -12,19 +12,20 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE Rank2Types #-}
 {-# OPTIONS_HADDOCK hide #-}
 
 module Crypto.JOSE.JWS.Internal where
 
 import Control.Applicative
 import Control.Arrow
+import Control.Monad ((>=>), when, unless)
 import Data.Char
 import Data.Maybe
 
 import Data.Aeson
-import Data.Aeson.Parser
+import qualified Data.Aeson.Parser as P
 import Data.Aeson.Types
 import qualified Data.Attoparsec.ByteString.Lazy as A
 import Data.Byteable
@@ -35,7 +36,7 @@ import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import Data.Default.Class
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as E
+import qualified Data.Text.Encoding as T
 import Data.Traversable (sequenceA)
 import qualified Data.Vector as V
 
@@ -46,6 +47,7 @@ import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
+import Crypto.JOSE.Types.Armour
 
 
 critInvalidNames :: [T.Text]
@@ -90,7 +92,7 @@ instance ToJSON CritParameters where
 
 -- | JWS Header data type.
 data JWSHeader = JWSHeader
-  { headerAlg :: JWA.JWS.Alg
+  { headerAlg :: Maybe JWA.JWS.Alg
   , headerJku :: Maybe Types.URI  -- ^ JWK Set URL
   , headerJwk :: Maybe JWK
   , headerKid :: Maybe String  -- ^ interpretation unspecified
@@ -101,48 +103,40 @@ data JWSHeader = JWSHeader
   , headerTyp :: Maybe String  -- ^ Content Type (of object)
   , headerCty :: Maybe String  -- ^ Content Type (of payload)
   , headerCrit :: Maybe CritParameters
-  , headerRaw :: Maybe BS.ByteString  -- ^ protected header, if known
   }
-  deriving (Show)
+  deriving (Eq, Show)
 
-instance Eq JWSHeader where
-  a == b =
-    let
-      ignoreRaw (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit _)
-        = (alg, jku, jwk, kid, x5u, x5c, x5t, x5tS256, typ, cty, crit)
-    in
-      ignoreRaw a == ignoreRaw b
+instance FromArmour T.Text Error JWSHeader where
+  parseArmour s =
+        either (compactErr "header") Right (B64UL.decode (pad $ BSL.fromStrict $ T.encodeUtf8 s))
+        >>= either jsonErr Right . eitherDecode
+    where
+    compactErr s' = Left . CompactDecodeError . ((s' ++ " decode failed: ") ++)
+    jsonErr = Left . JSONDecodeError
+    pad t = t `BSL.append` BSL.replicate ((4 - BSL.length t `mod` 4) `mod` 4) c
+    c = fromIntegral $ ord '='
 
-parseHeaderWith
-  :: (forall a. FromJSON a => T.Text -> Parser a)
-  -> (forall a. FromJSON a => T.Text -> Parser (Maybe a))
-  -> Parser (Maybe CritParameters)
-  -> Parser JWSHeader
-parseHeaderWith req opt crit = JWSHeader
-    <$> req "alg"
-    <*> opt "jku"
-    <*> opt "jwk"
-    <*> opt "kid"
-    <*> opt "x5u"
-    <*> opt "x5t"
-    <*> opt "x5t#S256"
-    <*> opt "x5c"
-    <*> opt "typ"
-    <*> opt "cty"
-    <*> crit
-    <*> pure Nothing
-
-parseCrit :: Object -> Parser (Maybe CritParameters)
-parseCrit o = if M.member "crit" o
-  then Just <$> parseJSON (Object o)
-  else pure Nothing
+instance ToArmour T.Text JWSHeader where
+  toArmour = T.decodeUtf8 . Types.unpad . B64U.encode . BSL.toStrict . encode
 
 instance FromJSON JWSHeader where
-  parseJSON = withObject "JWS Header" (\o ->
-    parseHeaderWith (o .:) (o .:?) (parseCrit o))
+  parseJSON = withObject "JWS Header" $ \o -> JWSHeader
+    <$> o .:? "alg"
+    <*> o .:? "jku"
+    <*> o .:? "jwk"
+    <*> o .:? "kid"
+    <*> o .:? "x5u"
+    <*> o .:? "x5t"
+    <*> o .:? "x5t#S256"
+    <*> o .:? "x5c"
+    <*> o .:? "typ"
+    <*> o .:? "cty"
+    <*> if M.member "crit" o
+      then Just <$> parseJSON (Object o)
+      else pure Nothing
 
 instance ToJSON JWSHeader where
-  toJSON (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit _) =
+  toJSON (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
     object $ catMaybes
       [ Just ("alg" .= alg)
       , fmap ("jku" .=) jku
@@ -156,63 +150,52 @@ instance ToJSON JWSHeader where
       , fmap ("cty" .=) cty
       ] ++ Types.objectPairs (toJSON crit)
 
+instance Default JWSHeader where
+  def = JWSHeader z z z z z z z z z z z where z = Nothing
 
 -- construct a minimal header with the given alg
 algHeader :: JWA.JWS.Alg -> JWSHeader
-algHeader alg = JWSHeader alg n n n n n n n n n n n where n = Nothing
+algHeader alg = def { headerAlg = Just alg }
 
 
-(.::) :: (FromJSON a) => Object -> Object -> T.Text -> Parser a
-(.::) o1 o2 k = case (M.lookup k o1, M.lookup k o2) of
-  (Just _, Just _)  -> fail $ "key " ++ show k ++ " cannot appear twice"
-  (Just v, _)       -> parseJSON v
-  (_, Just v)       -> parseJSON v
-  _                 -> fail $ "key " ++ show k ++ " now present"
-
-(.::?) :: (FromJSON a) => Object -> Object -> T.Text -> Parser (Maybe a)
-(.::?) o1 o2 k = case (M.lookup k o1, M.lookup k o2) of
-  (Just _, Just _)  -> fail $ "key " ++ show k ++ " cannot appear twice"
-  (Just v, _)       -> parseJSON v
-  (_, Just v)       -> parseJSON v
-  _                 -> pure Nothing
-
-
-data Signature = Signature JWSHeader Types.Base64Octets
+data Signature = Signature
+  (Maybe (Armour T.Text JWSHeader))
+  (Maybe JWSHeader)
+  Types.Base64Octets
   deriving (Eq, Show)
 
-parseHeader :: Maybe Object -> Maybe Object -> Parser JWSHeader
-parseHeader (Just p) (Just u) = parseHeaderWith ((.::) p u) ((.::?) p u) (parseCrit p)
-parseHeader (Just p) _ = parseHeaderWith (p .:) (p .:?) (parseCrit p)
-parseHeader _ (Just u) = parseHeaderWith (u .:) (u .:?) (if M.member "crit" u
-  then fail "crit MUST occur only with the JWS Protected Header"
-  else pure Nothing)
-parseHeader _ _ = fail "no protected or unprotected header given"
+algorithm :: Signature -> Maybe JWA.JWS.Alg
+algorithm (Signature h h' _) = (h >>= headerAlg . value) <|> (h' >>= headerAlg)
 
-
-newtype JSONByteString = JSONByteString { bs :: BS.ByteString }
-
-instance FromJSON JSONByteString where
-  parseJSON = withText "JSON bytestring" (return . JSONByteString . E.encodeUtf8)
+checkHeaders :: Signature -> Either Error Signature
+checkHeaders sig@(Signature h h' _) = do
+  unless (isJust h || isJust h') (Left JWSMissingHeader)
+  unless (isJust $ algorithm sig) (Left JWSMissingAlg)
+  when (isJust $ h' >>= headerCrit) (Left JWSCritUnprotected)
+  when hasDup (Left JWSDuplicateHeaderParameter)
+  return sig
+  where
+    isDup f = isJust (h >>= f . value) && isJust (h' >>= f)
+    hasDup = or
+      [ isDup headerAlg, isDup headerJku, isDup headerJwk
+      , isDup headerKid, isDup headerX5u, isDup headerX5c
+      , isDup headerX5t, isDup headerX5tS256, isDup headerTyp
+      , isDup headerCty
+      ]
 
 instance FromJSON Signature where
-  parseJSON = withObject "signature" (\o -> Signature
-    <$> do
-      protectedEncoded <- o .:? "protected"
-      protectedJSON <- maybe
-        (pure Nothing)
-        (withText "base64 encoded header"
-          (Types.parseB64Url (return . Just . JSONByteString)))
-        protectedEncoded
-      protected <- maybe
-        (pure Nothing)
-        (return . decode . BSL.fromStrict)
-        (fmap bs protectedJSON)
-      unprotected <- o .:? "header"
-      parseHeader protected unprotected
-    <*> o .: "signature")
+  parseJSON =
+    withObject "signature" (\o -> Signature
+      <$> o .:? "protected"
+      <*> o .:? "header"
+      <*> o .: "signature"
+    ) >=> either (fail . show) pure . checkHeaders
 
 instance ToJSON Signature where
-  toJSON (Signature h s) = object $ ("signature" .= s) : Types.objectPairs (toJSON h)
+  toJSON (Signature h h' s) =
+    object $ ("signature" .= s) :
+      maybe [] (Types.objectPairs . toJSON . value) h
+      ++ maybe [] (Types.objectPairs . toJSON) h'
 
 
 -- | JSON Web Signature data type.  Consists of a payload and a
@@ -234,12 +217,9 @@ instance ToJSON JWS where
 jwsPayload :: JWS -> BSL.ByteString
 jwsPayload (JWS (Types.Base64Octets s) _) = BSL.fromStrict s
 
-
-signingInput :: JWSHeader -> Types.Base64Octets -> BS.ByteString
+signingInput :: Maybe (Armour T.Text JWSHeader) -> Types.Base64Octets -> BS.ByteString
 signingInput h p = BS.intercalate "."
-  [ fromMaybe
-    (Types.unpad $ B64U.encode $ BSL.toStrict $ encode h)
-    (headerRaw h)
+  [ maybe "" (T.encodeUtf8 . armour) h
   , toBytes p
   ]
 
@@ -249,7 +229,7 @@ signingInput h p = BS.intercalate "."
 -- signature and returns Nothing otherwise
 --
 instance ToCompact JWS where
-  toCompact (JWS p [Signature h s]) =
+  toCompact (JWS p [Signature h _ s]) =
     Right [BSL.fromStrict $ signingInput h p, BSL.fromStrict $ toBytes s]
   toCompact (JWS _ xs) = Left $ CompactEncodeError $
     "cannot compact serialize JWS with " ++ show (length xs) ++ " sigs"
@@ -257,25 +237,19 @@ instance ToCompact JWS where
 instance FromCompact JWS where
   fromCompact xs = case xs of
     [h, p, s] -> do
-      h' <- (\h' -> h' { headerRaw = Just $ BSL.toStrict h })
-        <$> decodeO "header" h
+      h' <- decodeArmour $ T.decodeUtf8 $ BSL.toStrict h
       p' <- decodeS "payload" p
       s' <- decodeS "signature" s
-      return $ JWS p' [Signature h' s']
+      return $ JWS p' [Signature (Just h') Nothing s']
     xs' -> compactErr "compact representation"
       $ "expected 3 parts, got " ++ show (length xs')
     where
       compactErr s = Left . CompactDecodeError . ((s ++ " decode failed: ") ++)
       jsonErr = Left . JSONDecodeError
-      decodeO desc s =
-        either (compactErr desc) Right (B64UL.decode (pad s))
-        >>= either jsonErr Right . eitherDecode
       decodeS desc s =
         either (compactErr desc) Right
-          (A.eitherResult $ A.parse value $ BSL.intercalate s ["\"", "\""])
+          (A.eitherResult $ A.parse P.value $ BSL.intercalate s ["\"", "\""])
         >>= either jsonErr Right . parseEither parseJSON
-      pad t = t `BSL.append` BSL.replicate ((4 - BSL.length t `mod` 4) `mod` 4) c
-      c = fromIntegral $ ord '='
 
 
 -- §5.1. Message Signing or MACing
@@ -290,9 +264,12 @@ signJWS
   -> JWK      -- ^ Key with which to sign
   -> (Either Error JWS, g) -- ^ JWS with new signature appended
 signJWS g (JWS p sigs) h k = first (either Left (Right . appendSig)) $
-  sign (headerAlg h) k g (signingInput h p)
+  case headerAlg h of
+    Nothing   -> (Left JWSMissingAlg, g)
+    Just alg  -> sign alg k g (signingInput h' p)
   where
-    appendSig sig = JWS p (Signature h (Types.Base64Octets sig):sigs)
+    appendSig sig = JWS p (Signature h' Nothing (Types.Base64Octets sig):sigs)
+    h' = Just $ Unarmoured h
 
 
 -- | Algorithms for which validation will be attempted.  The default
@@ -339,12 +316,14 @@ verifyJWS
 verifyJWS (ValidationAlgorithms algs) policy k (JWS p sigs) =
   applyPolicy policy $ map validate $ filter shouldValidateSig sigs
   where
-  shouldValidateSig (Signature h _) = headerAlg h `elem` algs
+  shouldValidateSig = maybe False (`elem` algs) . algorithm
   applyPolicy AnyValidated xs = or xs
   applyPolicy AllValidated [] = False
   applyPolicy AllValidated xs = and xs
   validate = (== Right True) . verifySig k p
 
 verifySig :: JWK -> Types.Base64Octets -> Signature -> Either Error Bool
-verifySig k m (Signature h (Types.Base64Octets s))
-  = verify (headerAlg h) k (signingInput h m) s
+verifySig k m sig@(Signature h _ (Types.Base64Octets s)) = maybe
+  (Left $ AlgorithmMismatch "No 'alg' header")  -- shouldn't happen
+  (\alg -> verify alg k (signingInput h m) s)
+  (algorithm sig)

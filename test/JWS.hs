@@ -34,6 +34,7 @@ import Crypto.JOSE.JWS
 import Crypto.JOSE.JWS.Internal
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.Types as Types
+import Crypto.JOSE.Types.Armour
 
 
 rng :: SystemRNG
@@ -92,8 +93,9 @@ headerSpec = describe "(unencoded) Header" $ do
         "{\"protected\":\"eyJhbGciOiJSUzI1NiJ9\",\
         \ \"header\":{\"kid\":\"2010-12-29\"},\
         \ \"signature\":\"\"}"
-      header = (algHeader JWA.JWS.RS256) { headerKid = Just "2010-12-29" }
-      sig = Signature header (Types.Base64Octets "")
+      h = def { headerAlg = Just JWA.JWS.RS256 }
+      h' = def { headerKid = Just "2010-12-29" }
+      sig = Signature (Just $ Unarmoured h) (Just h') (Types.Base64Octets "")
     in
       eitherDecode sigJSON `shouldBe` Right sig
 
@@ -134,9 +136,9 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
       \.\
       \dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     jws = JWS examplePayload [signature]
-    signature = Signature h (Types.Base64Octets mac)
+    signature = Signature (Just $ Unarmoured h) Nothing (Types.Base64Octets mac)
     alg = JWA.JWS.HS256
-    h = (algHeader alg) { headerTyp = Just "JWT" }
+    h = def { headerAlg = Just alg, headerTyp = Just "JWT" }
     mac = foldr BS.cons BS.empty macOctets
     macOctets =
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
@@ -253,8 +255,9 @@ appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
 
   where
     jws = JWS examplePayload [sig1, sig2]
-    sig1 = Signature h1 (Types.Base64Octets mac1)
-    h1 = (algHeader JWA.JWS.RS256) { headerKid = Just "2010-12-29" }
+    sig1 = Signature (Just $ Unarmoured h1) (Just h1') (Types.Base64Octets mac1)
+    h1 = def { headerAlg = Just JWA.JWS.RS256 }
+    h1' = def { headerKid = Just "2010-12-29" }
     mac1 = foldr BS.cons BS.empty
       [112, 46, 33, 137, 67, 232, 143, 209, 30, 181, 216, 45, 191, 120, 69,
       243, 65, 6, 174, 27, 129, 255, 247, 115, 17, 22, 173, 209, 113, 125,
@@ -274,8 +277,9 @@ appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
       234, 86, 222, 64, 92, 178, 33, 90, 69, 178, 194, 85, 102, 181, 90,
       193, 167, 72, 160, 112, 223, 200, 163, 42, 70, 149, 67, 208, 25, 238,
       251, 71]
-    sig2 = Signature h2 (Types.Base64Octets mac2)
-    h2 = (algHeader JWA.JWS.ES256) { headerKid = Just "e9bc097a-ce51-4036-9562-d2ade882db0d" }
+    sig2 = Signature (Just $ Unarmoured h2) (Just h2') (Types.Base64Octets mac2)
+    h2 = def { headerAlg = Just JWA.JWS.ES256 }
+    h2' = def { headerKid = Just "e9bc097a-ce51-4036-9562-d2ade882db0d" }
     mac2 = B64U.decodeLenient
       "DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8ISlSA\
       \pmWQxfKTUJqPP3-Kg6NU1Q"
