@@ -28,7 +28,7 @@ module Crypto.JOSE.Legacy
   ) where
 
 import Control.Applicative
-import Control.Arrow
+import Data.Bifunctor
 
 import Data.Aeson
 import Data.Aeson.Types

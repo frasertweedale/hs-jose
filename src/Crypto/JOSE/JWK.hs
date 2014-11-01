@@ -35,7 +35,7 @@ module Crypto.JOSE.JWK
   ) where
 
 import Control.Applicative
-import Control.Arrow
+import Data.Bifunctor
 import Data.Maybe (catMaybes)
 
 import Data.Aeson

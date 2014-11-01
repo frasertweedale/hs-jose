@@ -35,8 +35,8 @@ module Crypto.JWT
   ) where
 
 import Control.Applicative
-import Control.Arrow
 import Control.Monad
+import Data.Bifunctor
 import Data.Maybe
 
 import Data.Aeson
@@ -204,7 +204,7 @@ data JWT = JWT
 instance FromCompact JWT where
   fromCompact = fromCompact >=> toJWT where
     toJWT (JWTJWS jws) =
-      either (Left . CompactDecodeError) (Right . JWT (JWTJWS jws))
+      bimap CompactDecodeError (JWT (JWTJWS jws))
         $ eitherDecode $ jwsPayload jws
 
 instance ToCompact JWT where

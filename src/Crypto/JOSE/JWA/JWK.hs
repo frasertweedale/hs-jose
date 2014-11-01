@@ -46,7 +46,7 @@ module Crypto.JOSE.JWA.JWK (
   ) where
 
 import Control.Applicative
-import Control.Arrow
+import Data.Bifunctor
 import Data.Maybe
 
 import Crypto.Hash
@@ -226,7 +226,7 @@ verifyEC h k m s = Right $ ECDSA.verify (hashFunction h) pubkey sig m
   where
   pubkey = ECDSA.PublicKey (curve k) (point k)
   sig = uncurry ECDSA.Signature
-    $ Types.bsToInteger *** Types.bsToInteger
+    $ bimap Types.bsToInteger Types.bsToInteger
     $ B.splitAt (B.length s `div` 2) s
 
 curve :: ECKeyParameters -> ECC.Curve
@@ -314,7 +314,7 @@ signPKCS15
   -> (Either Error B.ByteString, g)
 signPKCS15 h k g m = case rsaPrivateKey k of
   Left e -> (Left e, g)
-  Right k' -> first (either (Left . RSAError) Right) $
+  Right k' -> first (first RSAError) $
     PKCS15.signSafer g h k' m
 
 verifyPKCS15
@@ -334,7 +334,7 @@ signPSS
   -> (Either Error B.ByteString, g)
 signPSS h k g m = case rsaPrivateKey k of
   Left e -> (Left e, g)
-  Right k' -> first (either (Left . RSAError) Right) $
+  Right k' -> first (first RSAError) $
    PSS.signSafer g (PSS.defaultPSSParams (hashFunction h)) k' m
 
 verifyPSS

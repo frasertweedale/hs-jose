@@ -19,8 +19,8 @@
 module Crypto.JOSE.JWS.Internal where
 
 import Control.Applicative
-import Control.Arrow
 import Control.Monad ((>=>), when, unless)
+import Data.Bifunctor
 import Data.Char
 import Data.Maybe
 
@@ -108,11 +108,11 @@ data JWSHeader = JWSHeader
 
 instance FromArmour T.Text Error JWSHeader where
   parseArmour s =
-        either (compactErr "header") Right (B64UL.decode (pad $ BSL.fromStrict $ T.encodeUtf8 s))
-        >>= either jsonErr Right . eitherDecode
+        first (compactErr "header")
+          (B64UL.decode (pad $ BSL.fromStrict $ T.encodeUtf8 s))
+        >>= first JSONDecodeError . eitherDecode
     where
-    compactErr s' = Left . CompactDecodeError . ((s' ++ " decode failed: ") ++)
-    jsonErr = Left . JSONDecodeError
+    compactErr s' = CompactDecodeError . ((s' ++ " decode failed: ") ++)
     pad t = t `BSL.append` BSL.replicate ((4 - BSL.length t `mod` 4) `mod` 4) c
     c = fromIntegral $ ord '='
 
@@ -241,15 +241,14 @@ instance FromCompact JWS where
       p' <- decodeS "payload" p
       s' <- decodeS "signature" s
       return $ JWS p' [Signature (Just h') Nothing s']
-    xs' -> compactErr "compact representation"
+    xs' -> Left $ compactErr "compact representation"
       $ "expected 3 parts, got " ++ show (length xs')
     where
-      compactErr s = Left . CompactDecodeError . ((s ++ " decode failed: ") ++)
-      jsonErr = Left . JSONDecodeError
+      compactErr s = CompactDecodeError . ((s ++ " decode failed: ") ++)
       decodeS desc s =
-        either (compactErr desc) Right
+        first (compactErr desc)
           (A.eitherResult $ A.parse P.value $ BSL.intercalate s ["\"", "\""])
-        >>= either jsonErr Right . parseEither parseJSON
+        >>= first JSONDecodeError . parseEither parseJSON
 
 
 -- §5.1. Message Signing or MACing
@@ -263,8 +262,7 @@ signJWS
   -> JWSHeader  -- ^ Header for signature
   -> JWK      -- ^ Key with which to sign
   -> (Either Error JWS, g) -- ^ JWS with new signature appended
-signJWS g (JWS p sigs) h k = first (either Left (Right . appendSig)) $
-  case headerAlg h of
+signJWS g (JWS p sigs) h k = first (second appendSig) $ case headerAlg h of
     Nothing   -> (Left JWSMissingAlg, g)
     Just alg  -> sign alg k g (signingInput h' p)
   where

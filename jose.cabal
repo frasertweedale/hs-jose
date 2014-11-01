@@ -57,6 +57,7 @@ library
     base == 4.*
     , attoparsec
     , base64-bytestring == 1.0.*
+    , bifunctors >= 4.0
     , byteable == 0.1.*
     , crypto-pubkey >= 0.2.3
     , crypto-pubkey-types >= 0.3.2
@@ -89,6 +90,7 @@ test-suite tests
     base
     , attoparsec
     , base64-bytestring
+    , bifunctors
     , byteable
     , crypto-pubkey
     , crypto-pubkey-types
