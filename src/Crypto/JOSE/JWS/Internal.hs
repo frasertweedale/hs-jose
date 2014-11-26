@@ -93,7 +93,7 @@ data JWSHeader = JWSHeader
   , headerJwk :: Maybe JWK
   , headerKid :: Maybe String  -- ^ interpretation unspecified
   , headerX5u :: Maybe Types.URI
-  , headerX5c :: Maybe [Types.Base64X509] -- ^ TODO implement min len of 1
+  , headerX5c :: Maybe (NonEmpty Types.Base64X509)
   , headerX5t :: Maybe Types.Base64SHA1
   , headerX5tS256 :: Maybe Types.Base64SHA256
   , headerTyp :: Maybe String  -- ^ Content Type (of object)
