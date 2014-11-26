@@ -50,8 +50,9 @@ library
     Crypto.JOSE.JWA.JWE.Alg
     Crypto.JOSE.JWS.Internal
     Crypto.JOSE.TH
-    Crypto.JOSE.Types.Internal
     Crypto.JOSE.Types.Armour
+    Crypto.JOSE.Types.Internal
+    Crypto.JOSE.Types.Orphans
 
   build-depends:
     base == 4.*
@@ -66,6 +67,7 @@ library
     , data-default-class
     , lens >= 4.3
     , template-haskell >= 2.4
+    , semigroups >= 0.15
     , aeson >= 0.7 && < 0.9
     , unordered-containers == 0.2.*
     , bytestring == 0.10.*
@@ -101,6 +103,7 @@ test-suite tests
     , lens
     , old-locale
     , template-haskell
+    , semigroups
     , aeson
     , unordered-containers
     , bytestring

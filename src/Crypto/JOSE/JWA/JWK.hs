@@ -61,6 +61,7 @@ import Data.Aeson
 import Data.Byteable
 import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
+import Data.List.NonEmpty
 
 import Crypto.JOSE.Error
 import Crypto.JOSE.Classes
@@ -110,7 +111,7 @@ data RSAPrivateKeyOptionalParameters = RSAPrivateKeyOptionalParameters {
   , rsaDp :: Types.Base64Integer
   , rsaDq :: Types.Base64Integer
   , rsaQi :: Types.Base64Integer
-  , rsaOth :: Maybe [RSAPrivateKeyOthElem] -- TODO oth must not be empty array
+  , rsaOth :: Maybe (NonEmpty RSAPrivateKeyOthElem)
   }
   deriving (Eq, Show)
 

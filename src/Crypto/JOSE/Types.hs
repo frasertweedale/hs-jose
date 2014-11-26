@@ -33,6 +33,7 @@ import qualified Data.Text as T
 import qualified Network.URI
 
 import Crypto.JOSE.Types.Internal
+import Crypto.JOSE.Types.Orphans ()
 
 
 -- | A base64url encoded octet sequence interpreted as an integer.
