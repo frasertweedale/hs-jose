@@ -18,6 +18,8 @@
 
 module Crypto.JOSE.JWS.Internal where
 
+import Prelude hiding (mapM)
+
 import Control.Applicative
 import Control.Monad ((>=>), when, unless)
 import Data.Bifunctor
@@ -35,11 +37,10 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import Data.Default.Class
-import qualified Data.HashMap.Strict as M
+import Data.List.NonEmpty (NonEmpty(..), toList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Data.Traversable (sequenceA)
-import qualified Data.Vector as V
+import Data.Traversable (mapM)
 
 import Crypto.JOSE.Classes
 import Crypto.JOSE.Compact
@@ -66,29 +67,23 @@ critInvalidNames = [
   , "crit"
   ]
 
-data CritParameters = CritParameters (M.HashMap T.Text Value)
+newtype CritParameters = CritParameters (NonEmpty (T.Text, Value))
   deriving (Eq, Show)
 
-critObjectParser :: M.HashMap T.Text Value -> Value -> Parser (T.Text, Value)
-critObjectParser o (String s)
+critObjectParser :: Object -> T.Text -> Parser (T.Text, Value)
+critObjectParser o s
   | s `elem` critInvalidNames = fail "crit key is reserved"
   | otherwise                 = (\v -> (s, v)) <$> o .: s
-critObjectParser _ _          = fail "crit key is not text"
 
--- TODO implement array length >= 1 restriction
+parseCrit :: Object -> NonEmpty T.Text -> Parser CritParameters
+parseCrit o = fmap CritParameters . mapM (critObjectParser o)
+  -- TODO fail on duplicate strings
+
 instance FromJSON CritParameters where
-  parseJSON = withObject "crit" (\o ->
-    case M.lookup "crit" o of
-      Just (Array paramNames)
-        | V.null paramNames -> fail "crit cannot be empty"
-        | otherwise -> fmap (CritParameters . M.fromList)
-          $ sequenceA
-          $ map (critObjectParser o)
-          $ V.toList paramNames
-      _ -> fail "crit is not an array")
+  parseJSON = withObject "crit" $ \o -> o .: "crit" >>= parseCrit o
 
 instance ToJSON CritParameters where
-  toJSON (CritParameters m) = Object $ M.insert "crit" (toJSON $ M.keys m) m
+  toJSON (CritParameters m) = object $ ("crit", toJSON $ fmap fst m) : toList m
 
 
 -- | JWS Header data type.
@@ -132,9 +127,7 @@ instance FromJSON JWSHeader where
     <*> o .:? "x5c"
     <*> o .:? "typ"
     <*> o .:? "cty"
-    <*> if M.member "crit" o
-      then Just <$> parseJSON (Object o)
-      else pure Nothing
+    <*> (o .:? "crit" >>= mapM (parseCrit o))
 
 instance ToJSON JWSHeader where
   toJSON (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =

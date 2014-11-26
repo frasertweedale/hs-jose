@@ -23,7 +23,6 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64.URL as B64U
 import Data.Default.Class
-import qualified Data.HashMap.Strict as M
 import Test.Hspec
 
 import Crypto.JOSE.Classes
@@ -55,16 +54,18 @@ critSpec :: Spec
 critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $
   it "parses from JSON correctly" $ do
     decode good `shouldBe`
-      Just (CritParameters $ M.fromList [("exp", Number 1363284000)])
+      Just (CritParameters $ return ("exp", Number 1363284000))
     decode "{}" `shouldBe` (Nothing :: Maybe CritParameters)
     decode missingParam `shouldBe` (Nothing :: Maybe CritParameters)
     decode critNotArray `shouldBe` (Nothing :: Maybe CritParameters)
+    decode critEmptyArray `shouldBe` (Nothing :: Maybe CritParameters)
     decode critValueNotString `shouldBe` (Nothing :: Maybe CritParameters)
     decode critValueNotValid `shouldBe` (Nothing :: Maybe CritParameters)
     where
       good = "{\"alg\":\"ES256\",\"crit\":[\"exp\"],\"exp\":1363284000}"
       missingParam = "{\"alg\":\"ES256\",\"crit\":[\"nope\"]}"
       critNotArray = "{\"alg\":\"ES256\",\"crit\":\"exp\"}"
+      critEmptyArray = "{\"alg\":\"ES256\",\"crit\":[]}"
       critValueNotString = "{\"alg\":\"ES256\",\"crit\":[1234]}"
       critValueNotValid = "{\"alg\":\"ES256\",\"crit\":[\"crit\"]}"
 
@@ -74,7 +75,7 @@ critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $
     decode s `shouldBe` Just ((algHeader JWA.JWS.ES256) { headerCrit = Just critValue })
     where
       s = "{\"alg\":\"ES256\",\"crit\":[\"exp\"],\"exp\":1363284000}"
-      critValue = CritParameters $ M.fromList [("exp", Number 1363284000)]
+      critValue = CritParameters $ return ("exp", Number 1363284000)
 
 
 headerSpec :: Spec
