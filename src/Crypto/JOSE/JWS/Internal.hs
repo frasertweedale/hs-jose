@@ -24,6 +24,7 @@ import Data.Bifunctor
 import Data.Char
 import Data.Maybe
 
+import Control.Lens ((^.))
 import Data.Aeson
 import qualified Data.Aeson.Parser as P
 import Data.Aeson.Types
@@ -165,7 +166,7 @@ data Signature = Signature
   deriving (Eq, Show)
 
 algorithm :: Signature -> Maybe JWA.JWS.Alg
-algorithm (Signature h h' _) = (h >>= headerAlg . value) <|> (h' >>= headerAlg)
+algorithm (Signature h h' _) = (h >>= headerAlg . (^. value)) <|> (h' >>= headerAlg)
 
 checkHeaders :: Signature -> Either Error Signature
 checkHeaders sig@(Signature h h' _) = do
@@ -175,7 +176,7 @@ checkHeaders sig@(Signature h h' _) = do
   when hasDup (Left JWSDuplicateHeaderParameter)
   return sig
   where
-    isDup f = isJust (h >>= f . value) && isJust (h' >>= f)
+    isDup f = isJust (h >>= f . (^. value)) && isJust (h' >>= f)
     hasDup = or
       [ isDup headerAlg, isDup headerJku, isDup headerJwk
       , isDup headerKid, isDup headerX5u, isDup headerX5c
@@ -194,7 +195,7 @@ instance FromJSON Signature where
 instance ToJSON Signature where
   toJSON (Signature h h' s) =
     object $ ("signature" .= s) :
-      maybe [] (Types.objectPairs . toJSON . value) h
+      maybe [] (Types.objectPairs . toJSON . (^. value)) h
       ++ maybe [] (Types.objectPairs . toJSON) h'
 
 
@@ -219,7 +220,7 @@ jwsPayload (JWS (Types.Base64Octets s) _) = BSL.fromStrict s
 
 signingInput :: Maybe (Armour T.Text JWSHeader) -> Types.Base64Octets -> BS.ByteString
 signingInput h p = BS.intercalate "."
-  [ maybe "" (T.encodeUtf8 . armour) h
+  [ maybe "" (T.encodeUtf8 . (^. armour)) h
   , toBytes p
   ]
 
