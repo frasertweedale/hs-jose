@@ -73,7 +73,7 @@ library
     , bytestring == 0.10.*
     , text == 1.1.*
     , time == 1.4.*
-    , network >= 2.4
+    , network-uri >= 2.6
     , certificate == 1.3.*
     , vector
 
