@@ -354,7 +354,13 @@ rsaPrivateKey (RSAKeyParameters _
   (Just (RSAPrivateKeyParameters (Types.Base64Integer d) opt)))
   | isJust (opt >>= rsaOth) = Left OtherPrimesNotSupported
   | size < 2048 `div` 8 = Left KeySizeTooSmall
-  | otherwise = Right $ RSA.PrivateKey (RSA.PublicKey size n e) d 0 0 0 0 0
+  | otherwise = Right $
+    RSA.PrivateKey (RSA.PublicKey size n e) d
+      (opt' rsaP) (opt' rsaQ) (opt' rsaDp) (opt' rsaDq) (opt' rsaQi)
+    where
+      opt' f = fromMaybe 0 (unB64I . f <$> opt)
+      unB64I (Types.Base64Integer x) = x
+
 rsaPrivateKey _ = Left $ KeyMismatch "not an RSA private key"
 
 rsaPublicKey :: RSAKeyParameters -> RSA.PublicKey
