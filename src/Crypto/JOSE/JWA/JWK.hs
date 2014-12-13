@@ -351,10 +351,10 @@ rsaPrivateKey :: RSAKeyParameters -> Either Error RSA.PrivateKey
 rsaPrivateKey (RSAKeyParameters _
   (Types.SizedBase64Integer size n)
   (Types.Base64Integer e)
-  (Just (RSAPrivateKeyParameters (Types.Base64Integer d) _)))
-  | size >= 2048 `div` 8 = Right $
-    RSA.PrivateKey (RSA.PublicKey size n e) d 0 0 0 0 0
-  | otherwise = Left KeySizeTooSmall
+  (Just (RSAPrivateKeyParameters (Types.Base64Integer d) opt)))
+  | isJust (opt >>= rsaOth) = Left OtherPrimesNotSupported
+  | size < 2048 `div` 8 = Left KeySizeTooSmall
+  | otherwise = Right $ RSA.PrivateKey (RSA.PublicKey size n e) d 0 0 0 0 0
 rsaPrivateKey _ = Left $ KeyMismatch "not an RSA private key"
 
 rsaPublicKey :: RSAKeyParameters -> RSA.PublicKey
