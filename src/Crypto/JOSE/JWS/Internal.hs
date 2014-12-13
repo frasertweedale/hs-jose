@@ -37,6 +37,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import Data.Default.Class
+import Data.HashMap.Strict (member)
 import Data.List.NonEmpty (NonEmpty(..), toList)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -199,9 +200,15 @@ data JWS = JWS Types.Base64Octets [Signature]
   deriving (Eq, Show)
 
 instance FromJSON JWS where
-  parseJSON = withObject "JWS JSON serialization" (\o -> JWS
-    <$> o .: "payload"
-    <*> o .: "signatures")
+  parseJSON v =
+    withObject "JWS JSON serialization" (\o -> JWS
+      <$> o .: "payload"
+      <*> o .: "signatures") v
+    <|> withObject "Flattened JWS JSON serialization" (\o ->
+      if member "signatures" o
+      then fail "\"signatures\" member MUST NOT be present"
+      else (\p s -> JWS p [s]) <$> o .: "payload" <*> parseJSON v) v
+
 
 instance ToJSON JWS where
   toJSON (JWS p ss) = object ["payload" .= p, "signatures" .= ss]

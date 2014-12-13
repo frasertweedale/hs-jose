@@ -251,11 +251,14 @@ appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
 
 appendixA6Spec :: Spec
 appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
-  it "decodes the correct JWS" $
+  it "decodes the correct JWS" $ do
     eitherDecode exampleJWS `shouldBe` Right jws
+    eitherDecode exampleJWS' `shouldBe` Right jws'
+    lr (eitherDecode exampleFlatJWSWithSignatures :: Either String JWS) `shouldBe` L
 
   where
     jws = JWS examplePayload [sig1, sig2]
+    jws' = JWS examplePayload [sig2]
     sig1 = Signature (Just $ Unarmoured h1) (Just h1') (Types.Base64Octets mac1)
     h1 = def { headerAlg = Just JWA.JWS.RS256 }
     h1' = def { headerKid = Just "2010-12-29" }
@@ -307,3 +310,34 @@ appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
       \     \"DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8IS\
             \lSApmWQxfKTUJqPP3-Kg6NU1Q\"}]\
       \}"
+    exampleJWS' = "\
+      \{\
+      \ \"payload\":\
+      \  \"eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGF\
+          \tcGxlLmNvbS9pc19yb290Ijp0cnVlfQ\",\
+      \ \"protected\":\"eyJhbGciOiJFUzI1NiJ9\",\
+      \ \"header\":\
+      \   {\"kid\":\"e9bc097a-ce51-4036-9562-d2ade882db0d\"},\
+      \ \"signature\":\
+      \  \"DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8IS\
+         \lSApmWQxfKTUJqPP3-Kg6NU1Q\"\
+      \}"
+    exampleFlatJWSWithSignatures = "\
+      \{\
+      \ \"payload\":\
+      \  \"eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGF\
+          \tcGxlLmNvbS9pc19yb290Ijp0cnVlfQ\",\
+      \ \"protected\":\"eyJhbGciOiJFUzI1NiJ9\",\
+      \ \"header\":\
+      \   {\"kid\":\"e9bc097a-ce51-4036-9562-d2ade882db0d\"},\
+      \ \"signature\":\
+      \  \"DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8IS\
+         \lSApmWQxfKTUJqPP3-Kg6NU1Q\",\
+      \ \"signatures\":\"bogus\"\
+      \}"
+
+data LR = L | R deriving (Eq, Show)
+
+lr :: Either a b -> LR
+lr (Left _) = L
+lr _ = R
