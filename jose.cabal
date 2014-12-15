@@ -71,7 +71,7 @@ library
     , aeson >= 0.7 && < 0.9
     , unordered-containers == 0.2.*
     , bytestring == 0.10.*
-    , text == 1.1.*
+    , text >= 1.1
     , time == 1.4.*
     , network-uri >= 2.6
     , certificate == 1.3.*
