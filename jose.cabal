@@ -1,5 +1,5 @@
 name:                jose
-version:             0.2.38.0
+version:             0.2.38.1
 synopsis:
   Javascript Object Signing and Encryption and JSON Web Token library
 description:
