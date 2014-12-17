@@ -31,7 +31,7 @@ module Crypto.JOSE.JWK
 
   , JWKSet(..)
 
-  , module JWA.JWK
+  , module Crypto.JOSE.JWA.JWK
   ) where
 
 import Control.Applicative
@@ -42,7 +42,7 @@ import Data.Aeson
 
 import Crypto.JOSE.Classes
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
-import Crypto.JOSE.JWA.JWK as JWA.JWK
+import Crypto.JOSE.JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
@@ -79,7 +79,7 @@ $(Crypto.JOSE.TH.deriveJOSEType "KeyUse" ["sig", "enc"])
 --
 data JWK = JWK
   {
-    jwkMaterial :: JWA.JWK.KeyMaterial
+    jwkMaterial :: Crypto.JOSE.JWA.JWK.KeyMaterial
   , jwkUse :: Maybe KeyUse
   , jwkKeyOps :: Maybe [KeyOp]
   , jwkAlg :: Maybe Alg
@@ -117,8 +117,8 @@ instance ToJSON JWK where
     ++ Types.objectPairs (toJSON jwkMaterial)
 
 instance Key JWK where
-  type KeyGenParam JWK = JWA.JWK.KeyMaterialGenParam
-  type KeyContent JWK = JWA.JWK.KeyMaterial
+  type KeyGenParam JWK = Crypto.JOSE.JWA.JWK.KeyMaterialGenParam
+  type KeyContent JWK = Crypto.JOSE.JWA.JWK.KeyMaterial
   gen p = first fromKeyContent . gen p
   fromKeyContent k = JWK k z z z z z z z z where z = Nothing
   sign h k = sign h $ jwkMaterial k

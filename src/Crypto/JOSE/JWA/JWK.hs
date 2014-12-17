@@ -425,6 +425,8 @@ instance ToJSON KeyMaterial where
   toJSON (RSAKeyMaterial p) = object $ Types.objectPairs (toJSON p)
   toJSON (OctKeyMaterial p) = object $ Types.objectPairs (toJSON p)
 
+-- | Keygen parameters.
+--
 data KeyMaterialGenParam
   = ECGenParam Crv
   | RSAGenParam Int

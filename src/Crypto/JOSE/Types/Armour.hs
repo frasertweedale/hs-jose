@@ -67,10 +67,14 @@ armour :: ToArmour a b => Getter (Armour a b) a
 armour = to (\case Armoured a _ -> a ; Unarmoured b -> toArmour b)
 
 
+-- | Decoding from armoured representation.
+--
 class FromArmour a e b | a b -> e where
   parseArmour :: a -> Either e b
 
 
+-- | Serialising to armoured representation.
+--
 class ToArmour a b where
   toArmour :: b -> a
 

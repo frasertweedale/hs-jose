@@ -24,10 +24,7 @@ module Crypto.JOSE.Error
 
 import qualified Crypto.PubKey.RSA as RSA
 
--- | All the errors that can occur, with the notable exception of
---   'Data.Aeson' decoding functions.  Aeson decoding errors that
---   occur in 'decodeCompact' are, however, lifted into this type
---   via the 'JSONDecodeError' constructor.
+-- | All the errors that can occur.
 --
 data Error
   = AlgorithmNotImplemented   -- ^ A requested algorithm is not implemented
@@ -38,7 +35,7 @@ data Error
   | RSAError RSA.Error        -- ^ RSA encryption, decryption or signing error
   | CompactEncodeError String -- ^ Cannot produce compact representation of data
   | CompactDecodeError String -- ^ Cannot decode compact representation
-  | JSONDecodeError String    -- ^ Cannot decode JSON data
+  | JSONDecodeError String    -- ^ JSON (Aeson) decoding error
   | JWSMissingHeader
   | JWSMissingAlg
   | JWSCritUnprotected

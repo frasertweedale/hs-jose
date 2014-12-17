@@ -19,7 +19,17 @@
 Data types for the JOSE library.
 
 -}
-module Crypto.JOSE.Types where
+module Crypto.JOSE.Types
+  (
+    Base64Integer(..)
+  , SizedBase64Integer(..)
+  , Base64UrlString(..)
+  , Base64Octets(..)
+  , Base64SHA1(..)
+  , Base64SHA256(..)
+  , Base64X509(..)
+  , URI(..)
+  ) where
 
 import Control.Applicative
 
