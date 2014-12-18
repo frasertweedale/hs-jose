@@ -25,6 +25,7 @@ Mozilla Persona.
 module Crypto.JOSE.Legacy
   (
     JWK'(..)
+  , toJWK
   , RSKeyParameters()
   , rsaKeyParameters
   ) where
@@ -38,6 +39,7 @@ import Data.Aeson.Types
 
 import Crypto.JOSE.Classes
 import Crypto.JOSE.JWA.JWK
+import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types.Internal as Types
 import Crypto.JOSE.TH
 
@@ -92,3 +94,6 @@ instance Key JWK' where
   public = rsKeyParameters public
   sign h (JWK' k) = sign h k
   verify h (JWK' k) = verify h k
+
+toJWK :: JWK' -> JWK
+toJWK (JWK' (RSKeyParameters k)) = fromKeyContent $ RSAKeyMaterial k
