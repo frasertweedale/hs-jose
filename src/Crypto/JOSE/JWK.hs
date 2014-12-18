@@ -27,7 +27,16 @@ representing a set of JWKs.
 -}
 module Crypto.JOSE.JWK
   (
-    JWK(..)
+    JWK(JWK)
+  , jwkMaterial
+  , jwkUse
+  , jwkKeyOps
+  , jwkAlg
+  , jwkKid
+  , jwkX5u
+  , jwkX5c
+  , jwkX5t
+  , jwkX5tS256
 
   , JWKSet(..)
 
@@ -38,6 +47,7 @@ import Control.Applicative
 import Data.Bifunctor
 import Data.Maybe (catMaybes)
 
+import Control.Lens hiding ((.=))
 import Data.Aeson
 
 import Crypto.JOSE.Classes
@@ -79,17 +89,18 @@ $(Crypto.JOSE.TH.deriveJOSEType "KeyUse" ["sig", "enc"])
 --
 data JWK = JWK
   {
-    jwkMaterial :: Crypto.JOSE.JWA.JWK.KeyMaterial
-  , jwkUse :: Maybe KeyUse
-  , jwkKeyOps :: Maybe [KeyOp]
-  , jwkAlg :: Maybe Alg
-  , jwkKid :: Maybe String
-  , jwkX5u :: Maybe Types.URI
-  , jwkX5c :: Maybe [Types.Base64X509]
-  , jwkX5t :: Maybe Types.Base64SHA1
-  , jwkX5tS256 :: Maybe Types.Base64SHA256
+    _jwkMaterial :: Crypto.JOSE.JWA.JWK.KeyMaterial
+  , _jwkUse :: Maybe KeyUse
+  , _jwkKeyOps :: Maybe [KeyOp]
+  , _jwkAlg :: Maybe Alg
+  , _jwkKid :: Maybe String
+  , _jwkX5u :: Maybe Types.URI
+  , _jwkX5c :: Maybe [Types.Base64X509]
+  , _jwkX5t :: Maybe Types.Base64SHA1
+  , _jwkX5tS256 :: Maybe Types.Base64SHA256
   }
   deriving (Eq, Show)
+makeLenses ''JWK
 
 instance FromJSON JWK where
   parseJSON = withObject "JWK" $ \o -> JWK
@@ -105,24 +116,25 @@ instance FromJSON JWK where
 
 instance ToJSON JWK where
   toJSON (JWK {..}) = object $ catMaybes
-    [ fmap ("alg" .=) jwkAlg
-    , fmap ("use" .=) jwkUse
-    , fmap ("key_ops" .=) jwkKeyOps
-    , fmap ("kid" .=) jwkKid
-    , fmap ("x5u" .=) jwkX5u
-    , fmap ("x5c" .=) jwkX5c
-    , fmap ("x5t" .=) jwkX5t
-    , fmap ("x5t#S256" .=) jwkX5tS256
+    [ fmap ("alg" .=) _jwkAlg
+    , fmap ("use" .=) _jwkUse
+    , fmap ("key_ops" .=) _jwkKeyOps
+    , fmap ("kid" .=) _jwkKid
+    , fmap ("x5u" .=) _jwkX5u
+    , fmap ("x5c" .=) _jwkX5c
+    , fmap ("x5t" .=) _jwkX5t
+    , fmap ("x5t#S256" .=) _jwkX5tS256
     ]
-    ++ Types.objectPairs (toJSON jwkMaterial)
+    ++ Types.objectPairs (toJSON _jwkMaterial)
 
 instance Key JWK where
   type KeyGenParam JWK = Crypto.JOSE.JWA.JWK.KeyMaterialGenParam
   type KeyContent JWK = Crypto.JOSE.JWA.JWK.KeyMaterial
   gen p = first fromKeyContent . gen p
   fromKeyContent k = JWK k z z z z z z z z where z = Nothing
-  sign h k = sign h $ jwkMaterial k
-  verify h k = verify h $ jwkMaterial k
+  public = jwkMaterial public
+  sign h k = sign h $ k ^. jwkMaterial
+  verify h k = verify h $ k ^. jwkMaterial
 
 
 -- | JWK §4.  JSON Web Key Set (JWK Set) Format

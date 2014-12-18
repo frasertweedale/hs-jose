@@ -24,12 +24,15 @@ Mozilla Persona.
 -}
 module Crypto.JOSE.Legacy
   (
-    JWK'
+    JWK'(..)
+  , RSKeyParameters()
+  , rsaKeyParameters
   ) where
 
 import Control.Applicative
 import Data.Bifunctor
 
+import Control.Lens (makeLenses)
 import Data.Aeson
 import Data.Aeson.Types
 
@@ -42,8 +45,9 @@ import Crypto.JOSE.TH
 $(Crypto.JOSE.TH.deriveJOSEType "RS" ["RS"])
 
 
-newtype RSKeyParameters = RSKeyParameters RSAKeyParameters
+newtype RSKeyParameters = RSKeyParameters { _rsaKeyParameters :: RSAKeyParameters }
   deriving (Eq, Show)
+makeLenses ''RSKeyParameters
 
 instance FromJSON RSKeyParameters where
   parseJSON = withObject "RS" $ \o -> fmap RSKeyParameters $ RSAKeyParameters
@@ -62,13 +66,16 @@ instance Key RSKeyParameters where
   type KeyContent RSKeyParameters = RSAKeyParameters
   gen p = first fromKeyContent . gen p
   fromKeyContent = RSKeyParameters
+  public = rsaKeyParameters public
   sign h (RSKeyParameters k) = sign h k
   verify h (RSKeyParameters k) = verify h k
 
 
 -- | Legacy JSON Web Key data type.
 --
-newtype JWK' = JWK' RSKeyParameters deriving (Eq, Show)
+newtype JWK' = JWK' { _rsKeyParameters :: RSKeyParameters }
+  deriving (Eq, Show)
+makeLenses ''JWK'
 
 instance FromJSON JWK' where
   parseJSON = withObject "JWK'" $ \o -> JWK' <$> parseJSON (Object o)
@@ -82,5 +89,6 @@ instance Key JWK' where
   type KeyContent JWK' = RSKeyParameters
   gen p g = first JWK' $ gen p g
   fromKeyContent = JWK'
+  public = rsKeyParameters public
   sign h (JWK' k) = sign h k
   verify h (JWK' k) = verify h k

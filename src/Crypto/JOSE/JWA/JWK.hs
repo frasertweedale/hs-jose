@@ -36,7 +36,11 @@ module Crypto.JOSE.JWA.JWK (
   , RSAPrivateKeyOthElem(..)
   , RSAPrivateKeyOptionalParameters(..)
   , RSAPrivateKeyParameters(..)
-  , RSAKeyParameters(..)
+  , RSAKeyParameters(RSAKeyParameters)
+  , rsaE
+  , rsaKty
+  , rsaN
+  , rsaPrivateKeyParameters
 
   -- * Parameters for Symmetric Keys
   , OctKeyParameters(..)
@@ -49,6 +53,7 @@ import Control.Applicative
 import Data.Bifunctor
 import Data.Maybe
 
+import Control.Lens hiding ((.=))
 import Crypto.Hash
 import Crypto.PubKey.HashDescr
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
@@ -200,6 +205,7 @@ instance Key ECKeyParameters where
   verify JWA.JWS.ES512 = verifyEC hashDescrSHA512
   verify h = \_ _ _ ->
     Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key"
+  public k = Just k { ecD = Nothing }
 
 signEC
   :: CPRG g
@@ -244,12 +250,13 @@ point ECKeyParameters {..} = ECC.Point (integer ecX) (integer ecY) where
 -- | Parameters for RSA Keys
 --
 data RSAKeyParameters = RSAKeyParameters
-  { rsaKty :: RSA
-  , rsaN :: Types.SizedBase64Integer
-  , rsaE :: Types.Base64Integer
-  , rsaPrivateKeyParameters :: Maybe RSAPrivateKeyParameters
+  { _rsaKty :: RSA
+  , _rsaN :: Types.SizedBase64Integer
+  , _rsaE :: Types.Base64Integer
+  , _rsaPrivateKeyParameters :: Maybe RSAPrivateKeyParameters
   }
   deriving (Eq, Show)
+makeLenses ''RSAKeyParameters
 
 instance FromJSON RSAKeyParameters where
   parseJSON = withObject "RSA" $ \o ->
@@ -263,10 +270,10 @@ instance FromJSON RSAKeyParameters where
 
 instance ToJSON RSAKeyParameters where
   toJSON RSAKeyParameters {..} = object $
-      ("kty" .= rsaKty)
-    : ("n" .= rsaN)
-    : ("e" .= rsaE)
-    : maybe [] (Types.objectPairs . toJSON) rsaPrivateKeyParameters
+      ("kty" .= _rsaKty)
+    : ("n" .= _rsaN)
+    : ("e" .= _rsaE)
+    : maybe [] (Types.objectPairs . toJSON) _rsaPrivateKeyParameters
 
 instance Key RSAKeyParameters where
   type KeyGenParam RSAKeyParameters = Int
@@ -289,6 +296,7 @@ instance Key RSAKeyParameters where
             (i p) (i q) (i dp) (i dq) (i qi) Nothing))))
       , g')
   fromKeyContent (n, e, p) = RSAKeyParameters RSA n e p
+  public = Just . set rsaPrivateKeyParameters Nothing
   sign JWA.JWS.RS256 = signPKCS15 hashDescrSHA256
   sign JWA.JWS.RS384 = signPKCS15 hashDescrSHA384
   sign JWA.JWS.RS512 = signPKCS15 hashDescrSHA512
@@ -389,6 +397,7 @@ instance Key OctKeyParameters where
   type KeyContent OctKeyParameters = Types.Base64Octets
   gen = undefined  -- TODO implement
   fromKeyContent = OctKeyParameters Oct
+  public = const Nothing
   sign JWA.JWS.HS256 k g = first Right . (,g) . signOct SHA256 k
   sign JWA.JWS.HS384 k g = first Right . (,g) . signOct SHA384 k
   sign JWA.JWS.HS512 k g = first Right . (,g) . signOct SHA512 k
@@ -439,6 +448,9 @@ instance Key KeyMaterial where
   gen (RSAGenParam a) = first RSAKeyMaterial . gen a
   gen (OctGenParam a) = first OctKeyMaterial . gen a
   fromKeyContent = id
+  public (ECKeyMaterial k) = ECKeyMaterial <$> public k
+  public (RSAKeyMaterial k) = RSAKeyMaterial <$> public k
+  public (OctKeyMaterial k) = OctKeyMaterial <$> public k
   sign JWA.JWS.None _ = \g _ -> (Right "", g)
   sign h (ECKeyMaterial k)  = sign h k
   sign h (RSAKeyMaterial k) = sign h k
