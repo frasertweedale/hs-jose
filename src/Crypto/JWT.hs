@@ -41,7 +41,12 @@ module Crypto.JWT
 
   , Audience(..)
 
-  , StringOrURI(..)
+  , StringOrURI
+  , fromString
+  , fromURI
+  , getString
+  , getURI
+
   , NumericDate(..)
   ) where
 
@@ -57,6 +62,7 @@ import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import Data.Time
 import Data.Time.Clock.POSIX
+import Network.URI (parseURI)
 
 import Crypto.JOSE
 import Crypto.JOSE.Types
@@ -69,6 +75,27 @@ import Crypto.JOSE.Types
 --   character MUST be a URI.
 --
 data StringOrURI = Arbitrary T.Text | OrURI URI deriving (Eq, Show)
+
+-- | Construct a 'StringOrURI' from text
+--
+fromString :: T.Text -> StringOrURI
+fromString s = maybe (Arbitrary s) (OrURI . URI) $ parseURI $ T.unpack s
+
+-- | Construct a 'StringOrURI' from a URI
+--
+fromURI :: URI -> StringOrURI
+fromURI = OrURI
+
+-- | Get the 
+getString :: StringOrURI -> Maybe T.Text
+getString (Arbitrary a) = Just a
+getString (OrURI _) = Nothing
+
+-- | Get the uri from a 'StringOrURI'
+--
+getURI :: StringOrURI -> Maybe URI
+getURI (Arbitrary _) = Nothing
+getURI (OrURI a) = Just a
 
 instance FromJSON StringOrURI where
   parseJSON = withText "StringOrURI" (\s ->

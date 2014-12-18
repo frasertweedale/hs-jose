@@ -23,11 +23,13 @@ import Data.Aeson
 import Data.Default.Class (def)
 import Data.HashMap.Strict (insert)
 import Data.Time
+import Network.URI (parseURI)
+import Safe (headMay)
 import System.Locale
 import Test.Hspec
 
 import Crypto.JOSE
-import Crypto.JOSE.JWA.JWS (Alg(None))
+import Crypto.JOSE.Types
 
 import Crypto.JWT
 
@@ -37,7 +39,7 @@ intDate = fmap NumericDate . parseTime defaultTimeLocale "%F %T"
 
 exampleClaimsSet :: ClaimsSet
 exampleClaimsSet = emptyClaimsSet
-  & claimIss .~ Just (Arbitrary "joe")
+  & claimIss .~ Just (fromString "joe")
   & claimExp .~ intDate "2011-03-22 18:43:00"
   & over unregisteredClaims (insert "http://example.com/is_root" (Bool True))
   & addClaim "http://example.com/is_root" (Bool True)
@@ -59,9 +61,9 @@ spec = do
 
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
-      decode "[\"foo\"]" `shouldBe` Just [Arbitrary "foo"]
-      decode "[\"http://example.com\"]" `shouldBe`
-        fmap OrURI (decode "[\"http://example.com\"]")
+      (decode "[\"foo\"]" >>= headMay >>= getString) `shouldBe` Just "foo"
+      (decode "[\"http://example.com\"]" >>= headMay >>= getURI)
+        `shouldBe` fmap URI (parseURI "http://example.com")
       decode "[\":\"]" `shouldBe` (Nothing :: Maybe [StringOrURI])
       decode "[12345]" `shouldBe` (Nothing :: Maybe [StringOrURI])
 
