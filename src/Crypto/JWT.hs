@@ -13,6 +13,7 @@
 -- limitations under the License.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 {-|
 
@@ -22,6 +23,16 @@ JSON Web Token implementation.
 module Crypto.JWT
   (
     JWT(..)
+  , claimAud
+  , claimExp
+  , claimIat
+  , claimIss
+  , claimJti
+  , claimNbf
+  , claimSub
+  , unregisteredClaims
+  , addClaim
+
   , createJWSJWT
   , validateJWSJWT
 
@@ -39,6 +50,7 @@ import Control.Monad
 import Data.Bifunctor
 import Data.Maybe
 
+import Control.Lens hiding ((.=))
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
@@ -103,58 +115,62 @@ instance ToJSON Audience where
 --   the claims conveyed by the JWT.
 --
 data ClaimsSet = ClaimsSet
-  { claimIss :: Maybe StringOrURI
+  { _claimIss :: Maybe StringOrURI
   -- ^ The issuer claim identifies the principal that issued the
   -- JWT.  The processing of this claim is generally application
   -- specific.
-  , claimSub :: Maybe StringOrURI
+  , _claimSub :: Maybe StringOrURI
   -- ^ The subject claim identifies the principal that is the
   -- subject of the JWT.  The Claims in a JWT are normally
   -- statements about the subject.  The subject value MAY be scoped
   -- to be locally unique in the context of the issuer or MAY be
   -- globally unique.  The processing of this claim is generally
   -- application specific.
-  , claimAud :: Maybe Audience
+  , _claimAud :: Maybe Audience
   -- ^ The audience claim identifies the recipients that the JWT is
   -- intended for.  Each principal intended to process the JWT MUST
   -- identify itself with a value in the audience claim.  If the
   -- principal processing the claim does not identify itself with a
   -- value in the /aud/ claim when this claim is present, then the
   -- JWT MUST be rejected.
-  , claimExp :: Maybe NumericDate
+  , _claimExp :: Maybe NumericDate
   -- ^ The expiration time claim identifies the expiration time on
   -- or after which the JWT MUST NOT be accepted for processing.
   -- The processing of /exp/ claim requires that the current
   -- date\/time MUST be before expiration date\/time listed in the
   -- /exp/ claim.  Implementers MAY provide for some small leeway,
   -- usually no more than a few minutes, to account for clock skew.
-  , claimNbf :: Maybe NumericDate
+  , _claimNbf :: Maybe NumericDate
   -- ^ The not before claim identifies the time before which the JWT
   -- MUST NOT be accepted for processing.  The processing of the
   -- /nbf/ claim requires that the current date\/time MUST be after
   -- or equal to the not-before date\/time listed in the /nbf/
   -- claim.  Implementers MAY provide for some small leeway, usually
   -- no more than a few minutes, to account for clock skew.
-  , claimIat :: Maybe NumericDate
+  , _claimIat :: Maybe NumericDate
   -- ^ The issued at claim identifies the time at which the JWT was
   -- issued.  This claim can be used to determine the age of the
   -- JWT.
-  , claimJti :: Maybe T.Text
+  , _claimJti :: Maybe T.Text
   -- ^ The JWT ID claim provides a unique identifier for the JWT.
   -- The identifier value MUST be assigned in a manner that ensures
   -- that there is a negligible probability that the same value will
   -- be accidentally assigned to a different data object.  The /jti/
   -- claim can be used to prevent the JWT from being replayed.  The
   -- /jti/ value is a case-sensitive string.
-  , unregisteredClaims :: M.HashMap T.Text Value
+  , _unregisteredClaims :: M.HashMap T.Text Value
   -- ^ Claim Names can be defined at will by those using JWTs.
   }
   deriving (Eq, Show)
+makeLenses ''ClaimsSet
 
 -- | Return an empty claims set.
 --
 emptyClaimsSet :: ClaimsSet
 emptyClaimsSet = ClaimsSet n n n n n n n M.empty where n = Nothing
+
+addClaim :: T.Text -> Value -> ClaimsSet -> ClaimsSet
+addClaim k v = over unregisteredClaims (M.insert k v)
 
 filterUnregistered :: M.HashMap T.Text Value -> M.HashMap T.Text Value
 filterUnregistered = M.filterWithKey (\k _ -> k `notElem` registered) where

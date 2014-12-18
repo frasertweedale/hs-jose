@@ -18,9 +18,10 @@ module JWT where
 
 import Data.Maybe
 
+import Control.Lens
 import Data.Aeson
 import Data.Default.Class (def)
-import Data.HashMap.Strict
+import Data.HashMap.Strict (insert)
 import Data.Time
 import System.Locale
 import Test.Hspec
@@ -35,11 +36,11 @@ intDate :: String -> Maybe NumericDate
 intDate = fmap NumericDate . parseTime defaultTimeLocale "%F %T"
 
 exampleClaimsSet :: ClaimsSet
-exampleClaimsSet = emptyClaimsSet {
-  claimIss = Just (Arbitrary "joe")
-  , claimExp = intDate "2011-03-22 18:43:00"
-  , unregisteredClaims = fromList [("http://example.com/is_root", Bool True)]
-  }
+exampleClaimsSet = emptyClaimsSet
+  & claimIss .~ Just (Arbitrary "joe")
+  & claimExp .~ intDate "2011-03-22 18:43:00"
+  & over unregisteredClaims (insert "http://example.com/is_root" (Bool True))
+  & addClaim "http://example.com/is_root" (Bool True)
 
 spec :: Spec
 spec = do
