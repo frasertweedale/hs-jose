@@ -24,6 +24,7 @@ import Test.Hspec
 
 import Crypto.JOSE.Types
 
+spec :: Spec
 spec = do
   base64UrlSpec
   base64OctetsSpec
@@ -32,11 +33,13 @@ spec = do
   sizedBase64IntegerSpec
   base64X509Spec
 
+base64UrlSpec :: Spec
 base64UrlSpec = describe "Base64UrlString" $
   it "can be read from JSON" $ do
     decode "[\"QWxpY2U\"]" `shouldBe` Just [Base64UrlString "Alice"]
     decode "[\"Qm9i\"]"`shouldBe` Just [Base64UrlString "Bob"]
 
+base64OctetsSpec :: Spec
 base64OctetsSpec = describe "Base64Octets" $
   it "can be read from JSON" $ do
     decode "[\"AxY8DCtDaGlsbGljb3RoZQ\"]" `shouldBe` Just [Base64Octets iv]
@@ -45,6 +48,7 @@ base64OctetsSpec = describe "Base64Octets" $
     iv = BS.pack [3, 22, 60, 12, 43, 67, 104, 105, 108, 108, 105, 99, 111, 116, 104, 101]
     tag = BS.pack [246, 17, 244, 190, 4, 95, 98, 3, 231, 0, 115, 157, 242, 203, 100, 191]
 
+uriSpec :: Spec
 uriSpec = describe "URI typeclasses" $ do
   it "gets parsed from JSON correctly" $ do
     decode "[\"http://example.com\"]" `shouldBe`
@@ -55,6 +59,7 @@ uriSpec = describe "URI typeclasses" $ do
     fmap toJSON (Network.URI.parseURI "http://example.com")
       `shouldBe` Just (String "http://example.com")
 
+base64IntegerSpec :: Spec
 base64IntegerSpec = describe "Base64Integer" $ do
   it "parses from JSON correctly" $ do
     decode "[\"AQAC\"]" `shouldBe` Just [Base64Integer 65538]
@@ -63,6 +68,7 @@ base64IntegerSpec = describe "Base64Integer" $ do
   it "formats to JSON correctly" $
     toJSON (Base64Integer 65538) `shouldBe` "AQAC"
 
+sizedBase64IntegerSpec :: Spec
 sizedBase64IntegerSpec = describe "SizedBase64Integer" $ do
   it "parses from JSON correctly" $ do
     decode "[\"AQAC\"]" `shouldBe` Just [SizedBase64Integer 3 65538]
