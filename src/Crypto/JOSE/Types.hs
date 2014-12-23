@@ -28,7 +28,7 @@ module Crypto.JOSE.Types
   , Base64SHA1(..)
   , Base64SHA256(..)
   , Base64X509(..)
-  , URI(..)
+  , URI
   ) where
 
 import Control.Applicative
@@ -39,8 +39,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.ByteString.Lazy as L
 import Data.Certificate.X509
-import qualified Data.Text as T
-import qualified Network.URI
+import Network.URI (URI)
 
 import Crypto.JOSE.Types.Internal
 import Crypto.JOSE.Types.Orphans ()
@@ -144,15 +143,3 @@ instance FromJSON Base64X509 where
 
 instance ToJSON Base64X509 where
   toJSON (Base64X509 x509) = encodeB64 $ L.toStrict $ encodeCertificate x509
-
-
--- | A URI.  Used for X.509 certificate and JWK Set URLs.
---
-newtype URI = URI Network.URI.URI deriving (Eq, Show)
-
-instance FromJSON URI where
-  parseJSON = withText "URI" $
-    maybe (fail "not a URI") (pure . URI) . Network.URI.parseURI . T.unpack
-
-instance ToJSON URI where
-  toJSON (URI uri) = String $ T.pack $ show uri

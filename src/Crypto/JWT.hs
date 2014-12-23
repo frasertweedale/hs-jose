@@ -79,7 +79,7 @@ data StringOrURI = Arbitrary T.Text | OrURI URI deriving (Eq, Show)
 -- | Construct a 'StringOrURI' from text
 --
 fromString :: T.Text -> StringOrURI
-fromString s = maybe (Arbitrary s) (OrURI . URI) $ parseURI $ T.unpack s
+fromString s = maybe (Arbitrary s) OrURI $ parseURI $ T.unpack s
 
 -- | Construct a 'StringOrURI' from a URI
 --

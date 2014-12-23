@@ -16,17 +16,30 @@
 
 module Crypto.JOSE.Types.Orphans where
 
-import qualified Data.Traversable as T
+import Prelude hiding (mapM)
+
+import Data.Traversable
+
 import Data.List.NonEmpty (NonEmpty(..), toList)
+import qualified Data.Text as T
+import qualified Data.Vector as V
+import Network.URI (URI, parseURI)
 
 import Data.Aeson
 
-import qualified Data.Vector as V
 
 instance FromJSON a => FromJSON (NonEmpty a) where
   parseJSON = withArray "NonEmpty [a]" $ \v -> case V.toList v of
     [] -> fail "Non-empty list required"
-    (x:xs) -> T.mapM parseJSON (x :| xs)
+    (x:xs) -> mapM parseJSON (x :| xs)
 
 instance ToJSON a => ToJSON (NonEmpty a) where
   toJSON = Array . V.fromList . map toJSON . toList
+
+
+instance FromJSON URI where
+  parseJSON = withText "URI" $
+    maybe (fail "not a URI") return . parseURI . T.unpack
+
+instance ToJSON URI where
+  toJSON = String . T.pack . show

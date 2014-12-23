@@ -29,8 +29,6 @@ import System.Locale
 import Test.Hspec
 
 import Crypto.JOSE
-import Crypto.JOSE.Types
-
 import Crypto.JWT
 
 
@@ -63,7 +61,7 @@ spec = do
     it "parses from JSON correctly" $ do
       (decode "[\"foo\"]" >>= headMay >>= getString) `shouldBe` Just "foo"
       (decode "[\"http://example.com\"]" >>= headMay >>= getURI)
-        `shouldBe` fmap URI (parseURI "http://example.com")
+        `shouldBe` parseURI "http://example.com"
       decode "[\":\"]" `shouldBe` (Nothing :: Maybe [StringOrURI])
       decode "[12345]" `shouldBe` (Nothing :: Maybe [StringOrURI])
 
