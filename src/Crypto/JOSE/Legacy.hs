@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE MagicHash #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -32,6 +33,8 @@ module Crypto.JOSE.Legacy
 
 import Control.Applicative
 import Data.Bifunctor
+import GHC.Types (Int(I#))
+import GHC.Integer.Logarithms (integerLog2#)
 
 import Control.Lens hiding ((.=))
 import Data.Aeson
@@ -66,8 +69,12 @@ b64Iso = iso
 
 sizedB64Iso :: Iso' StringifiedInteger SizedBase64Integer
 sizedB64Iso = iso
-  (SizedBase64Integer 0 . view unString)
+  ((\n -> SizedBase64Integer (size n) n) . view unString)
   (\(SizedBase64Integer _ n) -> StringifiedInteger n)
+  where
+  size n =
+    let (bytes, bits) = (I# (integerLog2# n) + 1) `divMod` 8
+    in bytes + signum bits
 
 
 $(Crypto.JOSE.TH.deriveJOSEType "RS" ["RS"])

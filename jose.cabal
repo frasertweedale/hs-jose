@@ -56,6 +56,8 @@ library
 
   build-depends:
     base == 4.*
+    , ghc-prim
+    , integer-gmp
     , attoparsec
     , base64-bytestring == 1.0.*
     , bifunctors >= 4.0
