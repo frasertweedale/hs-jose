@@ -33,15 +33,41 @@ module Crypto.JOSE.Legacy
 import Control.Applicative
 import Data.Bifunctor
 
-import Control.Lens (makeLenses)
+import Control.Lens hiding ((.=))
 import Data.Aeson
 import Data.Aeson.Types
+import qualified Data.Text as T
+import Safe (readMay)
 
 import Crypto.JOSE.Classes
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types.Internal as Types
+import Crypto.JOSE.Types
 import Crypto.JOSE.TH
+
+
+newtype StringifiedInteger = StringifiedInteger { _unString :: Integer }
+makeLenses ''StringifiedInteger
+
+instance FromJSON StringifiedInteger where
+  parseJSON = withText "StringifiedInteger" $
+    maybe (fail "not an stringy integer") (pure . StringifiedInteger)
+    . readMay
+    . T.unpack
+
+instance ToJSON StringifiedInteger where
+  toJSON (StringifiedInteger n) = toJSON $ show n
+
+b64Iso :: Iso' StringifiedInteger Base64Integer
+b64Iso = iso
+  (Base64Integer . view unString)
+  (\(Base64Integer n) -> StringifiedInteger n)
+
+sizedB64Iso :: Iso' StringifiedInteger SizedBase64Integer
+sizedB64Iso = iso
+  (SizedBase64Integer 0 . view unString)
+  (\(SizedBase64Integer _ n) -> StringifiedInteger n)
 
 
 $(Crypto.JOSE.TH.deriveJOSEType "RS" ["RS"])
@@ -54,14 +80,19 @@ makeLenses ''RSKeyParameters
 instance FromJSON RSKeyParameters where
   parseJSON = withObject "RS" $ \o -> fmap RSKeyParameters $ RSAKeyParameters
     <$> ((o .: "algorithm" :: Parser RS) *> pure RSA)
-    <*> o .: "modulus"
-    <*> o .: "exponent"
-    <*> (fmap (`RSAPrivateKeyParameters` Nothing) <$> (o .:? "secretExponent"))
+    <*> (view sizedB64Iso <$> o .: "n")
+    <*> (view b64Iso <$> o .: "e")
+    <*> (fmap ((`RSAPrivateKeyParameters` Nothing) . view b64Iso) <$> (o .:? "d"))
 
 instance ToJSON RSKeyParameters where
-  toJSON (RSKeyParameters (RSAKeyParameters _ n e priv))
-    = object $ ["algorithm" .= RS, "modulus" .= n ,"exponent" .= e]
-      ++ maybe [] (\p -> ["secretExponent" .= rsaD p]) priv
+  toJSON (RSKeyParameters k)
+    = object $
+      [ "algorithm" .= RS
+      , "n" .= (k ^. rsaN . from sizedB64Iso)
+      , "e" .= (k ^. rsaE . from b64Iso)
+      ]
+      ++ maybe [] (\p -> ["d" .= (rsaD p ^. from b64Iso)])
+        (k ^. rsaPrivateKeyParameters)
 
 instance Key RSKeyParameters where
   type KeyGenParam RSKeyParameters = Int
@@ -83,8 +114,7 @@ instance FromJSON JWK' where
   parseJSON = withObject "JWK'" $ \o -> JWK' <$> parseJSON (Object o)
 
 instance ToJSON JWK' where
-  toJSON (JWK' k) = object $
-    "version" .= ("2012.08.15" :: String) : Types.objectPairs (toJSON k)
+  toJSON (JWK' k) = object $ Types.objectPairs (toJSON k)
 
 instance Key JWK' where
   type KeyGenParam JWK' = Int
