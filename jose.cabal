@@ -1,5 +1,5 @@
 name:                jose
-version:             0.2.38.1
+version:             0.3.38.0
 synopsis:
   Javascript Object Signing and Encryption and JSON Web Token library
 description:
@@ -13,6 +13,11 @@ description:
   are implemented, however, the ECDSA implementation is is
   vulnerable to timing attacks and should therefore only be used for
   JWS verification.
+  .
+  The 'Crypto.JOSE.Legacy' module is provided for working with the
+  Mozilla Persona (formerly BrowserID) key format.  Only RSA keys
+  are supported - DSA keys cannot be used and must be handled as
+  opaque objects.
   .
   The version number tracks the IETF jose working group draft
   revisions.  For now, expect breaking API changes on any version
