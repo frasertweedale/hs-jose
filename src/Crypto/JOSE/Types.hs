@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -37,8 +37,7 @@ import Data.Aeson
 import Data.Byteable
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base64.URL as B64U
-import qualified Data.ByteString.Lazy as L
-import Data.Certificate.X509
+import Data.X509
 import Network.URI (URI)
 
 import Crypto.JOSE.Types.Internal
@@ -134,12 +133,12 @@ instance ToJSON Base64SHA256 where
 
 -- | A base64 encoded X.509 certificate.
 --
-newtype Base64X509 = Base64X509 X509
+newtype Base64X509 = Base64X509 SignedCertificate
   deriving (Eq, Show)
 
 instance FromJSON Base64X509 where
   parseJSON = withText "base64url X.509 certificate" $ parseB64 $
-    either fail (pure . Base64X509) . decodeCertificate . L.fromStrict
+    either fail (pure . Base64X509) . decodeSignedCertificate
 
 instance ToJSON Base64X509 where
-  toJSON (Base64X509 x509) = encodeB64 $ L.toStrict $ encodeCertificate x509
+  toJSON (Base64X509 x509) = encodeB64 $ encodeSignedObject x509
