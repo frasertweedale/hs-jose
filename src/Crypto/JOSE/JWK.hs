@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ import Data.Maybe (catMaybes)
 
 import Control.Lens hiding ((.=))
 import Data.Aeson
+import Data.List.NonEmpty
 
 import Crypto.JOSE.Classes
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
@@ -95,7 +96,7 @@ data JWK = JWK
   , _jwkAlg :: Maybe Alg
   , _jwkKid :: Maybe String
   , _jwkX5u :: Maybe Types.URI
-  , _jwkX5c :: Maybe [Types.Base64X509]
+  , _jwkX5c :: Maybe (NonEmpty Types.Base64X509)
   , _jwkX5t :: Maybe Types.Base64SHA1
   , _jwkX5tS256 :: Maybe Types.Base64SHA256
   }
