@@ -403,7 +403,7 @@ instance Key OctKeyParameters where
   sign JWA.JWS.HS512 k g = first Right . (,g) . signOct SHA512 k
   sign h _ g = const
     (Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key", g)
-  verify h k m s = fst (sign h k (undefined :: SystemRNG) m) >>= Right . (== s)
+  verify h k m s = fst (sign h k (undefined :: SystemRNG) m) >>= Right . (constEqBytes s)
 
 signOct
   :: HashAlgorithm a
