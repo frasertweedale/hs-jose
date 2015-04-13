@@ -76,11 +76,11 @@ library
     , template-haskell >= 2.4
     , safe >= 0.3
     , semigroups >= 0.15
-    , aeson >= 0.7 && < 0.9
+    , aeson >= 0.8.0.1 && < 0.9
     , unordered-containers == 0.2.*
     , bytestring == 0.10.*
     , text >= 1.1
-    , time == 1.4.*
+    , time >= 1.5
     , network-uri >= 2.6
     , x509 >= 1.4
     , vector
@@ -114,7 +114,6 @@ test-suite tests
     , cryptohash
     , data-default-class
     , lens
-    , old-locale
     , template-haskell
     , safe
     , semigroups

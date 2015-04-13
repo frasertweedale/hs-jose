@@ -25,7 +25,6 @@ import Data.HashMap.Strict (insert)
 import Data.Time
 import Network.URI (parseURI)
 import Safe (headMay)
-import System.Locale
 import Test.Hspec
 
 import Crypto.JOSE
@@ -33,7 +32,7 @@ import Crypto.JWT
 
 
 intDate :: String -> Maybe NumericDate
-intDate = fmap NumericDate . parseTime defaultTimeLocale "%F %T"
+intDate = fmap NumericDate . parseTimeM True defaultTimeLocale "%F %T"
 
 exampleClaimsSet :: ClaimsSet
 exampleClaimsSet = emptyClaimsSet
