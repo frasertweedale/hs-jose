@@ -1,13 +1,14 @@
 name:                jose
-version:             0.3.41.1
+version:             0.3.41.2
 synopsis:
   Javascript Object Signing and Encryption and JSON Web Token library
 description:
   .
   An implementation of the Javascript Object Signing and Encryption
-  (JOSE) and JSON Web Token (JWT) formats.
+  (JOSE) and JSON Web Token (JWT; RFC 5717) formats.
   .
-  Web Encryption (JWE) is not yet implemented.
+  The JSON Web Signature (JWS; RFC 5715) implementation is complete.
+  JSON Web Encryption (JWE; RFC 5716) is not yet implemented.
   .
   All JWS algorithms (HMAC, ECDSA, RSASSA-PKCS-v1_5 and RSASSA-PSS)
   are implemented, however, the ECDSA implementation is is
@@ -18,10 +19,6 @@ description:
   Mozilla Persona (formerly BrowserID) key format.  Only RSA keys
   are supported - DSA keys cannot be used and must be handled as
   opaque objects.
-  .
-  The version number tracks the IETF jose working group draft
-  revisions.  For now, expect breaking API changes on any version
-  change except for the final (fourth) part being incremented.
 
 homepage:            https://github.com/frasertweedale/hs-jose
 bug-reports:         https://github.com/frasertweedale/hs-jose/issues
