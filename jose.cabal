@@ -1,5 +1,5 @@
 name:                jose
-version:             0.3.41.2
+version:             0.4.0.0
 synopsis:
   Javascript Object Signing and Encryption and JSON Web Token library
 description:
@@ -58,18 +58,14 @@ library
 
   build-depends:
     base == 4.*
-    , ghc-prim
-    , integer-gmp
     , attoparsec
     , base64-bytestring == 1.0.*
     , bifunctors >= 4.0
     , byteable == 0.1.*
-    , crypto-pubkey >= 0.2.3
-    , crypto-pubkey-types >= 0.3.2
-    , crypto-random >= 0.0.7 && < 0.0.9
-    , cryptohash == 0.11.*
+    , cryptonite >= 0.5
     , data-default-class
     , lens >= 4.3
+    , memory >= 0.7
     , template-haskell >= 2.4
     , safe >= 0.3
     , semigroups >= 0.15
@@ -105,12 +101,10 @@ test-suite tests
     , base64-bytestring
     , bifunctors
     , byteable
-    , crypto-pubkey
-    , crypto-pubkey-types
-    , crypto-random
-    , cryptohash
+    , cryptonite
     , data-default-class
     , lens
+    , memory
     , template-haskell
     , safe
     , semigroups

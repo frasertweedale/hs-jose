@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -36,8 +36,8 @@ import qualified Crypto.JOSE.Types as Types
 import Crypto.JOSE.Types.Armour
 
 
-rng :: SystemRNG
-rng = cprgCreate $ createTestEntropyPool "dummy CPRG for testing"
+drg :: ChaChaDRG
+drg = drgNewTest (1,2,3,4,5)
 
 spec :: Spec
 spec = do
@@ -121,7 +121,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     (encodeCompact jws >>= decodeCompact) `shouldBe` Right jws
 
   it "computes the HMAC correctly" $
-    fst (sign alg jwk rng (L.toStrict signingInput'))
+    fst (withDRG drg $ sign alg jwk (L.toStrict signingInput'))
       `shouldBe` Right (BS.pack macOctets)
 
   it "validates the JWS correctly" $
@@ -157,7 +157,8 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
 appendixA2Spec :: Spec
 appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
-    fst (sign JWA.JWS.RS256 jwk rng signingInput') `shouldBe` Right sig
+    fst (withDRG drg $ sign JWA.JWS.RS256 jwk signingInput')
+      `shouldBe` Right sig
 
   it "validates the signature correctly" $
     verify JWA.JWS.RS256 jwk signingInput' sig `shouldBe` Right True
@@ -240,8 +241,8 @@ appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
     decodeCompact exampleJWS `shouldBe` jws
 
   where
-    jws = fst $
-      signJWS rng (JWS examplePayload []) (algHeader JWA.JWS.None) undefined
+    jws = fst $ withDRG drg $
+      signJWS (JWS examplePayload []) (algHeader JWA.JWS.None) undefined
     exampleJWS = "eyJhbGciOiJub25lIn0\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\

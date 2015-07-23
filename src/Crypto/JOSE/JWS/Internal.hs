@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -257,15 +257,14 @@ instance FromCompact JWS where
 -- | Create a new signature on a JWS.
 --
 signJWS
-  :: CPRG g
-  => g        -- ^ Random number generator
-  -> JWS      -- ^ JWS to sign
+  :: MonadRandom m
+  => JWS      -- ^ JWS to sign
   -> JWSHeader  -- ^ Header for signature
   -> JWK      -- ^ Key with which to sign
-  -> (Either Error JWS, g) -- ^ JWS with new signature appended
-signJWS g (JWS p sigs) h k = first (second appendSig) $ case headerAlg h of
-    Nothing   -> (Left JWSMissingAlg, g)
-    Just alg  -> sign alg k g (signingInput h' p)
+  -> m (Either Error JWS) -- ^ JWS with new signature appended
+signJWS (JWS p sigs) h k = case headerAlg h of
+    Nothing   -> return $ Left JWSMissingAlg
+    Just alg  -> fmap appendSig <$> sign alg k (signingInput h' p)
   where
     appendSig sig = JWS p (Signature h' Nothing (Types.Base64Octets sig):sigs)
     h' = Just $ Unarmoured h

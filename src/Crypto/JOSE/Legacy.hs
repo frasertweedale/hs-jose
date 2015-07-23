@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -32,11 +32,9 @@ module Crypto.JOSE.Legacy
   ) where
 
 import Control.Applicative
-import Data.Bifunctor
-import GHC.Types (Int(I#))
-import GHC.Integer.Logarithms (integerLog2#)
 
 import Control.Lens hiding ((.=))
+import Crypto.Number.Basic (log2)
 import Data.Aeson
 import Data.Aeson.Types
 import qualified Data.Text as T
@@ -73,7 +71,7 @@ sizedB64Iso = iso
   (\(SizedBase64Integer _ n) -> StringifiedInteger n)
   where
   size n =
-    let (bytes, bits) = (I# (integerLog2# n) + 1) `divMod` 8
+    let (bytes, bits) = (log2 n + 1) `divMod` 8
     in bytes + signum bits
 
 
@@ -104,7 +102,7 @@ instance ToJSON RSKeyParameters where
 instance Key RSKeyParameters where
   type KeyGenParam RSKeyParameters = Int
   type KeyContent RSKeyParameters = RSAKeyParameters
-  gen p = first fromKeyContent . gen p
+  gen p = fromKeyContent <$> gen p
   fromKeyContent = RSKeyParameters
   public = rsaKeyParameters public
   sign h (RSKeyParameters k) = sign h k
@@ -126,7 +124,7 @@ instance ToJSON JWK' where
 instance Key JWK' where
   type KeyGenParam JWK' = Int
   type KeyContent JWK' = RSKeyParameters
-  gen p g = first JWK' $ gen p g
+  gen p = JWK' <$> gen p
   fromKeyContent = JWK'
   public = rsKeyParameters public
   sign h (JWK' k) = sign h k

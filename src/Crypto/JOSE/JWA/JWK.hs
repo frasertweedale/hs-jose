@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -55,15 +56,15 @@ import Data.Maybe
 
 import Control.Lens hiding ((.=))
 import Crypto.Hash
-import Crypto.PubKey.HashDescr
+import Crypto.MAC.HMAC
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
 import qualified Crypto.PubKey.RSA as RSA
 import qualified Crypto.PubKey.RSA.PKCS15 as PKCS15
 import qualified Crypto.PubKey.RSA.PSS as PSS
-import qualified Crypto.Types.PubKey.ECC as ECC
+import qualified Crypto.PubKey.ECC.Types as ECC
 import Crypto.Random
 import Data.Aeson
-import Data.Byteable
+import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
 import Data.List.NonEmpty
@@ -192,44 +193,41 @@ instance Key ECKeyParameters where
   type KeyContent ECKeyParameters = ECKeyParameters
   gen = undefined  -- TODO implement
   fromKeyContent = id
-  sign JWA.JWS.ES256 k@(ECKeyParameters { ecCrv = P_256 }) =
-    signEC hashDescrSHA256 k
-  sign JWA.JWS.ES384 k@(ECKeyParameters { ecCrv = P_384 }) =
-    signEC hashDescrSHA384 k
-  sign JWA.JWS.ES512 k@(ECKeyParameters { ecCrv = P_521 }) =
-    signEC hashDescrSHA512 k
-  sign h _ = \g _ ->
-    (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key", g)
-  verify JWA.JWS.ES256 = verifyEC hashDescrSHA256
-  verify JWA.JWS.ES384 = verifyEC hashDescrSHA384
-  verify JWA.JWS.ES512 = verifyEC hashDescrSHA512
+  sign JWA.JWS.ES256 k@(ECKeyParameters { ecCrv = P_256 }) = signEC SHA256 k
+  sign JWA.JWS.ES384 k@(ECKeyParameters { ecCrv = P_384 }) = signEC SHA384 k
+  sign JWA.JWS.ES512 k@(ECKeyParameters { ecCrv = P_521 }) = signEC SHA512 k
+  sign h _ = \_ ->
+    return (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key")
+  verify JWA.JWS.ES256 = verifyEC SHA256
+  verify JWA.JWS.ES384 = verifyEC SHA384
+  verify JWA.JWS.ES512 = verifyEC SHA512
   verify h = \_ _ _ ->
     Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key"
   public k = Just k { ecD = Nothing }
 
 signEC
-  :: CPRG g
-  => HashDescr
+  :: (BA.ByteArrayAccess msg, HashAlgorithm h, MonadRandom m)
+  => h
   -> ECKeyParameters
-  -> g
-  -> B.ByteString
-  -> (Either Error B.ByteString, g)
-signEC h k@(ECKeyParameters {..}) g m = case ecD of
-  Just ecD' -> first (Right . sigToBS) sig where
-    sig = ECDSA.sign g privateKey (hashFunction h) m
+  -> msg
+  -> m (Either Error B.ByteString)
+signEC h k@(ECKeyParameters {..}) m = case ecD of
+  Just ecD' -> Right . sigToBS <$> sig where
+    sig = ECDSA.sign privateKey h m
     sigToBS (ECDSA.Signature r s) =
       Types.integerToBS r `B.append` Types.integerToBS s
     privateKey = ECDSA.PrivateKey (curve k) (d ecD')
     d (Types.SizedBase64Integer _ n) = n
-  Nothing -> (Left $ KeyMismatch "not an EC private key", g)
+  Nothing -> return (Left $ KeyMismatch "not an EC private key")
 
 verifyEC
-  :: HashDescr
+  :: (BA.ByteArrayAccess msg, HashAlgorithm h)
+  => h
   -> ECKeyParameters
-  -> B.ByteString
+  -> msg
   -> B.ByteString
   -> Either Error Bool
-verifyEC h k m s = Right $ ECDSA.verify (hashFunction h) pubkey sig m
+verifyEC h k m s = Right $ ECDSA.verify h pubkey sig m
   where
   pubkey = ECDSA.PublicKey (curve k) (point k)
   sig = uncurry ECDSA.Signature
@@ -282,78 +280,72 @@ instance Key RSAKeyParameters where
     , Types.Base64Integer
     , Maybe RSAPrivateKeyParameters
     )
-  gen size g =
-    let
-      i = Types.Base64Integer
-      ((RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi), g') =
-        RSA.generate g size 65537
-    in
-      ( fromKeyContent
-        ( Types.SizedBase64Integer s n
-        , i e
-        , Just (RSAPrivateKeyParameters (i d)
-          (Just (RSAPrivateKeyOptionalParameters
-            (i p) (i q) (i dp) (i dq) (i qi) Nothing))))
-      , g')
+  gen size = do
+    (RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi) <- RSA.generate size 65537
+    let i = Types.Base64Integer
+    return $ fromKeyContent
+      ( Types.SizedBase64Integer s n
+      , i e
+      , Just (RSAPrivateKeyParameters (i d)
+        (Just (RSAPrivateKeyOptionalParameters
+          (i p) (i q) (i dp) (i dq) (i qi) Nothing))) )
   fromKeyContent (n, e, p) = RSAKeyParameters RSA n e p
   public = Just . set rsaPrivateKeyParameters Nothing
-  sign JWA.JWS.RS256 = signPKCS15 hashDescrSHA256
-  sign JWA.JWS.RS384 = signPKCS15 hashDescrSHA384
-  sign JWA.JWS.RS512 = signPKCS15 hashDescrSHA512
-  sign JWA.JWS.PS256 = signPSS hashDescrSHA256
-  sign JWA.JWS.PS384 = signPSS hashDescrSHA384
-  sign JWA.JWS.PS512 = signPSS hashDescrSHA512
-  sign h = \_ g -> const
-    (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key", g)
-  verify JWA.JWS.RS256 = verifyPKCS15 hashDescrSHA256
-  verify JWA.JWS.RS384 = verifyPKCS15 hashDescrSHA384
-  verify JWA.JWS.RS512 = verifyPKCS15 hashDescrSHA512
-  verify JWA.JWS.PS256 = verifyPSS hashDescrSHA256
-  verify JWA.JWS.PS384 = verifyPSS hashDescrSHA384
-  verify JWA.JWS.PS512 = verifyPSS hashDescrSHA512
+  sign JWA.JWS.RS256 = signPKCS15 SHA256
+  sign JWA.JWS.RS384 = signPKCS15 SHA384
+  sign JWA.JWS.RS512 = signPKCS15 SHA512
+  sign JWA.JWS.PS256 = signPSS SHA256
+  sign JWA.JWS.PS384 = signPSS SHA384
+  sign JWA.JWS.PS512 = signPSS SHA512
+  sign h = \_ _ ->
+    return (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key")
+  verify JWA.JWS.RS256 = verifyPKCS15 SHA256
+  verify JWA.JWS.RS384 = verifyPKCS15 SHA384
+  verify JWA.JWS.RS512 = verifyPKCS15 SHA512
+  verify JWA.JWS.PS256 = verifyPSS SHA256
+  verify JWA.JWS.PS384 = verifyPSS SHA384
+  verify JWA.JWS.PS512 = verifyPSS SHA512
   verify h = \_ _ _ ->
     Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key"
 
 signPKCS15
-  :: CPRG g
-  => HashDescr
+  :: (PKCS15.HashAlgorithmASN1 h, MonadRandom m)
+  => h
   -> RSAKeyParameters
-  -> g
   -> B.ByteString
-  -> (Either Error B.ByteString, g)
-signPKCS15 h k g m = case rsaPrivateKey k of
-  Left e -> (Left e, g)
-  Right k' -> first (first RSAError) $
-    PKCS15.signSafer g h k' m
+  -> m (Either Error B.ByteString)
+signPKCS15 h k m = case rsaPrivateKey k of
+  Left e -> return (Left e)
+  Right k' -> first RSAError <$> PKCS15.signSafer (Just h) k' m
 
 verifyPKCS15
-  :: HashDescr
+  :: PKCS15.HashAlgorithmASN1 h
+  => h
   -> RSAKeyParameters
   -> B.ByteString
   -> B.ByteString
   -> Either Error Bool
-verifyPKCS15 h k m = Right . PKCS15.verify h (rsaPublicKey k) m
+verifyPKCS15 h k m = Right . PKCS15.verify (Just h) (rsaPublicKey k) m
 
 signPSS
-  :: CPRG g
-  => HashDescr
+  :: (HashAlgorithm h, MonadRandom m)
+  => h
   -> RSAKeyParameters
-  -> g
   -> B.ByteString
-  -> (Either Error B.ByteString, g)
-signPSS h k g m = case rsaPrivateKey k of
-  Left e -> (Left e, g)
-  Right k' -> first (first RSAError) $
-   PSS.signSafer g (PSS.defaultPSSParams (hashFunction h)) k' m
+  -> m (Either Error B.ByteString)
+signPSS h k m = case rsaPrivateKey k of
+  Left e -> return (Left e)
+  Right k' -> first RSAError <$> PSS.signSafer (PSS.defaultPSSParams h) k' m
 
 verifyPSS
-  :: HashDescr
+  :: (HashAlgorithm h)
+  => h
   -> RSAKeyParameters
   -> B.ByteString
   -> B.ByteString
   -> Either Error Bool
 verifyPSS h k m = Right .
-  PSS.verify (PSS.defaultPSSParams (hashFunction h)) (rsaPublicKey k) m
+  PSS.verify (PSS.defaultPSSParams h) (rsaPublicKey k) m
 
 rsaPrivateKey :: RSAKeyParameters -> Either Error RSA.PrivateKey
 rsaPrivateKey (RSAKeyParameters _
@@ -398,21 +390,25 @@ instance Key OctKeyParameters where
   gen = undefined  -- TODO implement
   fromKeyContent = OctKeyParameters Oct
   public = const Nothing
-  sign JWA.JWS.HS256 k g = first Right . (,g) . signOct SHA256 k
-  sign JWA.JWS.HS384 k g = first Right . (,g) . signOct SHA384 k
-  sign JWA.JWS.HS512 k g = first Right . (,g) . signOct SHA512 k
-  sign h _ g = const
-    (Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key", g)
-  verify h k m s = fst (sign h k (undefined :: SystemRNG) m) >>= Right . (constEqBytes s)
+  sign JWA.JWS.HS256 k = return . Right . signOct SHA256 k
+  sign JWA.JWS.HS384 k = return . Right . signOct SHA384 k
+  sign JWA.JWS.HS512 k = return . Right . signOct SHA512 k
+  sign h _ = const $ return $
+    Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
+  verify JWA.JWS.HS256 k m s = Right $ signOct SHA256 k m `BA.constEq` s
+  verify JWA.JWS.HS384 k m s = Right $ signOct SHA384 k m `BA.constEq` s
+  verify JWA.JWS.HS512 k m s = Right $ signOct SHA512 k m `BA.constEq` s
+  verify h _ _ _ =
+    Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
 
 signOct
-  :: HashAlgorithm a
-  => a
+  :: forall h. HashAlgorithm h
+  => h
   -> OctKeyParameters
   -> B.ByteString
   -> B.ByteString
-signOct a (OctKeyParameters _ (Types.Base64Octets k)) m
-  = toBytes $ hmacAlg a k m
+signOct _ (OctKeyParameters _ (Types.Base64Octets k)) m
+  = B.pack $ BA.unpack (hmac k m :: HMAC h)
 
 
 -- | Key material sum type.
@@ -444,14 +440,14 @@ data KeyMaterialGenParam
 instance Key KeyMaterial where
   type KeyGenParam KeyMaterial = KeyMaterialGenParam
   type KeyContent KeyMaterial = KeyMaterial
-  gen (ECGenParam a) = first ECKeyMaterial . gen a
-  gen (RSAGenParam a) = first RSAKeyMaterial . gen a
-  gen (OctGenParam a) = first OctKeyMaterial . gen a
+  gen (ECGenParam a) = ECKeyMaterial <$> gen a
+  gen (RSAGenParam a) = RSAKeyMaterial <$> gen a
+  gen (OctGenParam a) = OctKeyMaterial <$> gen a
   fromKeyContent = id
   public (ECKeyMaterial k) = ECKeyMaterial <$> public k
   public (RSAKeyMaterial k) = RSAKeyMaterial <$> public k
   public (OctKeyMaterial k) = OctKeyMaterial <$> public k
-  sign JWA.JWS.None _ = \g _ -> (Right "", g)
+  sign JWA.JWS.None _ = \_ -> return $ Right ""
   sign h (ECKeyMaterial k)  = sign h k
   sign h (RSAKeyMaterial k) = sign h k
   sign h (OctKeyMaterial k) = sign h k

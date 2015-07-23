@@ -44,7 +44,6 @@ module Crypto.JOSE.JWK
   ) where
 
 import Control.Applicative
-import Data.Bifunctor
 import Data.Maybe (catMaybes)
 
 import Control.Lens hiding ((.=))
@@ -131,7 +130,7 @@ instance ToJSON JWK where
 instance Key JWK where
   type KeyGenParam JWK = Crypto.JOSE.JWA.JWK.KeyMaterialGenParam
   type KeyContent JWK = Crypto.JOSE.JWA.JWK.KeyMaterial
-  gen p = first fromKeyContent . gen p
+  gen p = fromKeyContent <$> gen p
   fromKeyContent k = JWK k z z z z z z z z where z = Nothing
   public = jwkMaterial public
   sign h k = sign h $ k ^. jwkMaterial

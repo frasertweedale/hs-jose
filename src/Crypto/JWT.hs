@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ import Control.Monad
 import Data.Bifunctor
 import Data.Maybe
 
-import Control.Lens hiding ((.=))
+import Control.Lens (makeLenses, over)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
@@ -267,13 +267,12 @@ validateJWSJWT algs policy k (JWT (JWTJWS jws) _) = verifyJWS algs policy k jws
 -- | Create a JWT that is a JWS.
 --
 createJWSJWT
-  :: CPRG g
-  => g
-  -> JWK
+  :: MonadRandom m
+  => JWK
   -> JWSHeader
   -> ClaimsSet
-  -> (Either Error JWT, g)
-createJWSJWT g k h c = first (fmap $ \jws -> JWT (JWTJWS jws) c) $
-  signJWS g (JWS payload []) h k
+  -> m (Either Error JWT)
+createJWSJWT k h c = fmap (\jws -> JWT (JWTJWS jws) c) <$>
+  signJWS (JWS payload []) h k
   where
     payload = Base64Octets $ BSL.toStrict $ encode c
