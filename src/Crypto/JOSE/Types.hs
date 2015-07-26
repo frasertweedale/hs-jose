@@ -23,6 +23,7 @@ module Crypto.JOSE.Types
   (
     Base64Integer(..)
   , SizedBase64Integer(..)
+  , checkSize
   , Base64UrlString(..)
   , Base64Octets(..)
   , Base64SHA1(..)
@@ -34,6 +35,7 @@ module Crypto.JOSE.Types
 import Control.Applicative
 
 import Data.Aeson
+import Data.Aeson.Types (Parser)
 import Data.Byteable
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base64.URL as B64U
@@ -71,6 +73,13 @@ instance FromJSON SizedBase64Integer where
 instance ToJSON SizedBase64Integer where
   toJSON (SizedBase64Integer s x) = encodeB64Url $ zeroPad $ integerToBS x
     where zeroPad xs = B.replicate (s - B.length xs) 0 `B.append` xs
+
+-- | Parsed a 'SizedBase64Integer' with an expected number of /bytes/.
+--
+checkSize :: Int -> SizedBase64Integer -> Parser SizedBase64Integer
+checkSize n a@(SizedBase64Integer m _) = if n == m
+  then return a
+  else fail $ "expected " ++ show n ++ " octets, found " ++ show m
 
 
 -- | A base64url encoded string.  This is used for the JWE

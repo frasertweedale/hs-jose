@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -175,12 +176,16 @@ data ECKeyParameters = ECKeyParameters
   deriving (Eq, Show)
 
 instance FromJSON ECKeyParameters where
-  parseJSON = withObject "EC" $ \o -> ECKeyParameters
-    <$> o .: "kty"
-    <*> o .: "crv"
-    <*> o .: "x"
-    <*> o .: "y"
-    <*> o .:? "d"
+  parseJSON = withObject "EC" $ \o -> do
+    crv <- o .: "crv"
+    ECKeyParameters
+      <$> o .: "kty"
+      <*> pure crv
+      <*> (o .: "x" >>= Types.checkSize (ecCoordBytes crv))
+      <*> (o .: "y" >>= Types.checkSize (ecCoordBytes crv))
+      <*> (o .:? "d" >>= \case
+        Nothing -> return Nothing
+        Just v -> Just <$> Types.checkSize (ecDBytes crv) v)
 
 instance ToJSON ECKeyParameters where
   toJSON (ECKeyParameters {..}) = object $
