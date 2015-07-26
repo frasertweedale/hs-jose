@@ -58,6 +58,7 @@ import Control.Lens hiding ((.=))
 import Crypto.Hash
 import Crypto.MAC.HMAC
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
+import qualified Crypto.PubKey.ECC.Generate as ECC
 import qualified Crypto.PubKey.RSA as RSA
 import qualified Crypto.PubKey.RSA.PKCS15 as PKCS15
 import qualified Crypto.PubKey.RSA.PSS as PSS
@@ -191,7 +192,13 @@ instance ToJSON ECKeyParameters where
 instance Key ECKeyParameters where
   type KeyGenParam ECKeyParameters = Crv
   type KeyContent ECKeyParameters = ECKeyParameters
-  gen = undefined  -- TODO implement
+  gen crv = do
+    let
+      xyValue = Types.SizedBase64Integer (ecCoordBytes crv)
+      dValue = Types.SizedBase64Integer (ecDBytes crv)
+    (ECDSA.PublicKey _ (ECC.Point x y), ECDSA.PrivateKey _ d)
+      <- ECC.generate (curve crv)
+    return $ ECKeyParameters EC crv (xyValue x) (xyValue y) (Just (dValue d))
   fromKeyContent = id
   sign JWA.JWS.ES256 k@(ECKeyParameters { ecCrv = P_256 }) = signEC SHA256 k
   sign JWA.JWS.ES384 k@(ECKeyParameters { ecCrv = P_384 }) = signEC SHA384 k
@@ -211,12 +218,12 @@ signEC
   -> ECKeyParameters
   -> msg
   -> m (Either Error B.ByteString)
-signEC h k@(ECKeyParameters {..}) m = case ecD of
+signEC h (ECKeyParameters {..}) m = case ecD of
   Just ecD' -> Right . sigToBS <$> sig where
     sig = ECDSA.sign privateKey h m
     sigToBS (ECDSA.Signature r s) =
       Types.integerToBS r `B.append` Types.integerToBS s
-    privateKey = ECDSA.PrivateKey (curve k) (d ecD')
+    privateKey = ECDSA.PrivateKey (curve ecCrv) (d ecD')
     d (Types.SizedBase64Integer _ n) = n
   Nothing -> return (Left $ KeyMismatch "not an EC private key")
 
@@ -229,13 +236,13 @@ verifyEC
   -> Either Error Bool
 verifyEC h k m s = Right $ ECDSA.verify h pubkey sig m
   where
-  pubkey = ECDSA.PublicKey (curve k) (point k)
+  pubkey = ECDSA.PublicKey (curve $ ecCrv k) (point k)
   sig = uncurry ECDSA.Signature
     $ bimap Types.bsToInteger Types.bsToInteger
     $ B.splitAt (B.length s `div` 2) s
 
-curve :: ECKeyParameters -> ECC.Curve
-curve ECKeyParameters {..} = ECC.getCurveByName (curveName ecCrv) where
+curve :: Crv -> ECC.Curve
+curve = ECC.getCurveByName . curveName where
   curveName P_256 = ECC.SEC_p256r1
   curveName P_384 = ECC.SEC_p384r1
   curveName P_521 = ECC.SEC_p521r1
@@ -243,6 +250,15 @@ curve ECKeyParameters {..} = ECC.getCurveByName (curveName ecCrv) where
 point :: ECKeyParameters -> ECC.Point
 point ECKeyParameters {..} = ECC.Point (integer ecX) (integer ecY) where
   integer (Types.SizedBase64Integer _ n) = n
+
+ecCoordBytes :: Integral a => Crv -> a
+ecCoordBytes P_256 = 32
+ecCoordBytes P_384 = 48
+ecCoordBytes P_521 = 66
+
+ecDBytes :: Integral a => Crv -> a
+ecDBytes crv = ceiling (logBase 2 (fromIntegral order) / 8 :: Double) where
+  order = ECC.ecc_n $ ECC.common_curve $ curve crv
 
 
 -- | Parameters for RSA Keys
@@ -274,7 +290,7 @@ instance ToJSON RSAKeyParameters where
     : maybe [] (Types.objectPairs . toJSON) _rsaPrivateKeyParameters
 
 instance Key RSAKeyParameters where
-  type KeyGenParam RSAKeyParameters = Int
+  type KeyGenParam RSAKeyParameters = Int   -- ^ Size of key in /bytes/
   type KeyContent RSAKeyParameters =
     ( Types.SizedBase64Integer
     , Types.Base64Integer
@@ -385,9 +401,9 @@ instance ToJSON OctKeyParameters where
   toJSON OctKeyParameters {..} = object ["kty" .= octKty, "k" .= octK]
 
 instance Key OctKeyParameters where
-  type KeyGenParam OctKeyParameters = Int
+  type KeyGenParam OctKeyParameters = Int   -- ^ Size of key in /bytes/
   type KeyContent OctKeyParameters = Types.Base64Octets
-  gen = undefined  -- TODO implement
+  gen n = fromKeyContent . Types.Base64Octets <$> getRandomBytes n
   fromKeyContent = OctKeyParameters Oct
   public = const Nothing
   sign JWA.JWS.HS256 k = return . Right . signOct SHA256 k
