@@ -84,3 +84,7 @@ integerToBS = B.reverse . B.unfoldr (fmap swap . f)
   where
     f x = if x == 0 then Nothing else Just (toWord8 $ quotRem x 256)
     toWord8 (seed, x) = (seed, fromIntegral x)
+
+sizedIntegerToBS :: Int -> Integer -> B.ByteString
+sizedIntegerToBS w = zeroPad . integerToBS
+  where zeroPad xs = B.replicate (w - B.length xs) 0 `B.append` xs

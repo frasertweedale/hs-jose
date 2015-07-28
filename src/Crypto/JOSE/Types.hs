@@ -83,8 +83,7 @@ instance FromJSON SizedBase64Integer where
     pure $ SizedBase64Integer (B.length bytes) (bsToInteger bytes))
 
 instance ToJSON SizedBase64Integer where
-  toJSON (SizedBase64Integer s x) = encodeB64Url $ zeroPad $ integerToBS x
-    where zeroPad xs = B.replicate (s - B.length xs) 0 `B.append` xs
+  toJSON (SizedBase64Integer w n) = encodeB64Url $ sizedIntegerToBS w n
 
 -- | Parsed a 'SizedBase64Integer' with an expected number of /bytes/.
 --

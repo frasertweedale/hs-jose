@@ -230,9 +230,10 @@ signEC
   -> m (Either Error B.ByteString)
 signEC h (ECKeyParameters {..}) m = case ecD of
   Just ecD' -> Right . sigToBS <$> sig where
+    w = ecCoordBytes ecCrv
     sig = ECDSA.sign privateKey h m
     sigToBS (ECDSA.Signature r s) =
-      Types.integerToBS r `B.append` Types.integerToBS s
+      Types.sizedIntegerToBS w r `B.append` Types.sizedIntegerToBS w s
     privateKey = ECDSA.PrivateKey (curve ecCrv) (d ecD')
     d (Types.SizedBase64Integer _ n) = n
   Nothing -> return (Left $ KeyMismatch "not an EC private key")
