@@ -321,7 +321,7 @@ instance Key RSAKeyParameters where
   sign JWA.JWS.PS384 = signPSS SHA384
   sign JWA.JWS.PS512 = signPSS SHA512
   sign h = \_ _ ->
-    return (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key")
+    return (Left $ AlgorithmMismatch  $ show h ++ " cannot be used with RSA key")
   verify JWA.JWS.RS256 = verifyPKCS15 SHA256
   verify JWA.JWS.RS384 = verifyPKCS15 SHA384
   verify JWA.JWS.RS512 = verifyPKCS15 SHA512
