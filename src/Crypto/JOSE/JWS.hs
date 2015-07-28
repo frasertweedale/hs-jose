@@ -24,8 +24,10 @@ module Crypto.JOSE.JWS
     Alg(..)
 
   , JWSHeader(..)
+  , newJWSHeader
 
   , JWS(..)
+  , newJWS
   , jwsPayload
   , signJWS
 

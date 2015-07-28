@@ -148,9 +148,10 @@ instance ToJSON JWSHeader where
 instance Default JWSHeader where
   def = JWSHeader z z z z z z z z z z z where z = Nothing
 
--- construct a minimal header with the given alg
-algHeader :: JWA.JWS.Alg -> JWSHeader
-algHeader alg = def { headerAlg = Just alg }
+-- | Construct a minimal header with the given algorithm
+--
+newJWSHeader :: JWA.JWS.Alg -> JWSHeader
+newJWSHeader alg = def { headerAlg = Just alg }
 
 
 data Signature = Signature
@@ -209,9 +210,13 @@ instance FromJSON JWS where
       then fail "\"signatures\" member MUST NOT be present"
       else (\p s -> JWS p [s]) <$> o .: "payload" <*> parseJSON v) v
 
-
 instance ToJSON JWS where
   toJSON (JWS p ss) = object ["payload" .= p, "signatures" .= ss]
+
+-- | Construct a new (unsigned) JWS
+--
+newJWS :: BS.ByteString -> JWS
+newJWS msg = JWS (Types.Base64Octets msg) []
 
 -- | Payload of a JWS, as a lazy bytestring.
 --

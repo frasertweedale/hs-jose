@@ -72,7 +72,7 @@ critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $
 critSpec' :: Spec
 critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $
   it "parses from JSON correctly" $
-    decode s `shouldBe` Just ((algHeader JWA.JWS.ES256) { headerCrit = Just critValue })
+    decode s `shouldBe` Just ((newJWSHeader JWA.JWS.ES256) { headerCrit = Just critValue })
     where
       s = "{\"alg\":\"ES256\",\"crit\":[\"exp\"],\"exp\":1363284000}"
       critValue = CritParameters $ return ("exp", Number 1363284000)
@@ -86,7 +86,7 @@ headerSpec = describe "(unencoded) Header" $ do
       typValue = Just "JWT"
     in
       eitherDecode headerJSON
-        `shouldBe` Right ((algHeader JWA.JWS.HS256) { headerTyp = typValue })
+        `shouldBe` Right ((newJWSHeader JWA.JWS.HS256) { headerTyp = typValue })
 
   it "parses signature correctly" $
     let
@@ -242,7 +242,7 @@ appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
 
   where
     jws = fst $ withDRG drg $
-      signJWS (JWS examplePayload []) (algHeader JWA.JWS.None) undefined
+      signJWS (JWS examplePayload []) (newJWSHeader JWA.JWS.None) undefined
     exampleJWS = "eyJhbGciOiJub25lIn0\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
