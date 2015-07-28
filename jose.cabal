@@ -123,3 +123,4 @@ test-suite tests
     , tasty-quickcheck
     , hspec
     , QuickCheck
+    , quickcheck-instances

@@ -73,6 +73,7 @@ import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
 import Data.List.NonEmpty
+import Test.QuickCheck
 
 import Crypto.JOSE.Error
 import Crypto.JOSE.Classes
@@ -93,6 +94,9 @@ $(Crypto.JOSE.TH.deriveJOSEType "Oct" ["oct"])
 -- | \"crv\" (Curve) Parameter
 --
 $(Crypto.JOSE.TH.deriveJOSEType "Crv" ["P-256", "P-384", "P-521"])
+
+instance Arbitrary Crv where
+  arbitrary = oneof $ pure <$> [P_256, P_384, P_521]
 
 
 -- | \"oth\" (Other Primes Info) Parameter

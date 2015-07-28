@@ -16,15 +16,36 @@
 
 module Properties where
 
+import Control.Applicative
+
 import Data.Aeson
-import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString as B
+import Data.Default.Class
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
+import Test.QuickCheck.Monadic
+import Test.QuickCheck.Instances ()
 
 import Crypto.JOSE.Types
+import Crypto.JOSE.JWK
+import Crypto.JOSE.JWS
 
 properties = testGroup "Properties"
   [ testProperty "SizedBase64Integer round-trip" $
     \(n :: SizedBase64Integer) -> decode (encode [n]) == Just [n]
+  , testProperty "EC gen, sign and verify" prop_ecSignAndVerify
   ]
+
+prop_ecSignAndVerify :: Crv -> B.ByteString -> Property
+prop_ecSignAndVerify crv msg = monadicIO $ do
+  k :: JWK <- run $ gen (ECGenParam crv)
+  let alg = case crv of P_256 -> ES256 ; P_384 -> ES384 ; P_521 -> ES512
+  signResult <- run $ signJWS (newJWS msg) (newJWSHeader alg) k
+  case signResult of
+    Left e -> do
+      monitor (counterexample $ "Failed to sign: " ++ show e)
+      assert False
+    Right jws -> do
+      monitor (counterexample "Failed to verify")
+      assert (verifyJWS def def k jws)
