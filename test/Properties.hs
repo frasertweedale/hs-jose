@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
+-- Copyright (C) 2015  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -12,26 +12,19 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE ScopedTypeVariables #-}
+
+module Properties where
+
+import Data.Aeson
+import qualified Data.ByteString.Lazy as L
+
 import Test.Tasty
-import Test.Tasty.Hspec
 import Test.Tasty.QuickCheck
 
-import JWK
-import JWS
-import JWT
-import Types
-import Properties
+import Crypto.JOSE.Types
 
-
-main :: IO ()
-main = do
-  unitTests <- unitTestsIO
-  defaultMain $ testGroup "Tests" [unitTests, properties]
-
-unitTestsIO :: IO TestTree
-unitTestsIO = do
-  types <- testSpec "Types" Types.spec
-  jwk <- testSpec "JWK" JWK.spec
-  jws <- testSpec "JWS" JWS.spec
-  jwt <- testSpec "JWT" JWT.spec
-  return $ testGroup "Unit tests" [types, jwk, jws, jwt]
+properties = testGroup "Properties"
+  [ testProperty "SizedBase64Integer round-trip" $
+    \(n :: SizedBase64Integer) -> decode (encode [n]) == Just [n]
+  ]

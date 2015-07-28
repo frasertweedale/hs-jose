@@ -41,6 +41,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Base64.URL as B64U
 import Data.X509
 import Network.URI (URI)
+import Test.QuickCheck
 
 import Crypto.JOSE.Types.Internal
 import Crypto.JOSE.Types.Orphans ()
@@ -64,7 +65,18 @@ instance ToJSON Base64Integer where
 -- information.
 --
 data SizedBase64Integer = SizedBase64Integer Int Integer
-  deriving (Eq, Show)
+  deriving (Show)
+
+instance Eq SizedBase64Integer where
+  SizedBase64Integer _ n == SizedBase64Integer _ m = n == m
+
+instance Arbitrary SizedBase64Integer where
+  arbitrary = do
+    x <- arbitrarySizedNatural
+    l <- arbitrarySizedNatural  -- arbitrary number of leading zero-bytes
+    return $ SizedBase64Integer
+      ((+ l) $ ceiling $ logBase 2 (fromInteger x :: Double))
+      x
 
 instance FromJSON SizedBase64Integer where
   parseJSON = withText "full size base64url integer" $ parseB64Url (\bytes ->

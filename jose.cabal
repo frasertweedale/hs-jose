@@ -75,6 +75,7 @@ library
     , text >= 1.1
     , time >= 1.5
     , network-uri >= 2.6
+    , QuickCheck >= 2
     , x509 >= 1.4
     , vector
 
@@ -119,5 +120,6 @@ test-suite tests
 
     , tasty
     , tasty-hspec
-    --, tasty-quickcheck
+    , tasty-quickcheck
     , hspec
+    , QuickCheck
