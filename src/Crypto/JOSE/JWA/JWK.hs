@@ -32,6 +32,7 @@ module Crypto.JOSE.JWA.JWK (
   , Oct(..)
 
   -- * Parameters for Elliptic Curve Keys
+  , Crv(..)
   , ECKeyParameters(..)
 
   -- * Parameters for RSA Keys
@@ -49,6 +50,8 @@ module Crypto.JOSE.JWA.JWK (
 
   , KeyMaterialGenParam(..)
   , KeyMaterial(..)
+
+  , module Crypto.JOSE.Classes
   ) where
 
 import Control.Applicative
