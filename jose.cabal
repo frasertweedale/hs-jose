@@ -116,4 +116,8 @@ test-suite tests
     , network-uri
     , vector
     , x509
+
+    , tasty
+    , tasty-hspec
+    --, tasty-quickcheck
     , hspec

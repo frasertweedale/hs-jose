@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -12,7 +12,8 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-import Test.Hspec
+import Test.Tasty
+import Test.Tasty.Hspec
 
 import JWK
 import JWS
@@ -21,8 +22,14 @@ import Types
 
 
 main :: IO ()
-main = hspec $ do
-  Types.spec
-  JWK.spec
-  JWS.spec
-  JWT.spec
+main = do
+  unitTests' <- unitTests
+  defaultMain $ testGroup "Tests" [unitTests']
+
+unitTests :: IO TestTree
+unitTests = do
+  types <- testSpec "Types" Types.spec
+  jwk <- testSpec "JWK" JWK.spec
+  jws <- testSpec "JWS" JWS.spec
+  jwt <- testSpec "JWT" JWT.spec
+  return $ testGroup "Unit tests" [types, jwk, jws, jwt]
