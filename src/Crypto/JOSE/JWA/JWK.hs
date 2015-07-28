@@ -201,9 +201,11 @@ instance Key ECKeyParameters where
     let
       xyValue = Types.SizedBase64Integer (ecCoordBytes crv)
       dValue = Types.SizedBase64Integer (ecDBytes crv)
-    (ECDSA.PublicKey _ (ECC.Point x y), ECDSA.PrivateKey _ d)
-      <- ECC.generate (curve crv)
-    return $ ECKeyParameters EC crv (xyValue x) (xyValue y) (Just (dValue d))
+    (ECDSA.PublicKey _ p, ECDSA.PrivateKey _ d) <- ECC.generate (curve crv)
+    case p of
+      ECC.Point x y -> return $
+        ECKeyParameters EC crv (xyValue x) (xyValue y) (Just (dValue d))
+      ECC.PointO -> gen crv  -- JWK cannot represent point at infinity; recurse
   fromKeyContent = id
   sign JWA.JWS.ES256 k@(ECKeyParameters { ecCrv = P_256 }) = signEC SHA256 k
   sign JWA.JWS.ES384 k@(ECKeyParameters { ecCrv = P_384 }) = signEC SHA384 k
