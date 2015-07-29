@@ -43,25 +43,21 @@ prop_ecSignAndVerify :: Crv -> B.ByteString -> Property
 prop_ecSignAndVerify crv msg = monadicIO $ do
   k :: JWK <- run $ gen (ECGenParam crv)
   let alg = case crv of P_256 -> ES256 ; P_384 -> ES384 ; P_521 -> ES512
-  signResult <- run $ signJWS (newJWS msg) (newJWSHeader alg) k
-  checkSignJWS k signResult
+  wp (signJWS (newJWS msg) (newJWSHeader alg) k) (checkSignJWS k)
 
 prop_hmacSignAndVerify :: B.ByteString -> Property
 prop_hmacSignAndVerify msg = monadicIO $ do
-  keylen <- run $ generate arbitrarySizedNatural
+  keylen <- pick arbitrarySizedNatural
   k :: JWK <- run $ gen (OctGenParam keylen)
-  alg <- run $ generate $ oneof $ pure <$> [HS256, HS384, HS512]
-  signResult <- run $ signJWS (newJWS msg) (newJWSHeader alg) k
-  checkSignJWS k signResult
+  alg <- pick $ oneof $ pure <$> [HS256, HS384, HS512]
+  wp (signJWS (newJWS msg) (newJWSHeader alg) k) (checkSignJWS k)
 
 prop_rsaSignAndVerify :: B.ByteString -> Property
 prop_rsaSignAndVerify msg = monadicIO $ do
-  keylen <- run $ generate $ oneof $ pure . (`div` 8) <$> [2048, 3072, 4096]
+  keylen <- pick $ oneof $ pure . (`div` 8) <$> [2048, 3072, 4096]
   k :: JWK <- run $ gen (RSAGenParam keylen)
-  alg <- run $ generate $
-    oneof $ pure <$> [RS256, RS384, RS512, PS256, PS384, PS512]
-  signResult <- run $ signJWS (newJWS msg) (newJWSHeader alg) k
-  checkSignJWS k signResult
+  alg <- pick $ oneof $ pure <$> [RS256, RS384, RS512, PS256, PS384, PS512]
+  wp (signJWS (newJWS msg) (newJWSHeader alg) k) (checkSignJWS k)
 
 checkSignJWS :: (Monad m, Show e) => JWK -> Either e JWS -> PropertyM m ()
 checkSignJWS k signResult = case signResult of
