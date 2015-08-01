@@ -226,6 +226,18 @@ instance Key ECKeyParameters where
     Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key"
   public k = Just k { ecD = Nothing }
 
+instance Arbitrary ECKeyParameters where
+  arbitrary = do
+    crv <- arbitrary
+    let w = ecCoordBytes crv
+    ECKeyParameters EC crv
+      <$> Types.genSizedBase64IntegerOf w
+      <*> Types.genSizedBase64IntegerOf w
+      <*> oneof
+        [ pure Nothing
+        , Just <$> Types.genSizedBase64IntegerOf (ecDBytes crv)
+        ]
+
 signEC
   :: (BA.ByteArrayAccess msg, HashAlgorithm h, MonadRandom m)
   => h
@@ -486,3 +498,10 @@ instance Key KeyMaterial where
   verify h (ECKeyMaterial k)  = verify h k
   verify h (RSAKeyMaterial k) = verify h k
   verify h (OctKeyMaterial k) = verify h k
+
+instance Arbitrary KeyMaterial where
+  arbitrary = oneof
+    [ ECKeyMaterial <$> arbitrary
+    --, RSAKeyMaterial <$> arbitrary
+    --, OctKeyMaterial <$> arbitrary
+    ]

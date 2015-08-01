@@ -50,6 +50,8 @@ import Control.Lens hiding ((.=))
 import Data.Aeson
 import Data.List.NonEmpty
 
+import Test.QuickCheck
+
 import Crypto.JOSE.Classes
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
 import Crypto.JOSE.JWA.JWK
@@ -135,6 +137,18 @@ instance Key JWK where
   public = jwkMaterial public
   sign h k = sign h $ k ^. jwkMaterial
   verify h k = verify h $ k ^. jwkMaterial
+
+instance Arbitrary JWK where
+  arbitrary = JWK
+    <$> arbitrary
+    <*> pure Nothing
+    <*> pure Nothing
+    <*> pure Nothing
+    <*> pure Nothing
+    <*> pure Nothing
+    <*> pure Nothing
+    <*> pure Nothing
+    <*> pure Nothing
 
 
 -- | JWK §4.  JSON Web Key Set (JWK Set) Format

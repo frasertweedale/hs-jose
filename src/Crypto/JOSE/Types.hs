@@ -23,6 +23,7 @@ module Crypto.JOSE.Types
   (
     Base64Integer(..)
   , SizedBase64Integer(..)
+  , genSizedBase64IntegerOf
   , checkSize
   , Base64UrlString(..)
   , Base64Octets(..)
@@ -77,6 +78,13 @@ instance Arbitrary SizedBase64Integer where
     return $ SizedBase64Integer
       ((+ l) $ ceiling $ logBase 2 (fromInteger x :: Double))
       x
+
+-- | Generate a 'SizedBase64Integer' of the given number of bytes
+--
+genSizedBase64IntegerOf :: Int -> Gen SizedBase64Integer
+genSizedBase64IntegerOf w = do
+  bytes <- vectorOf w arbitrary
+  return $ SizedBase64Integer w (bsToInteger $ B.pack bytes)
 
 instance FromJSON SizedBase64Integer where
   parseJSON = withText "full size base64url integer" $ parseB64Url (\bytes ->

@@ -32,12 +32,27 @@ import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
 
 properties = testGroup "Properties"
-  [ testProperty "SizedBase64Integer round-trip" $
-    \(n :: SizedBase64Integer) -> decode (encode [n]) == Just [n]
+  [ testProperty "SizedBase64Integer round-trip"
+    (prop_roundTrip :: SizedBase64Integer -> Bool)
+  , testProperty "JWK round-trip" (prop_roundTrip :: JWK -> Bool)
   , testProperty "ECDSA gen, sign and verify" prop_ecSignAndVerify
   , testProperty "HMAC gen, sign and verify" prop_hmacSignAndVerify
   , testProperty "RSA gen, sign and verify" prop_rsaSignAndVerify
   ]
+
+prop_roundTrip :: (Eq a, ToJSON a, FromJSON a) => a -> Bool
+prop_roundTrip a = decode (encode [a]) == Just [a]
+
+debugRoundTrip
+  :: (Show a, Arbitrary a, ToJSON a, FromJSON a)
+  => (a -> Bool)
+  -> Property
+debugRoundTrip f = monadicIO $ do
+  a :: a <- pick arbitrary
+  let encoded = encode [a]
+  monitor $ counterexample $
+    "JSON: \n" ++ show encoded ++ "\n\nDecoded: \n" ++ show (decode encoded :: Maybe [a])
+  assert $ f a
 
 prop_ecSignAndVerify :: Crv -> B.ByteString -> Property
 prop_ecSignAndVerify crv msg = monadicIO $ do
