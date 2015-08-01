@@ -196,7 +196,8 @@ instance FromJSON ECKeyParameters where
 
 instance ToJSON ECKeyParameters where
   toJSON (ECKeyParameters {..}) = object $
-    [ "crv" .= ecCrv
+    [ "kty" .= ecKty
+    , "crv" .= ecCrv
     , "x" .= ecX
     , "y" .= ecY
     ] ++ fmap ("d" .=) (maybeToList ecD)
