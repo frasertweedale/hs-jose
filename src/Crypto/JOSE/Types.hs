@@ -79,12 +79,14 @@ instance Arbitrary SizedBase64Integer where
       ((+ l) $ ceiling $ logBase 2 (fromInteger x :: Double))
       x
 
+genByteStringOf :: Int -> Gen B.ByteString
+genByteStringOf n = B.pack <$> vectorOf n arbitrary
+
 -- | Generate a 'SizedBase64Integer' of the given number of bytes
 --
 genSizedBase64IntegerOf :: Int -> Gen SizedBase64Integer
-genSizedBase64IntegerOf w = do
-  bytes <- vectorOf w arbitrary
-  return $ SizedBase64Integer w (bsToInteger $ B.pack bytes)
+genSizedBase64IntegerOf n =
+  SizedBase64Integer n . bsToInteger <$> genByteStringOf n
 
 instance FromJSON SizedBase64Integer where
   parseJSON = withText "full size base64url integer" $ parseB64Url (\bytes ->
@@ -142,6 +144,9 @@ instance FromJSON Base64SHA1 where
 instance ToJSON Base64SHA1 where
   toJSON (Base64SHA1 bytes) = encodeB64Url bytes
 
+instance Arbitrary Base64SHA1 where
+  arbitrary = Base64SHA1 <$> genByteStringOf 20
+
 
 -- | A base64url encoded SHA-256 digest.  Used for X.509 certificate
 -- thumbprints.
@@ -157,6 +162,9 @@ instance FromJSON Base64SHA256 where
 
 instance ToJSON Base64SHA256 where
   toJSON (Base64SHA256 bytes) = encodeB64Url bytes
+
+instance Arbitrary Base64SHA256 where
+  arbitrary = Base64SHA256 <$> genByteStringOf 32
 
 
 -- | A base64 encoded X.509 certificate.

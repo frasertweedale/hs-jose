@@ -144,11 +144,11 @@ instance Arbitrary JWK where
     <*> pure Nothing
     <*> pure Nothing
     <*> pure Nothing
+    <*> arbitrary
     <*> pure Nothing
     <*> pure Nothing
-    <*> pure Nothing
-    <*> pure Nothing
-    <*> pure Nothing
+    <*> arbitrary
+    <*> arbitrary
 
 
 -- | JWK §4.  JSON Web Key Set (JWK Set) Format
