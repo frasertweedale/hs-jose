@@ -445,6 +445,9 @@ instance Key OctKeyParameters where
   verify h _ _ _ =
     Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
 
+instance Arbitrary OctKeyParameters where
+  arbitrary = OctKeyParameters Oct <$> arbitrary
+
 signOct
   :: forall h. HashAlgorithm h
   => h
@@ -504,5 +507,5 @@ instance Arbitrary KeyMaterial where
   arbitrary = oneof
     [ ECKeyMaterial <$> arbitrary
     --, RSAKeyMaterial <$> arbitrary
-    --, OctKeyMaterial <$> arbitrary
+    , OctKeyMaterial <$> arbitrary
     ]

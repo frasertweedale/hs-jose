@@ -76,6 +76,7 @@ library
     , time >= 1.5
     , network-uri >= 2.6
     , QuickCheck >= 2
+    , quickcheck-instances
     , x509 >= 1.4
     , vector
 

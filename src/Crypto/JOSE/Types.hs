@@ -43,6 +43,7 @@ import qualified Data.ByteString.Base64.URL as B64U
 import Data.X509
 import Network.URI (URI)
 import Test.QuickCheck
+import Test.QuickCheck.Instances ()
 
 import Crypto.JOSE.Types.Internal
 import Crypto.JOSE.Types.Orphans ()
@@ -127,6 +128,9 @@ instance FromJSON Base64Octets where
 
 instance ToJSON Base64Octets where
   toJSON (Base64Octets bytes) = encodeB64Url bytes
+
+instance Arbitrary Base64Octets where
+  arbitrary = Base64Octets <$> arbitrary
 
 
 -- | A base64url encoded SHA-1 digest.  Used for X.509 certificate
