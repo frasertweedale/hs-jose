@@ -62,9 +62,10 @@ prop_ecSignAndVerify crv msg = monadicIO $ do
 
 prop_hmacSignAndVerify :: B.ByteString -> Property
 prop_hmacSignAndVerify msg = monadicIO $ do
-  keylen <- pick arbitrarySizedNatural
+  (alg, minLen) <-
+    pick $ oneof $ pure <$> [(HS256, 32), (HS384, 48), (HS512, 64)]
+  keylen <- (+ minLen) <$> pick arbitrarySizedNatural
   k :: JWK <- run $ gen (OctGenParam keylen)
-  alg <- pick $ oneof $ pure <$> [HS256, HS384, HS512]
   wp (signJWS (newJWS msg) (newJWSHeader alg) k) (checkSignJWS k)
 
 prop_rsaSignAndVerify :: B.ByteString -> Property

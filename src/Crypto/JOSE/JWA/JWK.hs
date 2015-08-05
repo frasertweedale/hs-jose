@@ -434,14 +434,14 @@ instance Key OctKeyParameters where
   gen n = fromKeyContent . Types.Base64Octets <$> getRandomBytes n
   fromKeyContent = OctKeyParameters Oct
   public = const Nothing
-  sign JWA.JWS.HS256 k = return . Right . signOct SHA256 k
-  sign JWA.JWS.HS384 k = return . Right . signOct SHA384 k
-  sign JWA.JWS.HS512 k = return . Right . signOct SHA512 k
+  sign JWA.JWS.HS256 k = return . signOct SHA256 k
+  sign JWA.JWS.HS384 k = return . signOct SHA384 k
+  sign JWA.JWS.HS512 k = return . signOct SHA512 k
   sign h _ = const $ return $
     Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
-  verify JWA.JWS.HS256 k m s = Right $ signOct SHA256 k m `BA.constEq` s
-  verify JWA.JWS.HS384 k m s = Right $ signOct SHA384 k m `BA.constEq` s
-  verify JWA.JWS.HS512 k m s = Right $ signOct SHA512 k m `BA.constEq` s
+  verify JWA.JWS.HS256 k m s = BA.constEq s <$> signOct SHA256 k m
+  verify JWA.JWS.HS384 k m s = BA.constEq s <$> signOct SHA384 k m
+  verify JWA.JWS.HS512 k m s = BA.constEq s <$> signOct SHA512 k m
   verify h _ _ _ =
     Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
 
@@ -453,9 +453,11 @@ signOct
   => h
   -> OctKeyParameters
   -> B.ByteString
-  -> B.ByteString
-signOct _ (OctKeyParameters _ (Types.Base64Octets k)) m
-  = B.pack $ BA.unpack (hmac k m :: HMAC h)
+  -> Either Error B.ByteString
+signOct h (OctKeyParameters _ (Types.Base64Octets k)) m =
+  if B.length k < hashDigestSize h
+  then Left KeySizeTooSmall
+  else Right $ B.pack $ BA.unpack (hmac k m :: HMAC h)
 
 
 -- | Key material sum type.
