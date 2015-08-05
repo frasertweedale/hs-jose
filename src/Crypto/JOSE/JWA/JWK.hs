@@ -81,6 +81,7 @@ import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
+import Crypto.JOSE.Types.Orphans ()
 
 
 -- | Elliptic Curve key type (Recommeded+)
@@ -117,6 +118,9 @@ instance FromJSON RSAPrivateKeyOthElem where
 instance ToJSON RSAPrivateKeyOthElem where
   toJSON (RSAPrivateKeyOthElem r d t) = object ["r" .= r, "d" .= d, "t" .= t]
 
+instance Arbitrary RSAPrivateKeyOthElem where
+  arbitrary = RSAPrivateKeyOthElem <$> arbitrary <*> arbitrary <*> arbitrary
+
 
 -- | Optional parameters for RSA private keys
 --
@@ -148,6 +152,15 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
     , "qi" .= rsaQi
     ] ++ maybe [] ((:[]) . ("oth" .=)) rsaOth
 
+instance Arbitrary RSAPrivateKeyOptionalParameters where
+  arbitrary = RSAPrivateKeyOptionalParameters
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+    <*> arbitrary
+
 
 -- | RSA private key parameters
 --
@@ -168,6 +181,9 @@ instance FromJSON RSAPrivateKeyParameters where
 instance ToJSON RSAPrivateKeyParameters where
   toJSON RSAPrivateKeyParameters {..} = object $
     ("d" .= rsaD) : maybe [] (Types.objectPairs . toJSON) rsaOptionalParameters
+
+instance Arbitrary RSAPrivateKeyParameters where
+  arbitrary = RSAPrivateKeyParameters <$> arbitrary <*> arbitrary
 
 
 -- | Parameters for Elliptic Curve Keys
@@ -316,6 +332,12 @@ instance ToJSON RSAKeyParameters where
     : ("n" .= _rsaN)
     : ("e" .= _rsaE)
     : maybe [] (Types.objectPairs . toJSON) _rsaPrivateKeyParameters
+
+instance Arbitrary RSAKeyParameters where
+  arbitrary = RSAKeyParameters RSA
+    <$> arbitrary
+    <*> arbitrary
+    <*> arbitrary
 
 instance Key RSAKeyParameters where
   type KeyGenParam RSAKeyParameters = Int   -- ^ Size of key in /bytes/
@@ -508,6 +530,6 @@ instance Key KeyMaterial where
 instance Arbitrary KeyMaterial where
   arbitrary = oneof
     [ ECKeyMaterial <$> arbitrary
-    --, RSAKeyMaterial <$> arbitrary
+    , RSAKeyMaterial <$> arbitrary
     , OctKeyMaterial <$> arbitrary
     ]

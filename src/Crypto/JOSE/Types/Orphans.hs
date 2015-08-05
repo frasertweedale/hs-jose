@@ -18,12 +18,14 @@ module Crypto.JOSE.Types.Orphans where
 
 import Prelude hiding (mapM)
 
+import Control.Applicative
 import Data.Traversable
 
 import Data.List.NonEmpty (NonEmpty(..), toList)
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import Network.URI (URI, parseURI)
+import Test.QuickCheck
 
 import Data.Aeson
 
@@ -43,3 +45,7 @@ instance FromJSON URI where
 
 instance ToJSON URI where
   toJSON = String . T.pack . show
+
+
+instance Arbitrary a => Arbitrary (NonEmpty a) where
+  arbitrary = (:|) <$> arbitrary <*> arbitrary

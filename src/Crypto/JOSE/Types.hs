@@ -61,6 +61,9 @@ instance FromJSON Base64Integer where
 instance ToJSON Base64Integer where
   toJSON (Base64Integer x) = encodeB64Url $ integerToBS x
 
+instance Arbitrary Base64Integer where
+  arbitrary = Base64Integer <$> arbitrarySizedNatural
+
 
 -- | A base64url encoded octet sequence interpreted as an integer
 -- and where the number of octets carries explicit bit-length
