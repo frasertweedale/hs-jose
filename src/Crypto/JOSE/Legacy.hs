@@ -26,6 +26,7 @@ Mozilla Persona.
 module Crypto.JOSE.Legacy
   (
     JWK'(..)
+  , genJWK'
   , toJWK
   , RSKeyParameters()
   , rsaKeyParameters
@@ -100,11 +101,8 @@ instance ToJSON RSKeyParameters where
         (k ^. rsaPrivateKeyParameters)
 
 instance Key RSKeyParameters where
-  type KeyGenParam RSKeyParameters = Int
-  type KeyContent RSKeyParameters = RSAKeyParameters
-  gen p = fromKeyContent <$> gen p
-  fromKeyContent = RSKeyParameters
   public = rsaKeyParameters public
+
   sign h (RSKeyParameters k) = sign h k
   verify h (RSKeyParameters k) = verify h k
 
@@ -121,14 +119,13 @@ instance FromJSON JWK' where
 instance ToJSON JWK' where
   toJSON (JWK' k) = object $ Types.objectPairs (toJSON k)
 
+genJWK' :: MonadRandom m => Int -> m JWK'
+genJWK' size = JWK' . RSKeyParameters <$> genRSA size
+
 instance Key JWK' where
-  type KeyGenParam JWK' = Int
-  type KeyContent JWK' = RSKeyParameters
-  gen p = JWK' <$> gen p
-  fromKeyContent = JWK'
   public = rsKeyParameters public
   sign h (JWK' k) = sign h k
   verify h (JWK' k) = verify h k
 
 toJWK :: JWK' -> JWK
-toJWK (JWK' (RSKeyParameters k)) = fromKeyContent $ RSAKeyMaterial k
+toJWK (JWK' (RSKeyParameters k)) = fromKeyMaterial $ RSAKeyMaterial k

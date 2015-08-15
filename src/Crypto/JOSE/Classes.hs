@@ -38,10 +38,6 @@ import Crypto.JOSE.Error
 -- Can fail with 'AlgorithmMismatch'
 --
 class Key k where
-  type KeyGenParam k
-  type KeyContent k
-  gen :: MonadRandom m => KeyGenParam k -> m k
-  fromKeyContent :: KeyContent k -> k
   sign
     :: MonadRandom m
     => JWA.JWS.Alg

@@ -44,12 +44,14 @@ module Crypto.JOSE.JWA.JWK (
   , rsaKty
   , rsaN
   , rsaPrivateKeyParameters
+  , genRSA
 
   -- * Parameters for Symmetric Keys
   , OctKeyParameters(..)
 
   , KeyMaterialGenParam(..)
   , KeyMaterial(..)
+  , genKeyMaterial
 
   , module Crypto.JOSE.Classes
   ) where
@@ -219,29 +221,11 @@ instance ToJSON ECKeyParameters where
     ] ++ fmap ("d" .=) (maybeToList ecD)
 
 instance Key ECKeyParameters where
-  type KeyGenParam ECKeyParameters = Crv
-  type KeyContent ECKeyParameters = ECKeyParameters
-  gen crv = do
-    let
-      xyValue = Types.SizedBase64Integer (ecCoordBytes crv)
-      dValue = Types.SizedBase64Integer (ecDBytes crv)
-    (ECDSA.PublicKey _ p, ECDSA.PrivateKey _ d) <- ECC.generate (curve crv)
-    case p of
-      ECC.Point x y -> return $
-        ECKeyParameters EC crv (xyValue x) (xyValue y) (Just (dValue d))
-      ECC.PointO -> gen crv  -- JWK cannot represent point at infinity; recurse
-  fromKeyContent = id
-  sign JWA.JWS.ES256 k@(ECKeyParameters { ecCrv = P_256 }) = signEC SHA256 k
-  sign JWA.JWS.ES384 k@(ECKeyParameters { ecCrv = P_384 }) = signEC SHA384 k
-  sign JWA.JWS.ES512 k@(ECKeyParameters { ecCrv = P_521 }) = signEC SHA512 k
+  public k = Just k { ecD = Nothing }
   sign h _ = \_ ->
     return (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key")
-  verify JWA.JWS.ES256 = verifyEC SHA256
-  verify JWA.JWS.ES384 = verifyEC SHA384
-  verify JWA.JWS.ES512 = verifyEC SHA512
   verify h = \_ _ _ ->
     Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key"
-  public k = Just k { ecD = Nothing }
 
 instance Arbitrary ECKeyParameters where
   arbitrary = do
@@ -340,37 +324,10 @@ instance Arbitrary RSAKeyParameters where
     <*> arbitrary
 
 instance Key RSAKeyParameters where
-  type KeyGenParam RSAKeyParameters = Int   -- ^ Size of key in /bytes/
-  type KeyContent RSAKeyParameters =
-    ( Types.SizedBase64Integer
-    , Types.Base64Integer
-    , Maybe RSAPrivateKeyParameters
-    )
-  gen size = do
-    (RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi) <- RSA.generate size 65537
-    let i = Types.Base64Integer
-    return $ fromKeyContent
-      ( Types.SizedBase64Integer s n
-      , i e
-      , Just (RSAPrivateKeyParameters (i d)
-        (Just (RSAPrivateKeyOptionalParameters
-          (i p) (i q) (i dp) (i dq) (i qi) Nothing))) )
-  fromKeyContent (n, e, p) = RSAKeyParameters RSA n e p
   public = Just . set rsaPrivateKeyParameters Nothing
-  sign JWA.JWS.RS256 = signPKCS15 SHA256
-  sign JWA.JWS.RS384 = signPKCS15 SHA384
-  sign JWA.JWS.RS512 = signPKCS15 SHA512
-  sign JWA.JWS.PS256 = signPSS SHA256
-  sign JWA.JWS.PS384 = signPSS SHA384
-  sign JWA.JWS.PS512 = signPSS SHA512
+
   sign h = \_ _ ->
     return (Left $ AlgorithmMismatch  $ show h ++ " cannot be used with RSA key")
-  verify JWA.JWS.RS256 = verifyPKCS15 SHA256
-  verify JWA.JWS.RS384 = verifyPKCS15 SHA384
-  verify JWA.JWS.RS512 = verifyPKCS15 SHA512
-  verify JWA.JWS.PS256 = verifyPSS SHA256
-  verify JWA.JWS.PS384 = verifyPSS SHA384
-  verify JWA.JWS.PS512 = verifyPSS SHA512
   verify h = \_ _ _ ->
     Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key"
 
@@ -451,19 +408,10 @@ instance ToJSON OctKeyParameters where
   toJSON OctKeyParameters {..} = object ["kty" .= octKty, "k" .= octK]
 
 instance Key OctKeyParameters where
-  type KeyGenParam OctKeyParameters = Int   -- ^ Size of key in /bytes/
-  type KeyContent OctKeyParameters = Types.Base64Octets
-  gen n = fromKeyContent . Types.Base64Octets <$> getRandomBytes n
-  fromKeyContent = OctKeyParameters Oct
   public = const Nothing
-  sign JWA.JWS.HS256 k = return . signOct SHA256 k
-  sign JWA.JWS.HS384 k = return . signOct SHA384 k
-  sign JWA.JWS.HS512 k = return . signOct SHA512 k
+
   sign h _ = const $ return $
     Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
-  verify JWA.JWS.HS256 k m s = BA.constEq s <$> signOct SHA256 k m
-  verify JWA.JWS.HS384 k m s = BA.constEq s <$> signOct SHA384 k m
-  verify JWA.JWS.HS512 k m s = BA.constEq s <$> signOct SHA512 k m
   verify h _ _ _ =
     Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
 
@@ -490,6 +438,11 @@ data KeyMaterial
   | OctKeyMaterial OctKeyParameters
   deriving (Eq, Show)
 
+showKeyType :: KeyMaterial -> String
+showKeyType (ECKeyMaterial (ECKeyParameters { ecCrv = crv })) = "ECDSA (" ++ show crv ++ ")"
+showKeyType (RSAKeyMaterial _) = "RSA"
+showKeyType (OctKeyMaterial _) = "symmetric"
+
 instance FromJSON KeyMaterial where
   parseJSON = withObject "KeyMaterial" $ \o ->
     ECKeyMaterial      <$> parseJSON (Object o)
@@ -508,24 +461,67 @@ data KeyMaterialGenParam
   | RSAGenParam Int
   | OctGenParam Int
 
+genKeyMaterial :: MonadRandom m => KeyMaterialGenParam -> m KeyMaterial
+genKeyMaterial (ECGenParam crv) = do
+  let
+    xyValue = Types.SizedBase64Integer (ecCoordBytes crv)
+    dValue = Types.SizedBase64Integer (ecDBytes crv)
+  (ECDSA.PublicKey _ p, ECDSA.PrivateKey _ d) <- ECC.generate (curve crv)
+  case p of
+    ECC.Point x y -> return $ ECKeyMaterial $
+      ECKeyParameters EC crv (xyValue x) (xyValue y) (Just (dValue d))
+    ECC.PointO -> genKeyMaterial (ECGenParam crv)  -- JWK cannot represent point at infinity; recurse
+genKeyMaterial (RSAGenParam size) = RSAKeyMaterial <$> genRSA size
+genKeyMaterial (OctGenParam n) =
+  OctKeyMaterial . OctKeyParameters Oct . Types.Base64Octets <$> getRandomBytes n
+
+genRSA :: MonadRandom m => Int -> m RSAKeyParameters
+genRSA size = do
+  (RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi) <- RSA.generate size 65537
+  let i = Types.Base64Integer
+  return $ RSAKeyParameters RSA
+    ( Types.SizedBase64Integer s n )
+    ( i e )
+    ( Just (RSAPrivateKeyParameters (i d)
+      (Just (RSAPrivateKeyOptionalParameters
+        (i p) (i q) (i dp) (i dq) (i qi) Nothing))) )
+
 instance Key KeyMaterial where
-  type KeyGenParam KeyMaterial = KeyMaterialGenParam
-  type KeyContent KeyMaterial = KeyMaterial
-  gen (ECGenParam a) = ECKeyMaterial <$> gen a
-  gen (RSAGenParam a) = RSAKeyMaterial <$> gen a
-  gen (OctGenParam a) = OctKeyMaterial <$> gen a
-  fromKeyContent = id
   public (ECKeyMaterial k) = ECKeyMaterial <$> public k
   public (RSAKeyMaterial k) = RSAKeyMaterial <$> public k
   public (OctKeyMaterial k) = OctKeyMaterial <$> public k
+
   sign JWA.JWS.None _ = \_ -> return $ Right ""
-  sign h (ECKeyMaterial k)  = sign h k
-  sign h (RSAKeyMaterial k) = sign h k
-  sign h (OctKeyMaterial k) = sign h k
+  sign JWA.JWS.ES256 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_256 })) = signEC SHA256 k
+  sign JWA.JWS.ES384 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_384 })) = signEC SHA384 k
+  sign JWA.JWS.ES512 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_521 })) = signEC SHA512 k
+  sign JWA.JWS.RS256 (RSAKeyMaterial k) = signPKCS15 SHA256 k
+  sign JWA.JWS.RS384 (RSAKeyMaterial k) = signPKCS15 SHA384 k
+  sign JWA.JWS.RS512 (RSAKeyMaterial k) = signPKCS15 SHA512 k
+  sign JWA.JWS.PS256 (RSAKeyMaterial k) = signPSS SHA256 k
+  sign JWA.JWS.PS384 (RSAKeyMaterial k) = signPSS SHA384 k
+  sign JWA.JWS.PS512 (RSAKeyMaterial k) = signPSS SHA512 k
+  sign JWA.JWS.HS256 (OctKeyMaterial k) = return . signOct SHA256 k
+  sign JWA.JWS.HS384 (OctKeyMaterial k) = return . signOct SHA384 k
+  sign JWA.JWS.HS512 (OctKeyMaterial k) = return . signOct SHA512 k
+  sign h k = \_ -> return $ Left $ AlgorithmMismatch
+    $ show h ++ "cannot be used with " ++ showKeyType k ++ " key"
+
   verify JWA.JWS.None _ = \_ s -> Right $ s == ""
-  verify h (ECKeyMaterial k)  = verify h k
-  verify h (RSAKeyMaterial k) = verify h k
-  verify h (OctKeyMaterial k) = verify h k
+  verify JWA.JWS.ES256 (ECKeyMaterial k) = verifyEC SHA256 k
+  verify JWA.JWS.ES384 (ECKeyMaterial k) = verifyEC SHA384 k
+  verify JWA.JWS.ES512 (ECKeyMaterial k) = verifyEC SHA512 k
+  verify JWA.JWS.RS256 (RSAKeyMaterial k) = verifyPKCS15 SHA256 k
+  verify JWA.JWS.RS384 (RSAKeyMaterial k) = verifyPKCS15 SHA384 k
+  verify JWA.JWS.RS512 (RSAKeyMaterial k) = verifyPKCS15 SHA512 k
+  verify JWA.JWS.PS256 (RSAKeyMaterial k) = verifyPSS SHA256 k
+  verify JWA.JWS.PS384 (RSAKeyMaterial k) = verifyPSS SHA384 k
+  verify JWA.JWS.PS512 (RSAKeyMaterial k) = verifyPSS SHA512 k
+  verify JWA.JWS.HS256 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA256 k m
+  verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA384 k m
+  verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA512 k m
+  verify h k = \_ -> return $ Left $ AlgorithmMismatch
+    $ show h ++ "cannot be used with " ++ showKeyType k ++ " key"
 
 instance Arbitrary KeyMaterial where
   arbitrary = oneof

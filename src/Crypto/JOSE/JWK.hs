@@ -37,6 +37,8 @@ module Crypto.JOSE.JWK
   , jwkX5c
   , jwkX5t
   , jwkX5tS256
+  , fromKeyMaterial
+  , genJWK
 
   , JWKSet(..)
 
@@ -128,11 +130,10 @@ instance ToJSON JWK where
     ]
     ++ Types.objectPairs (toJSON _jwkMaterial)
 
+genJWK :: MonadRandom m => KeyMaterialGenParam -> m JWK
+genJWK p = fromKeyMaterial <$> genKeyMaterial p
+
 instance Key JWK where
-  type KeyGenParam JWK = Crypto.JOSE.JWA.JWK.KeyMaterialGenParam
-  type KeyContent JWK = Crypto.JOSE.JWA.JWK.KeyMaterial
-  gen p = fromKeyContent <$> gen p
-  fromKeyContent k = JWK k z z z z z z z z where z = Nothing
   public = jwkMaterial public
   sign h k = sign h $ k ^. jwkMaterial
   verify h k = verify h $ k ^. jwkMaterial
@@ -148,6 +149,9 @@ instance Arbitrary JWK where
     <*> pure Nothing
     <*> arbitrary
     <*> arbitrary
+
+fromKeyMaterial :: KeyMaterial -> JWK
+fromKeyMaterial k = JWK k z z z z z z z z where z = Nothing
 
 
 -- | JWK §4.  JSON Web Key Set (JWK Set) Format
