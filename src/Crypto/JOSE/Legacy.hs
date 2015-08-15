@@ -101,8 +101,6 @@ instance ToJSON RSKeyParameters where
         (k ^. rsaPrivateKeyParameters)
 
 instance Key RSKeyParameters where
-  public = rsaKeyParameters public
-
   sign h (RSKeyParameters k) = sign h k
   verify h (RSKeyParameters k) = verify h k
 
@@ -123,7 +121,6 @@ genJWK' :: MonadRandom m => Int -> m JWK'
 genJWK' size = JWK' . RSKeyParameters <$> genRSA size
 
 instance Key JWK' where
-  public = rsKeyParameters public
   sign h (JWK' k) = sign h k
   verify h (JWK' k) = verify h k
 

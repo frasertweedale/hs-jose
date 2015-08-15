@@ -134,7 +134,6 @@ genJWK :: MonadRandom m => KeyMaterialGenParam -> m JWK
 genJWK p = fromKeyMaterial <$> genKeyMaterial p
 
 instance Key JWK where
-  public = jwkMaterial public
   sign h k = sign h $ k ^. jwkMaterial
   verify h k = verify h $ k ^. jwkMaterial
 

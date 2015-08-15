@@ -50,7 +50,3 @@ class Key k where
     -> B.ByteString
     -> B.ByteString
     -> Either Error Bool
-
-  -- | Remove secrets from a key
-  --
-  public :: k -> Maybe k

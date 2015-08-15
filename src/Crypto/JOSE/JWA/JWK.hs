@@ -221,7 +221,6 @@ instance ToJSON ECKeyParameters where
     ] ++ fmap ("d" .=) (maybeToList ecD)
 
 instance Key ECKeyParameters where
-  public k = Just k { ecD = Nothing }
   sign h _ = \_ ->
     return (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key")
   verify h = \_ _ _ ->
@@ -324,8 +323,6 @@ instance Arbitrary RSAKeyParameters where
     <*> arbitrary
 
 instance Key RSAKeyParameters where
-  public = Just . set rsaPrivateKeyParameters Nothing
-
   sign h = \_ _ ->
     return (Left $ AlgorithmMismatch  $ show h ++ " cannot be used with RSA key")
   verify h = \_ _ _ ->
@@ -408,8 +405,6 @@ instance ToJSON OctKeyParameters where
   toJSON OctKeyParameters {..} = object ["kty" .= octKty, "k" .= octK]
 
 instance Key OctKeyParameters where
-  public = const Nothing
-
   sign h _ = const $ return $
     Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
   verify h _ _ _ =
@@ -487,10 +482,6 @@ genRSA size = do
         (i p) (i q) (i dp) (i dq) (i qi) Nothing))) )
 
 instance Key KeyMaterial where
-  public (ECKeyMaterial k) = ECKeyMaterial <$> public k
-  public (RSAKeyMaterial k) = RSAKeyMaterial <$> public k
-  public (OctKeyMaterial k) = OctKeyMaterial <$> public k
-
   sign JWA.JWS.None _ = \_ -> return $ Right ""
   sign JWA.JWS.ES256 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_256 })) = signEC SHA256 k
   sign JWA.JWS.ES384 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_384 })) = signEC SHA384 k
