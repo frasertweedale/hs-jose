@@ -25,7 +25,6 @@ module Crypto.JOSE.Types
   , SizedBase64Integer(..)
   , genSizedBase64IntegerOf
   , checkSize
-  , Base64UrlString(..)
   , Base64Octets(..)
   , Base64SHA1(..)
   , Base64SHA256(..)
@@ -105,16 +104,6 @@ checkSize :: Int -> SizedBase64Integer -> Parser SizedBase64Integer
 checkSize n a@(SizedBase64Integer m _) = if n == m
   then return a
   else fail $ "expected " ++ show n ++ " octets, found " ++ show m
-
-
--- | A base64url encoded string.  This is used for the JWE
--- /Agreement PartyUInfo/ and /Agreement PartyVInfo/ fields.
---
-newtype Base64UrlString = Base64UrlString B.ByteString
-  deriving (Eq, Show)
-
-instance FromJSON Base64UrlString where
-  parseJSON = withText "base64url string" $ parseB64Url $ pure . Base64UrlString
 
 
 -- | A base64url encoded octet sequence.  Used for payloads,

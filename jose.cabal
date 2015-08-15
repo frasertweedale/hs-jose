@@ -39,6 +39,7 @@ library
     Crypto.JOSE.Classes
     Crypto.JOSE.Compact
     Crypto.JOSE.Error
+    Crypto.JOSE.JWE
     Crypto.JOSE.JWK
     Crypto.JOSE.JWS
     Crypto.JOSE.Legacy

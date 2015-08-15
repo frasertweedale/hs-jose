@@ -26,18 +26,11 @@ import Crypto.JOSE.Types
 
 spec :: Spec
 spec = do
-  base64UrlSpec
   base64OctetsSpec
   uriSpec
   base64IntegerSpec
   sizedBase64IntegerSpec
   base64X509Spec
-
-base64UrlSpec :: Spec
-base64UrlSpec = describe "Base64UrlString" $
-  it "can be read from JSON" $ do
-    decode "[\"QWxpY2U\"]" `shouldBe` Just [Base64UrlString "Alice"]
-    decode "[\"Qm9i\"]"`shouldBe` Just [Base64UrlString "Bob"]
 
 base64OctetsSpec :: Spec
 base64OctetsSpec = describe "Base64Octets" $

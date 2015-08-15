@@ -47,6 +47,6 @@ $(Crypto.JOSE.TH.deriveJOSEType "Alg" [
   , "A192GCMKW"           -- AES in Galois/Counter Mode             Optional
   , "A256GCMKW"           -- AES in Galois/Counter Mode             Optional
   , "PBES2-HS256+A128KW"  -- PBES2 with HMAC SHA and AES Key Wrap   Optional
-  , "PBES2-HS384+A128KW"  -- PBES2 with HMAC SHA and AES Key Wrap   Optional
-  , "PBES2-HS512+A128KW"  -- PBES2 with HMAC SHA and AES Key Wrap   Optional
+  , "PBES2-HS384+A192KW"  -- PBES2 with HMAC SHA and AES Key Wrap   Optional
+  , "PBES2-HS512+A256KW"  -- PBES2 with HMAC SHA and AES Key Wrap   Optional
   ])

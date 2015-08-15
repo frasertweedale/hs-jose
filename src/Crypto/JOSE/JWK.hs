@@ -52,7 +52,6 @@ import Data.List.NonEmpty
 
 import Test.QuickCheck
 
-import Crypto.JOSE.Classes
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
 import Crypto.JOSE.JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
