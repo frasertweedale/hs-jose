@@ -43,7 +43,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Traversable (mapM)
 
-import Crypto.JOSE.Classes
 import Crypto.JOSE.Compact
 import Crypto.JOSE.Error
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
@@ -269,7 +268,7 @@ signJWS
   -> m (Either Error JWS) -- ^ JWS with new signature appended
 signJWS (JWS p sigs) h k = case headerAlg h of
     Nothing   -> return $ Left JWSMissingAlg
-    Just alg  -> fmap appendSig <$> sign alg k (signingInput h' p)
+    Just alg  -> fmap appendSig <$> sign alg (k ^. jwkMaterial) (signingInput h' p)
   where
     appendSig sig = JWS p (Signature h' Nothing (Types.Base64Octets sig):sigs)
     h' = Just $ Unarmoured h
@@ -328,5 +327,5 @@ verifyJWS (ValidationAlgorithms algs) policy k (JWS p sigs) =
 verifySig :: JWK -> Types.Base64Octets -> Signature -> Either Error Bool
 verifySig k m sig@(Signature h _ (Types.Base64Octets s)) = maybe
   (Left $ AlgorithmMismatch "No 'alg' header")  -- shouldn't happen
-  (\alg -> verify alg k (signingInput h m) s)
+  (\alg -> verify alg (k ^. jwkMaterial) (signingInput h m) s)
   (algorithm sig)

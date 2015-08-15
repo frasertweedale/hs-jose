@@ -52,8 +52,10 @@ module Crypto.JOSE.JWA.JWK (
   , KeyMaterialGenParam(..)
   , KeyMaterial(..)
   , genKeyMaterial
+  , sign
+  , verify
 
-  , module Crypto.JOSE.Classes
+  , module Crypto.Random
   ) where
 
 import Control.Applicative
@@ -78,7 +80,6 @@ import Data.List.NonEmpty
 import Test.QuickCheck
 
 import Crypto.JOSE.Error
-import Crypto.JOSE.Classes
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
@@ -220,12 +221,6 @@ instance ToJSON ECKeyParameters where
     , "y" .= ecY
     ] ++ fmap ("d" .=) (maybeToList ecD)
 
-instance Key ECKeyParameters where
-  sign h _ = \_ ->
-    return (Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key")
-  verify h = \_ _ _ ->
-    Left $ AlgorithmMismatch  $ show h ++ "cannot be used with EC key"
-
 instance Arbitrary ECKeyParameters where
   arbitrary = do
     crv <- arbitrary
@@ -322,11 +317,16 @@ instance Arbitrary RSAKeyParameters where
     <*> arbitrary
     <*> arbitrary
 
-instance Key RSAKeyParameters where
-  sign h = \_ _ ->
-    return (Left $ AlgorithmMismatch  $ show h ++ " cannot be used with RSA key")
-  verify h = \_ _ _ ->
-    Left $ AlgorithmMismatch  $ show h ++ "cannot be used with RSA key"
+genRSA :: MonadRandom m => Int -> m RSAKeyParameters
+genRSA size = do
+  (RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi) <- RSA.generate size 65537
+  let i = Types.Base64Integer
+  return $ RSAKeyParameters RSA
+    ( Types.SizedBase64Integer s n )
+    ( i e )
+    ( Just (RSAPrivateKeyParameters (i d)
+      (Just (RSAPrivateKeyOptionalParameters
+        (i p) (i q) (i dp) (i dq) (i qi) Nothing))) )
 
 signPKCS15
   :: (PKCS15.HashAlgorithmASN1 h, MonadRandom m)
@@ -404,12 +404,6 @@ instance FromJSON OctKeyParameters where
 instance ToJSON OctKeyParameters where
   toJSON OctKeyParameters {..} = object ["kty" .= octKty, "k" .= octK]
 
-instance Key OctKeyParameters where
-  sign h _ = const $ return $
-    Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
-  verify h _ _ _ =
-    Left $ AlgorithmMismatch $ show h ++ "cannot be used with Oct key"
-
 instance Arbitrary OctKeyParameters where
   arbitrary = OctKeyParameters Oct <$> arbitrary
 
@@ -470,49 +464,49 @@ genKeyMaterial (RSAGenParam size) = RSAKeyMaterial <$> genRSA size
 genKeyMaterial (OctGenParam n) =
   OctKeyMaterial . OctKeyParameters Oct . Types.Base64Octets <$> getRandomBytes n
 
-genRSA :: MonadRandom m => Int -> m RSAKeyParameters
-genRSA size = do
-  (RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi) <- RSA.generate size 65537
-  let i = Types.Base64Integer
-  return $ RSAKeyParameters RSA
-    ( Types.SizedBase64Integer s n )
-    ( i e )
-    ( Just (RSAPrivateKeyParameters (i d)
-      (Just (RSAPrivateKeyOptionalParameters
-        (i p) (i q) (i dp) (i dq) (i qi) Nothing))) )
+sign
+  :: MonadRandom m
+  => JWA.JWS.Alg
+  -> KeyMaterial
+  -> B.ByteString
+  -> m (Either Error B.ByteString)
+sign JWA.JWS.None _ = \_ -> return $ Right ""
+sign JWA.JWS.ES256 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_256 })) = signEC SHA256 k
+sign JWA.JWS.ES384 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_384 })) = signEC SHA384 k
+sign JWA.JWS.ES512 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_521 })) = signEC SHA512 k
+sign JWA.JWS.RS256 (RSAKeyMaterial k) = signPKCS15 SHA256 k
+sign JWA.JWS.RS384 (RSAKeyMaterial k) = signPKCS15 SHA384 k
+sign JWA.JWS.RS512 (RSAKeyMaterial k) = signPKCS15 SHA512 k
+sign JWA.JWS.PS256 (RSAKeyMaterial k) = signPSS SHA256 k
+sign JWA.JWS.PS384 (RSAKeyMaterial k) = signPSS SHA384 k
+sign JWA.JWS.PS512 (RSAKeyMaterial k) = signPSS SHA512 k
+sign JWA.JWS.HS256 (OctKeyMaterial k) = return . signOct SHA256 k
+sign JWA.JWS.HS384 (OctKeyMaterial k) = return . signOct SHA384 k
+sign JWA.JWS.HS512 (OctKeyMaterial k) = return . signOct SHA512 k
+sign h k = \_ -> return $ Left $ AlgorithmMismatch
+  $ show h ++ "cannot be used with " ++ showKeyType k ++ " key"
 
-instance Key KeyMaterial where
-  sign JWA.JWS.None _ = \_ -> return $ Right ""
-  sign JWA.JWS.ES256 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_256 })) = signEC SHA256 k
-  sign JWA.JWS.ES384 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_384 })) = signEC SHA384 k
-  sign JWA.JWS.ES512 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_521 })) = signEC SHA512 k
-  sign JWA.JWS.RS256 (RSAKeyMaterial k) = signPKCS15 SHA256 k
-  sign JWA.JWS.RS384 (RSAKeyMaterial k) = signPKCS15 SHA384 k
-  sign JWA.JWS.RS512 (RSAKeyMaterial k) = signPKCS15 SHA512 k
-  sign JWA.JWS.PS256 (RSAKeyMaterial k) = signPSS SHA256 k
-  sign JWA.JWS.PS384 (RSAKeyMaterial k) = signPSS SHA384 k
-  sign JWA.JWS.PS512 (RSAKeyMaterial k) = signPSS SHA512 k
-  sign JWA.JWS.HS256 (OctKeyMaterial k) = return . signOct SHA256 k
-  sign JWA.JWS.HS384 (OctKeyMaterial k) = return . signOct SHA384 k
-  sign JWA.JWS.HS512 (OctKeyMaterial k) = return . signOct SHA512 k
-  sign h k = \_ -> return $ Left $ AlgorithmMismatch
-    $ show h ++ "cannot be used with " ++ showKeyType k ++ " key"
-
-  verify JWA.JWS.None _ = \_ s -> Right $ s == ""
-  verify JWA.JWS.ES256 (ECKeyMaterial k) = verifyEC SHA256 k
-  verify JWA.JWS.ES384 (ECKeyMaterial k) = verifyEC SHA384 k
-  verify JWA.JWS.ES512 (ECKeyMaterial k) = verifyEC SHA512 k
-  verify JWA.JWS.RS256 (RSAKeyMaterial k) = verifyPKCS15 SHA256 k
-  verify JWA.JWS.RS384 (RSAKeyMaterial k) = verifyPKCS15 SHA384 k
-  verify JWA.JWS.RS512 (RSAKeyMaterial k) = verifyPKCS15 SHA512 k
-  verify JWA.JWS.PS256 (RSAKeyMaterial k) = verifyPSS SHA256 k
-  verify JWA.JWS.PS384 (RSAKeyMaterial k) = verifyPSS SHA384 k
-  verify JWA.JWS.PS512 (RSAKeyMaterial k) = verifyPSS SHA512 k
-  verify JWA.JWS.HS256 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA256 k m
-  verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA384 k m
-  verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA512 k m
-  verify h k = \_ -> return $ Left $ AlgorithmMismatch
-    $ show h ++ "cannot be used with " ++ showKeyType k ++ " key"
+verify
+  :: JWA.JWS.Alg
+  -> KeyMaterial
+  -> B.ByteString
+  -> B.ByteString
+  -> Either Error Bool
+verify JWA.JWS.None _ = \_ s -> Right $ s == ""
+verify JWA.JWS.ES256 (ECKeyMaterial k) = verifyEC SHA256 k
+verify JWA.JWS.ES384 (ECKeyMaterial k) = verifyEC SHA384 k
+verify JWA.JWS.ES512 (ECKeyMaterial k) = verifyEC SHA512 k
+verify JWA.JWS.RS256 (RSAKeyMaterial k) = verifyPKCS15 SHA256 k
+verify JWA.JWS.RS384 (RSAKeyMaterial k) = verifyPKCS15 SHA384 k
+verify JWA.JWS.RS512 (RSAKeyMaterial k) = verifyPKCS15 SHA512 k
+verify JWA.JWS.PS256 (RSAKeyMaterial k) = verifyPSS SHA256 k
+verify JWA.JWS.PS384 (RSAKeyMaterial k) = verifyPSS SHA384 k
+verify JWA.JWS.PS512 (RSAKeyMaterial k) = verifyPSS SHA512 k
+verify JWA.JWS.HS256 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA256 k m
+verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA384 k m
+verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA512 k m
+verify h k = \_ -> return $ Left $ AlgorithmMismatch
+  $ show h ++ "cannot be used with " ++ showKeyType k ++ " key"
 
 instance Arbitrary KeyMaterial where
   arbitrary = oneof

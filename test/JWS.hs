@@ -18,6 +18,7 @@ module JWS where
 
 import Data.Maybe
 
+import Control.Lens
 import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as L
@@ -25,7 +26,6 @@ import qualified Data.ByteString.Base64.URL as B64U
 import Data.Default.Class
 import Test.Hspec
 
-import Crypto.JOSE.Classes
 import Crypto.JOSE.Compact
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
@@ -121,7 +121,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     (encodeCompact jws >>= decodeCompact) `shouldBe` Right jws
 
   it "computes the HMAC correctly" $
-    fst (withDRG drg $ sign alg jwk (L.toStrict signingInput'))
+    fst (withDRG drg $ sign alg (jwk ^. jwkMaterial) (L.toStrict signingInput'))
       `shouldBe` Right (BS.pack macOctets)
 
   it "validates the JWS correctly" $
@@ -157,11 +157,11 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
 appendixA2Spec :: Spec
 appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
-    fst (withDRG drg $ sign JWA.JWS.RS256 jwk signingInput')
+    fst (withDRG drg $ sign JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput')
       `shouldBe` Right sig
 
   it "validates the signature correctly" $
-    verify JWA.JWS.RS256 jwk signingInput' sig `shouldBe` Right True
+    verify JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput' sig `shouldBe` Right True
 
   where
     signingInput' = "\
@@ -210,7 +210,7 @@ appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" 
 appendixA3Spec :: Spec
 appendixA3Spec = describe "JWS A.3.  Example JWS using ECDSA P-256 SHA-256" $
   it "validates the signature correctly" $
-    verify JWA.JWS.ES256 jwk signingInput' sig `shouldBe` Right True
+    verify JWA.JWS.ES256 (jwk ^. jwkMaterial) signingInput' sig `shouldBe` Right True
   where
     signingInput' = "\
       \eyJhbGciOiJFUzI1NiJ9\

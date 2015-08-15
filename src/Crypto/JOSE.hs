@@ -19,14 +19,12 @@ Prelude for the  library.
 -}
 module Crypto.JOSE
   (
-    module Crypto.JOSE.Classes
-  , module Crypto.JOSE.Compact
+    module Crypto.JOSE.Compact
   , module Crypto.JOSE.Error
   , module Crypto.JOSE.JWK
   , module Crypto.JOSE.JWS
   ) where
 
-import Crypto.JOSE.Classes
 import Crypto.JOSE.Compact
 import Crypto.JOSE.Error
 import Crypto.JOSE.JWK

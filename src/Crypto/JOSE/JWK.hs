@@ -133,10 +133,6 @@ instance ToJSON JWK where
 genJWK :: MonadRandom m => KeyMaterialGenParam -> m JWK
 genJWK p = fromKeyMaterial <$> genKeyMaterial p
 
-instance Key JWK where
-  sign h k = sign h $ k ^. jwkMaterial
-  verify h k = verify h $ k ^. jwkMaterial
-
 instance Arbitrary JWK where
   arbitrary = JWK
     <$> arbitrary

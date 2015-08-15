@@ -41,7 +41,6 @@ import Data.Aeson.Types
 import qualified Data.Text as T
 import Safe (readMay)
 
-import Crypto.JOSE.Classes
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types.Internal as Types
@@ -100,14 +99,10 @@ instance ToJSON RSKeyParameters where
       ++ maybe [] (\p -> ["d" .= (rsaD p ^. from b64Iso)])
         (k ^. rsaPrivateKeyParameters)
 
-instance Key RSKeyParameters where
-  sign h (RSKeyParameters k) = sign h k
-  verify h (RSKeyParameters k) = verify h k
-
 
 -- | Legacy JSON Web Key data type.
 --
-newtype JWK' = JWK' { _rsKeyParameters :: RSKeyParameters }
+newtype JWK' = JWK' RSKeyParameters
   deriving (Eq, Show)
 makeLenses ''JWK'
 
@@ -119,10 +114,6 @@ instance ToJSON JWK' where
 
 genJWK' :: MonadRandom m => Int -> m JWK'
 genJWK' size = JWK' . RSKeyParameters <$> genRSA size
-
-instance Key JWK' where
-  sign h (JWK' k) = sign h k
-  verify h (JWK' k) = verify h k
 
 toJWK :: JWK' -> JWK
 toJWK (JWK' (RSKeyParameters k)) = fromKeyMaterial $ RSAKeyMaterial k

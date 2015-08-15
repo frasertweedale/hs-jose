@@ -36,7 +36,6 @@ cabal-version:       >= 1.8
 library
   exposed-modules:
     Crypto.JOSE
-    Crypto.JOSE.Classes
     Crypto.JOSE.Compact
     Crypto.JOSE.Error
     Crypto.JOSE.JWE
