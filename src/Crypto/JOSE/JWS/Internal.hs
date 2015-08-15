@@ -123,9 +123,9 @@ instance FromJSON JWSHeader where
     <*> o .:? "jwk"
     <*> o .:? "kid"
     <*> o .:? "x5u"
+    <*> o .:? "x5c"
     <*> o .:? "x5t"
     <*> o .:? "x5t#S256"
-    <*> o .:? "x5c"
     <*> o .:? "typ"
     <*> o .:? "cty"
     <*> (o .:? "crit" >>= mapM (parseCrit o))
