@@ -25,7 +25,6 @@ module Crypto.JOSE.JWE
 import Prelude hiding (mapM)
 import Control.Applicative
 import Data.Bifunctor (first)
-import Data.Char (ord)
 import Data.Maybe (catMaybes)
 import Data.Traversable (mapM)
 
@@ -124,12 +123,10 @@ instance ToJSON JWEHeader where
 instance FromArmour T.Text Error JWEHeader where
   parseArmour s =
         first (compactErr "header")
-          (B64UL.decode (pad $ L.fromStrict $ T.encodeUtf8 s))
+          (B64UL.decode (L.fromStrict $ Types.pad $ T.encodeUtf8 s))
         >>= first JSONDecodeError . eitherDecode
     where
     compactErr s' = CompactDecodeError . ((s' ++ " decode failed: ") ++)
-    pad t = t `L.append` L.replicate ((4 - L.length t `mod` 4) `mod` 4) c
-    c = fromIntegral $ ord '='
 
 instance ToArmour T.Text JWEHeader where
   toArmour = T.decodeUtf8 . Types.unpad . B64U.encode . L.toStrict . encode

@@ -23,7 +23,6 @@ import Prelude hiding (mapM)
 import Control.Applicative
 import Control.Monad ((>=>), when, unless)
 import Data.Bifunctor
-import Data.Char
 import Data.Maybe
 
 import Control.Lens ((^.))
@@ -105,12 +104,10 @@ data JWSHeader = JWSHeader
 instance FromArmour T.Text Error JWSHeader where
   parseArmour s =
         first (compactErr "header")
-          (B64UL.decode (pad $ BSL.fromStrict $ T.encodeUtf8 s))
+          (B64UL.decode (BSL.fromStrict $ Types.pad $ T.encodeUtf8 s))
         >>= first JSONDecodeError . eitherDecode
     where
     compactErr s' = CompactDecodeError . ((s' ++ " decode failed: ") ++)
-    pad t = t `BSL.append` BSL.replicate ((4 - BSL.length t `mod` 4) `mod` 4) c
-    c = fromIntegral $ ord '='
 
 instance ToArmour T.Text JWSHeader where
   toArmour = T.decodeUtf8 . Types.unpad . B64U.encode . BSL.toStrict . encode
