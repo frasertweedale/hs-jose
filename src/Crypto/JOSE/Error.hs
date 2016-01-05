@@ -23,6 +23,7 @@ module Crypto.JOSE.Error
   ) where
 
 import qualified Crypto.PubKey.RSA as RSA
+import Crypto.Error (CryptoError)
 
 -- | All the errors that can occur.
 --
@@ -33,6 +34,7 @@ data Error
   | KeySizeTooSmall           -- ^ Key size is too small
   | OtherPrimesNotSupported   -- ^ RSA private key with >2 primes not supported
   | RSAError RSA.Error        -- ^ RSA encryption, decryption or signing error
+  | CryptoError CryptoError   -- ^ Various cryptonite library error cases
   | CompactEncodeError String -- ^ Cannot produce compact representation of data
   | CompactDecodeError String -- ^ Cannot decode compact representation
   | JSONDecodeError String    -- ^ JSON (Aeson) decoding error

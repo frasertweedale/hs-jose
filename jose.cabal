@@ -28,7 +28,7 @@ extra-source-files:
   README.md
 author:              Fraser Tweedale
 maintainer:          frase@frase.id.au
-copyright:           Copyright (C) 2013, 2014, 2015  Fraser Tweedale
+copyright:           Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 category:            Cryptography
 build-type:          Simple
 cabal-version:       >= 1.8
@@ -46,6 +46,7 @@ library
     Crypto.JWT
 
   other-modules:
+    Crypto.JOSE.AESKW
     Crypto.JOSE.JWA.JWK
     Crypto.JOSE.JWA.JWS
     Crypto.JOSE.JWA.JWE
@@ -62,10 +63,11 @@ library
     , base64-bytestring == 1.0.*
     , bifunctors >= 4.0
     , byteable == 0.1.*
-    , cryptonite >= 0.5
+    , cryptonite >= 0.7
     , data-default-class
     , lens >= 4.3
     , memory >= 0.7
+    , mtl >= 2
     , template-haskell >= 2.4
     , safe >= 0.3
     , semigroups >= 0.15

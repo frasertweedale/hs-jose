@@ -44,6 +44,7 @@ module Crypto.JOSE.JWA.JWK (
   , rsaKty
   , rsaN
   , rsaPrivateKeyParameters
+  , rsaPublicKey
   , genRSA
 
   -- * Parameters for Symmetric Keys
