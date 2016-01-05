@@ -103,10 +103,10 @@ instance FromJSON JWEHeader where
     <*> (o .:? "crit" >>= mapM (parseCrit o))  -- TODO
 
 instance ToJSON JWEHeader where
-  toJSON (JWEHeader alg enc zip jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
+  toJSON (JWEHeader alg enc _zip jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
     object $ catMaybes
       [ fmap ("enc" .=) enc
-      , fmap ("zip" .=) zip
+      , fmap ("zip" .=) _zip
       , fmap ("jku" .=) jku
       , fmap ("jwk" .=) jwk
       , fmap ("kid" .=) kid
