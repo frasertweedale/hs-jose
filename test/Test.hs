@@ -16,6 +16,7 @@ import Test.Tasty
 import Test.Tasty.Hspec
 import Test.Tasty.QuickCheck
 
+import AESKW
 import JWK
 import JWS
 import JWT
@@ -26,7 +27,7 @@ import Properties
 main :: IO ()
 main = do
   unitTests <- unitTestsIO
-  defaultMain $ testGroup "Tests" [unitTests, properties]
+  defaultMain $ testGroup "Tests" [unitTests, properties, aeskwProperties]
 
 unitTestsIO :: IO TestTree
 unitTestsIO = do

@@ -94,9 +94,11 @@ test-suite tests
   hs-source-dirs: src, test
   main-is:        Test.hs
   other-modules:
+    AESKW
     JWK
     JWS
     JWT
+    Properties
     Types
 
   build-depends:
@@ -109,6 +111,7 @@ test-suite tests
     , data-default-class
     , lens
     , memory
+    , mtl
     , template-haskell
     , safe
     , semigroups
