@@ -69,7 +69,7 @@ library
     , template-haskell >= 2.4
     , safe >= 0.3
     , semigroups >= 0.15
-    , aeson >= 0.8.0.1 && < 0.9
+    , aeson >= 0.8.0.1 && < 0.10
     , unordered-containers == 0.2.*
     , bytestring == 0.10.*
     , text >= 1.1
