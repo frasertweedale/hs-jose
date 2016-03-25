@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -147,6 +147,10 @@ instance Arbitrary JWK where
 
 fromKeyMaterial :: KeyMaterial -> JWK
 fromKeyMaterial k = JWK k z z z z z z z z where z = Nothing
+
+
+instance AsPublicKey JWK where
+  asPublicKey = prism' id (jwkMaterial (preview asPublicKey))
 
 
 -- | JWK §4.  JSON Web Key Set (JWK Set) Format

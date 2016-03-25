@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -29,7 +29,6 @@ module Crypto.JOSE.Legacy
   , genJWK'
   , toJWK
   , RSKeyParameters()
-  , rsaKeyParameters
   ) where
 
 import Control.Applicative
@@ -48,8 +47,8 @@ import Crypto.JOSE.Types
 import Crypto.JOSE.TH
 
 
-newtype StringifiedInteger = StringifiedInteger { _unString :: Integer }
-makeLenses ''StringifiedInteger
+newtype StringifiedInteger = StringifiedInteger Integer
+makePrisms ''StringifiedInteger
 
 instance FromJSON StringifiedInteger where
   parseJSON = withText "StringifiedInteger" $
@@ -61,13 +60,11 @@ instance ToJSON StringifiedInteger where
   toJSON (StringifiedInteger n) = toJSON $ show n
 
 b64Iso :: Iso' StringifiedInteger Base64Integer
-b64Iso = iso
-  (Base64Integer . view unString)
-  (\(Base64Integer n) -> StringifiedInteger n)
+b64Iso = _StringifiedInteger . from _Base64Integer
 
 sizedB64Iso :: Iso' StringifiedInteger SizedBase64Integer
 sizedB64Iso = iso
-  ((\n -> SizedBase64Integer (size n) n) . view unString)
+  ((\n -> SizedBase64Integer (size n) n) . view _StringifiedInteger)
   (\(SizedBase64Integer _ n) -> StringifiedInteger n)
   where
   size n =
@@ -78,9 +75,9 @@ sizedB64Iso = iso
 $(Crypto.JOSE.TH.deriveJOSEType "RS" ["RS"])
 
 
-newtype RSKeyParameters = RSKeyParameters { _rsaKeyParameters :: RSAKeyParameters }
+newtype RSKeyParameters = RSKeyParameters RSAKeyParameters
   deriving (Eq, Show)
-makeLenses ''RSKeyParameters
+makePrisms ''RSKeyParameters
 
 instance FromJSON RSKeyParameters where
   parseJSON = withObject "RS" $ \o -> fmap RSKeyParameters $ RSAKeyParameters
@@ -104,13 +101,16 @@ instance ToJSON RSKeyParameters where
 --
 newtype JWK' = JWK' RSKeyParameters
   deriving (Eq, Show)
-makeLenses ''JWK'
+makePrisms ''JWK'
 
 instance FromJSON JWK' where
   parseJSON = withObject "JWK'" $ \o -> JWK' <$> parseJSON (Object o)
 
 instance ToJSON JWK' where
   toJSON (JWK' k) = object $ Types.objectPairs (toJSON k)
+
+instance AsPublicKey JWK' where
+  asPublicKey = prism' id (_JWK' (_RSKeyParameters (preview asPublicKey)))
 
 genJWK' :: MonadRandom m => Int -> m JWK'
 genJWK' size = JWK' . RSKeyParameters <$> genRSA size

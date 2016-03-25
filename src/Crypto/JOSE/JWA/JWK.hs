@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -26,8 +26,11 @@ Cryptographic Algorithms for Keys.
 
 -}
 module Crypto.JOSE.JWA.JWK (
+  -- * Type classes
+    AsPublicKey(..)
+
   -- * \"kty\" (Key Type) Parameter Values
-    EC(..)
+  , EC(..)
   , RSA(..)
   , Oct(..)
 
@@ -515,3 +518,24 @@ instance Arbitrary KeyMaterial where
     , RSAKeyMaterial <$> arbitrary
     , OctKeyMaterial <$> arbitrary
     ]
+
+
+class AsPublicKey k where
+  asPublicKey :: Prism' k k
+
+
+instance AsPublicKey OctKeyParameters where
+  asPublicKey = prism' id (const Nothing)
+
+instance AsPublicKey RSAKeyParameters where
+  asPublicKey = prism' id (Just . set rsaPrivateKeyParameters Nothing)
+
+instance AsPublicKey ECKeyParameters where
+  asPublicKey = prism' id (\k -> Just k { ecD = Nothing })
+
+instance AsPublicKey KeyMaterial where
+  asPublicKey = prism' id (\x -> case x of
+    OctKeyMaterial k  -> OctKeyMaterial  <$> k ^? asPublicKey
+    RSAKeyMaterial k  -> RSAKeyMaterial  <$> k ^? asPublicKey
+    ECKeyMaterial k   -> ECKeyMaterial   <$> k ^? asPublicKey
+    )

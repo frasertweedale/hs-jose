@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
 -- limitations under the License.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 {-|
 
@@ -22,6 +23,7 @@ Data types for the JOSE library.
 module Crypto.JOSE.Types
   (
     Base64Integer(..)
+  , _Base64Integer
   , SizedBase64Integer(..)
   , genSizedBase64IntegerOf
   , checkSize
@@ -34,6 +36,7 @@ module Crypto.JOSE.Types
 
 import Control.Applicative
 
+import Control.Lens
 import Data.Aeson
 import Data.Aeson.Types (Parser)
 import Data.Byteable
@@ -52,6 +55,7 @@ import Crypto.JOSE.Types.Orphans ()
 --
 newtype Base64Integer = Base64Integer Integer
   deriving (Eq, Show)
+makePrisms ''Base64Integer
 
 instance FromJSON Base64Integer where
   parseJSON = withText "base64url integer" $ parseB64Url $
