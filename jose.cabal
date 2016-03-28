@@ -63,8 +63,8 @@ library
     , base64-bytestring == 1.0.*
     , bifunctors >= 4.0
     , byteable == 0.1.*
+    , containers >= 0.5
     , cryptonite >= 0.7
-    , data-default-class
     , lens >= 4.3
     , memory >= 0.7
     , mtl >= 2
@@ -107,8 +107,8 @@ test-suite tests
     , base64-bytestring
     , bifunctors
     , byteable
+    , containers
     , cryptonite
-    , data-default-class
     , lens
     , memory
     , mtl

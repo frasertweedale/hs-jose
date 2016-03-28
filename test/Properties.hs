@@ -1,4 +1,4 @@
--- Copyright (C) 2015  Fraser Tweedale
+-- Copyright (C) 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import Control.Applicative
 
 import Data.Aeson
 import qualified Data.ByteString as B
-import Data.Default.Class
 
 import Test.Tasty
 import Test.Tasty.QuickCheck
@@ -82,4 +81,4 @@ checkSignJWS k signResult = case signResult of
     assert False
   Right jws -> do
     monitor (counterexample "Failed to verify")
-    assert (verifyJWS def def k jws)
+    assert (verifyJWS (return ()) k jws)

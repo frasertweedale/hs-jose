@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ module JWT where
 import Data.Maybe
 
 import Control.Lens
-import Data.Aeson
-import Data.Default.Class (def)
+import Data.Aeson hiding ((.=))
 import Data.HashMap.Strict (insert)
+import qualified Data.Set as S
 import Data.Time
 import Network.URI (parseURI)
 import Safe (headMay)
@@ -82,5 +82,5 @@ spec = do
         k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
       in do
         fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-        fmap (validateJWSJWT algs def k) jwt `shouldBe` Right True
-          where algs = ValidationAlgorithms [None]
+        fmap (validateJWSJWT conf k) jwt `shouldBe` Right True
+          where conf = validationAlgorithms .= S.singleton None

@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ deriveJOSEType
   -- non-alpha-numeric characters are converted to underscores.
   -> Q [Dec]
 deriveJOSEType s vs = sequenceQ [
-  dataD (cxt []) (mkName s) [] (map conQ vs) (map mkName ["Eq", "Show"])
+  dataD (cxt []) (mkName s) [] (map conQ vs) (map mkName ["Eq", "Ord", "Show"])
   , instanceD (cxt []) (aesonInstance s ''FromJSON) [parseJSONFun vs]
   , instanceD (cxt []) (aesonInstance s ''ToJSON) [toJSONFun vs]
   ]

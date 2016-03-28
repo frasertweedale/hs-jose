@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -56,6 +56,7 @@ import Data.Bifunctor
 import Data.Maybe
 
 import Control.Lens (makeLenses, over)
+import Control.Monad.State (State)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
@@ -257,12 +258,11 @@ instance ToCompact JWT where
 -- | Validate a JWT as a JWS (JSON Web Signature).
 --
 validateJWSJWT
-  :: ValidationAlgorithms
-  -> ValidationPolicy
+  :: State ValidationSettings z
   -> JWK
   -> JWT
   -> Bool
-validateJWSJWT algs policy k (JWT (JWTJWS jws) _) = verifyJWS algs policy k jws
+validateJWSJWT conf k (JWT (JWTJWS jws) _) = verifyJWS conf k jws
 
 -- | Create a JWT that is a JWS.
 --

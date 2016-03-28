@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64.URL as B64U
-import Data.Default.Class
 import Test.Hspec
 
 import Crypto.JOSE.Compact
@@ -94,8 +93,8 @@ headerSpec = describe "(unencoded) Header" $ do
         "{\"protected\":\"eyJhbGciOiJSUzI1NiJ9\",\
         \ \"header\":{\"kid\":\"2010-12-29\"},\
         \ \"signature\":\"\"}"
-      h = def { headerAlg = Just JWA.JWS.RS256 }
-      h' = def { headerKid = Just "2010-12-29" }
+      h = newJWSHeader JWA.JWS.RS256
+      h' = emptyJWSHeader { headerKid = Just "2010-12-29" }
       sig = Signature (Just $ Unarmoured h) (Just h') (Types.Base64Octets "")
     in
       eitherDecode sigJSON `shouldBe` Right sig
@@ -125,7 +124,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
       `shouldBe` Right (BS.pack macOctets)
 
   it "validates the JWS correctly" $
-    fmap (verifyJWS def def jwk) (decodeCompact compactJWS) `shouldBe` Right True
+    fmap (verifyJWS (return ()) jwk) (decodeCompact compactJWS) `shouldBe` Right True
 
   where
     signingInput' = "\
@@ -139,7 +138,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     jws = JWS examplePayload [signature]
     signature = Signature (Just $ Unarmoured h) Nothing (Types.Base64Octets mac)
     alg = JWA.JWS.HS256
-    h = def { headerAlg = Just alg, headerTyp = Just "JWT" }
+    h = (newJWSHeader alg) { headerTyp = Just "JWT" }
     mac = foldr BS.cons BS.empty macOctets
     macOctets =
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
@@ -261,8 +260,8 @@ appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
     jws = JWS examplePayload [sig1, sig2]
     jws' = JWS examplePayload [sig2]
     sig1 = Signature (Just $ Unarmoured h1) (Just h1') (Types.Base64Octets mac1)
-    h1 = def { headerAlg = Just JWA.JWS.RS256 }
-    h1' = def { headerKid = Just "2010-12-29" }
+    h1 = newJWSHeader JWA.JWS.RS256
+    h1' = emptyJWSHeader { headerKid = Just "2010-12-29" }
     mac1 = foldr BS.cons BS.empty
       [112, 46, 33, 137, 67, 232, 143, 209, 30, 181, 216, 45, 191, 120, 69,
       243, 65, 6, 174, 27, 129, 255, 247, 115, 17, 22, 173, 209, 113, 125,
@@ -283,8 +282,8 @@ appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
       193, 167, 72, 160, 112, 223, 200, 163, 42, 70, 149, 67, 208, 25, 238,
       251, 71]
     sig2 = Signature (Just $ Unarmoured h2) (Just h2') (Types.Base64Octets mac2)
-    h2 = def { headerAlg = Just JWA.JWS.ES256 }
-    h2' = def { headerKid = Just "e9bc097a-ce51-4036-9562-d2ade882db0d" }
+    h2 = newJWSHeader JWA.JWS.ES256
+    h2' = emptyJWSHeader { headerKid = Just "e9bc097a-ce51-4036-9562-d2ade882db0d" }
     mac2 = B64U.decodeLenient
       "DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8ISlSA\
       \pmWQxfKTUJqPP3-Kg6NU1Q"

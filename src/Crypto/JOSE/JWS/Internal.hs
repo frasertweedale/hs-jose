@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_HADDOCK hide #-}
 
 module Crypto.JOSE.JWS.Internal where
@@ -22,10 +23,11 @@ import Prelude hiding (mapM)
 
 import Control.Applicative
 import Control.Monad ((>=>), when, unless)
+import Control.Monad.State (State, execState)
 import Data.Bifunctor
 import Data.Maybe
 
-import Control.Lens ((^.))
+import Control.Lens hiding ((.=))
 import Data.Aeson
 import qualified Data.Aeson.Parser as P
 import Data.Aeson.Types
@@ -35,9 +37,9 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
-import Data.Default.Class
 import Data.HashMap.Strict (member)
 import Data.List.NonEmpty (NonEmpty(..), toList)
+import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import Data.Traversable (mapM)
@@ -141,13 +143,13 @@ instance ToJSON JWSHeader where
       , fmap ("cty" .=) cty
       ] ++ Types.objectPairs (toJSON crit)
 
-instance Default JWSHeader where
-  def = JWSHeader z z z z z z z z z z z where z = Nothing
+emptyJWSHeader :: JWSHeader
+emptyJWSHeader = JWSHeader z z z z z z z z z z z where z = Nothing
 
 -- | Construct a minimal header with the given algorithm
 --
 newJWSHeader :: JWA.JWS.Alg -> JWSHeader
-newJWSHeader alg = def { headerAlg = Just alg }
+newJWSHeader alg = emptyJWSHeader { headerAlg = Just alg }
 
 
 data Signature = Signature
@@ -271,29 +273,30 @@ signJWS (JWS p sigs) h k = case headerAlg h of
     h' = Just $ Unarmoured h
 
 
--- | Algorithms for which validation will be attempted.  The default
--- value includes all algorithms except 'None'.
---
-newtype ValidationAlgorithms = ValidationAlgorithms [JWA.JWS.Alg]
-
-instance Default ValidationAlgorithms where
-  def = ValidationAlgorithms
-    [ JWA.JWS.HS256, JWA.JWS.HS384, JWA.JWS.HS512
-    , JWA.JWS.RS256, JWA.JWS.RS384, JWA.JWS.RS512
-    , JWA.JWS.ES256, JWA.JWS.ES384, JWA.JWS.ES512
-    , JWA.JWS.PS256, JWA.JWS.PS384, JWA.JWS.PS512
-    ]
-
--- | Validation policy.  The default policy is 'AllValidated'.
+-- | Validation policy.
 --
 data ValidationPolicy
   = AnyValidated
   -- ^ One successfully validated signature is sufficient
   | AllValidated
   -- ^ All signatures for which validation is attempted must be validated
+  deriving (Eq)
 
-instance Default ValidationPolicy where
-  def = AllValidated
+data ValidationSettings = ValidationSettings
+  { _validationAlgorithms :: S.Set JWA.JWS.Alg
+  , _validationPolicy :: ValidationPolicy
+  } deriving (Eq)
+makeLenses ''ValidationSettings
+
+defaultValidationSettings :: ValidationSettings
+defaultValidationSettings = ValidationSettings
+  ( S.fromList
+    [ JWA.JWS.HS256, JWA.JWS.HS384, JWA.JWS.HS512
+    , JWA.JWS.RS256, JWA.JWS.RS384, JWA.JWS.RS512
+    , JWA.JWS.ES256, JWA.JWS.ES384, JWA.JWS.ES512
+    , JWA.JWS.PS256, JWA.JWS.PS384, JWA.JWS.PS512
+    ] )
+  AllValidated
 
 
 -- | Verify a JWS.
@@ -307,19 +310,22 @@ instance Default ValidationPolicy where
 -- prior to calling 'verifyJWS'.
 --
 verifyJWS
-  :: ValidationAlgorithms
-  -> ValidationPolicy
+  :: State ValidationSettings z
   -> JWK
   -> JWS
   -> Bool
-verifyJWS (ValidationAlgorithms algs) policy k (JWS p sigs) =
-  applyPolicy policy $ map validate $ filter shouldValidateSig sigs
-  where
-  shouldValidateSig = maybe False (`elem` algs) . algorithm
-  applyPolicy AnyValidated xs = or xs
-  applyPolicy AllValidated [] = False
-  applyPolicy AllValidated xs = and xs
-  validate = (== Right True) . verifySig k p
+verifyJWS configure k (JWS p sigs) =
+  let
+    conf = execState configure defaultValidationSettings
+    algs = conf ^. validationAlgorithms
+    policy = conf ^. validationPolicy
+    shouldValidateSig = maybe False (`elem` algs) . algorithm
+    applyPolicy AnyValidated xs = or xs
+    applyPolicy AllValidated [] = False
+    applyPolicy AllValidated xs = and xs
+    validate = (== Right True) . verifySig k p
+  in
+    applyPolicy policy $ map validate $ filter shouldValidateSig sigs
 
 verifySig :: JWK -> Types.Base64Octets -> Signature -> Either Error Bool
 verifySig k m sig@(Signature h _ (Types.Base64Octets s)) = maybe

@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ module Crypto.JOSE.JWS
     Alg(..)
 
   , JWSHeader(..)
+  , emptyJWSHeader
   , newJWSHeader
 
   , JWS(..)
@@ -31,8 +32,10 @@ module Crypto.JOSE.JWS
   , jwsPayload
   , signJWS
 
-  , ValidationAlgorithms(..)
   , ValidationPolicy(..)
+  , ValidationSettings
+  , validationAlgorithms
+  , validationPolicy
   , verifyJWS
   ) where
 
