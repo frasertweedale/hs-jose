@@ -19,13 +19,15 @@
 
 module Crypto.JOSE.JWS.Internal where
 
-import Prelude hiding (mapM)
+import Prelude hiding (elem, mapM)
 
 import Control.Applicative
 import Control.Monad ((>=>), when, unless)
 import Control.Monad.State (State, execState)
 import Data.Bifunctor
+import Data.Foldable (elem)
 import Data.Maybe
+import Data.Traversable (mapM)
 
 import Control.Lens hiding ((.=))
 import Data.Aeson
@@ -42,7 +44,6 @@ import Data.List.NonEmpty (NonEmpty(..), toList)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Data.Traversable (mapM)
 
 import Crypto.JOSE.Compact
 import Crypto.JOSE.Error
