@@ -1,4 +1,56 @@
-language: haskell
-ghc:
-  - 7.8
+# Use new container infrastructure to enable caching
 sudo: false
+
+# Choose a lightweight base image; we provide our own build tools.
+language: c
+
+# Caching so the next build will be fast too.
+cache:
+  directories:
+  - $HOME/.ghc
+  - $HOME/.cabal
+  - $HOME/.stack
+
+# We set the compiler values here to tell Travis to use a different
+# cache file per set of arguments.
+#
+matrix:
+  include:
+  - env: ARGS="--resolver lts-4"
+    compiler: ": #stack 7.10.3"
+    addons: {apt: {packages: [libgmp-dev]}}
+
+  - env: ARGS="--resolver lts-5"
+    compiler: ": #stack 7.10.3"
+    addons: {apt: {packages: [libgmp-dev]}}
+
+  - env: ARGS="--resolver lts-6"
+    compiler: ": #stack 7.10.3"
+    addons: {apt: {packages: [libgmp-dev]}}
+
+  - env: ARGS="--resolver nightly"
+    compiler: ": #stack nightly (ghc-8.0.1)"
+    addons: {apt: {packages: [libgmp-dev]}}
+
+before_install:
+# Using compiler above sets CC to an invalid value, so unset it
+- unset CC
+
+# Download and unpack the stack executable
+- export PATH=$HOME/.local/bin:$PATH
+- mkdir -p ~/.local/bin
+- |
+  travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+
+  # Use the more reliable S3 mirror of Hackage
+  mkdir -p $HOME/.cabal
+  echo 'remote-repo: hackage.haskell.org:http://hackage.fpcomplete.com/' > $HOME/.cabal/config
+  echo 'remote-repo-cache: $HOME/.cabal/packages' >> $HOME/.cabal/config
+- stack --no-terminal $ARGS setup
+- echo "$(stack $ARGS ghc -- --version) [$(stack $ARGS ghc -- --print-project-git-commit-id 2> /dev/null || echo '?')]"
+
+install:
+- stack --no-terminal $ARGS test --bench --only-dependencies
+
+script:
+- stack --no-terminal $ARGS test --bench --no-run-benchmarks --haddock --no-haddock-deps
