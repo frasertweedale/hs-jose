@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 {-|
@@ -97,7 +98,14 @@ deriveJOSEType
   -- non-alpha-numeric characters are converted to underscores.
   -> Q [Dec]
 deriveJOSEType s vs = sequenceQ [
-  dataD (cxt []) (mkName s) [] (map conQ vs) (map mkName ["Eq", "Ord", "Show"])
+  let
+    derive = map mkName ["Eq", "Ord", "Show"]
+  in
+#if ! MIN_VERSION_template_haskell(2,11,0)
+    dataD (cxt []) (mkName s) [] (map conQ vs) derive
+#else
+    dataD (cxt []) (mkName s) [] Nothing (map conQ vs) (mapM conT derive)
+#endif
   , instanceD (cxt []) (aesonInstance s ''FromJSON) [parseJSONFun vs]
   , instanceD (cxt []) (aesonInstance s ''ToJSON) [toJSONFun vs]
   ]

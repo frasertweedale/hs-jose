@@ -1,4 +1,4 @@
--- Copyright (C) 2014  Fraser Tweedale
+-- Copyright (C) 2014, 2015, 2016  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Crypto.JOSE.Types.Orphans where
@@ -30,6 +31,7 @@ import Test.QuickCheck
 import Data.Aeson
 
 
+#if ! MIN_VERSION_aeson(0,11,1)
 instance FromJSON a => FromJSON (NonEmpty a) where
   parseJSON = withArray "NonEmpty [a]" $ \v -> case V.toList v of
     [] -> fail "Non-empty list required"
@@ -37,6 +39,7 @@ instance FromJSON a => FromJSON (NonEmpty a) where
 
 instance ToJSON a => ToJSON (NonEmpty a) where
   toJSON = Array . V.fromList . map toJSON . toList
+#endif
 
 
 instance FromJSON URI where
