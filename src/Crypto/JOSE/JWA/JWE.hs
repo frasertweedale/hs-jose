@@ -22,7 +22,6 @@ JSON Web Encryption data types specified under JSON Web Algorithms.
 -}
 module Crypto.JOSE.JWA.JWE where
 
-import Control.Applicative
 import Data.Maybe (catMaybes)
 
 import qualified Data.HashMap.Strict as M

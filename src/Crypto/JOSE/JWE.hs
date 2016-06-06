@@ -24,11 +24,8 @@ module Crypto.JOSE.JWE
   , JWE(..)
   ) where
 
-import Prelude hiding (mapM)
-import Control.Applicative
 import Data.Bifunctor (first, bimap)
 import Data.Maybe (catMaybes)
-import Data.Traversable (mapM)
 
 import Data.Aeson
 import Data.Aeson.Types

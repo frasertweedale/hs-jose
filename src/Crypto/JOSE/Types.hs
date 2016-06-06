@@ -34,8 +34,6 @@ module Crypto.JOSE.Types
   , URI
   ) where
 
-import Control.Applicative
-
 import Control.Lens
 import Data.Aeson
 import Data.Aeson.Types (Parser)

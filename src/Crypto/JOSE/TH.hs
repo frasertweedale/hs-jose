@@ -27,7 +27,6 @@ module Crypto.JOSE.TH
     deriveJOSEType
   ) where
 
-import Control.Applicative
 import Data.Aeson
 import Data.Char
 import Language.Haskell.TH.Lib

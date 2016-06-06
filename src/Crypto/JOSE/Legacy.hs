@@ -31,8 +31,6 @@ module Crypto.JOSE.Legacy
   , RSKeyParameters()
   ) where
 
-import Control.Applicative
-
 import Control.Lens hiding ((.=))
 import Crypto.Number.Basic (log2)
 import Data.Aeson

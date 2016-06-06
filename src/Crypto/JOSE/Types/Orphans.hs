@@ -17,23 +17,22 @@
 
 module Crypto.JOSE.Types.Orphans where
 
-import Prelude hiding (mapM)
-
-import Control.Applicative
-import Data.Traversable
-
-import Data.List.NonEmpty (NonEmpty(..), toList)
+import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Text as T
-import qualified Data.Vector as V
 import Network.URI (URI, parseURI)
 import Test.QuickCheck
+
+#if ! MIN_VERSION_aeson(0,11,1)
+import Data.Foldable (toList)
+import qualified Data.Vector as V
+#endif
 
 import Data.Aeson
 
 
 #if ! MIN_VERSION_aeson(0,11,1)
 instance FromJSON a => FromJSON (NonEmpty a) where
-  parseJSON = withArray "NonEmpty [a]" $ \v -> case V.toList v of
+  parseJSON = withArray "NonEmpty [a]" $ \v -> case toList v of
     [] -> fail "Non-empty list required"
     (x:xs) -> mapM parseJSON (x :| xs)
 

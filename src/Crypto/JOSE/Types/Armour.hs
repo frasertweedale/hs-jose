@@ -37,7 +37,6 @@ module Crypto.JOSE.Types.Armour
   , value
   ) where
 
-import Control.Applicative
 import Control.Monad ((>=>))
 
 import Control.Lens
