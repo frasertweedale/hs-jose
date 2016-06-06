@@ -40,7 +40,7 @@ objectPairs _ = []
 
 -- | Produce a parser of base64 encoded text from a bytestring parser.
 --
-parseB64 :: FromJSON a => (B.ByteString -> Parser a) -> T.Text -> Parser a
+parseB64 :: (B.ByteString -> Parser a) -> T.Text -> Parser a
 parseB64 f = either fail f . decodeB64
   where
     decodeB64 = B64.decode . E.encodeUtf8
@@ -62,7 +62,7 @@ unpad = B.reverse . B.dropWhile (== 61) . B.reverse
 
 -- | Produce a parser of base64url encoded text from a bytestring parser.
 --
-parseB64Url :: FromJSON a => (B.ByteString -> Parser a) -> T.Text -> Parser a
+parseB64Url :: (B.ByteString -> Parser a) -> T.Text -> Parser a
 parseB64Url f = either fail f . B64U.decode . pad . E.encodeUtf8
 
 -- | Convert a bytestring to a base64url encoded JSON 'String'

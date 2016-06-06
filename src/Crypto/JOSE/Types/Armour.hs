@@ -63,7 +63,7 @@ value = lens (\case Armoured _ b -> b ; Unarmoured b -> b) (const Unarmoured)
 -- | 'Getter' for the armour encoding.  If the armour was
 -- remembered, it is returned unchanged.
 --
-armour :: ToArmour a b => Getter (Armour a b) a
+armour :: ToArmour a b => Getting a (Armour a b) a
 armour = to (\case Armoured a _ -> a ; Unarmoured b -> toArmour b)
 
 
