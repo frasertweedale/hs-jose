@@ -61,7 +61,6 @@ library
     base == 4.*
     , attoparsec
     , base64-bytestring == 1.0.*
-    , bifunctors >= 4.0
     , byteable == 0.1.*
     , containers >= 0.5
     , cryptonite >= 0.7
@@ -70,7 +69,6 @@ library
     , mtl >= 2
     , template-haskell >= 2.4
     , safe >= 0.3
-    , semigroups >= 0.15
     , aeson >= 0.8.0.1
     , unordered-containers == 0.2.*
     , bytestring == 0.10.*
@@ -81,6 +79,13 @@ library
     , quickcheck-instances
     , x509 >= 1.4
     , vector
+
+  if impl(ghc < 7.10)
+    build-depends:
+        bifunctors >= 4.0
+  if impl(ghc < 8)
+    build-depends:
+        semigroups >= 0.15
 
   ghc-options:    -Wall
   hs-source-dirs: src
@@ -105,7 +110,6 @@ test-suite tests
     base
     , attoparsec
     , base64-bytestring
-    , bifunctors
     , byteable
     , containers
     , cryptonite
@@ -114,7 +118,6 @@ test-suite tests
     , mtl
     , template-haskell
     , safe
-    , semigroups
     , aeson
     , unordered-containers
     , bytestring
@@ -130,3 +133,10 @@ test-suite tests
     , hspec
     , QuickCheck
     , quickcheck-instances
+
+  if impl(ghc < 7.10)
+    build-depends:
+        bifunctors >= 4.0
+  if impl(ghc < 8)
+    build-depends:
+        semigroups >= 0.15
