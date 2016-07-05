@@ -38,6 +38,7 @@ module Crypto.JWT
 
   , ClaimsSet(..)
   , emptyClaimsSet
+  , validateClaimsSet
 
   , Audience(..)
 
@@ -52,6 +53,7 @@ module Crypto.JWT
 
 import Control.Applicative
 import Control.Monad
+import Control.Monad.Time (MonadTime(..))
 import Data.Bifunctor
 import Data.Maybe
 
@@ -87,7 +89,7 @@ fromString s = maybe (Arbitrary s) OrURI $ parseURI $ T.unpack s
 fromURI :: URI -> StringOrURI
 fromURI = OrURI
 
--- | Get the 
+-- | Get the
 getString :: StringOrURI -> Maybe T.Text
 getString (Arbitrary a) = Just a
 getString (OrURI _) = Nothing
@@ -112,7 +114,7 @@ instance ToJSON StringOrURI where
 -- | A JSON numeric value representing the number of seconds from
 --   1970-01-01T0:0:0Z UTC until the specified UTC date\/time.
 --
-newtype NumericDate = NumericDate UTCTime deriving (Eq, Show)
+newtype NumericDate = NumericDate UTCTime deriving (Eq, Ord, Show)
 
 instance FromJSON NumericDate where
   parseJSON = withScientific "NumericDate" $
@@ -225,6 +227,38 @@ instance ToJSON ClaimsSet where
     , fmap ("iat" .=) iat
     , fmap ("jti" .=) jti
     ] ++ M.toList (filterUnregistered o)
+
+
+-- | Validate the claims made by a ClaimsSet. Currently only inspects
+-- the exp and nbf claims.
+--
+validateClaimsSet
+  :: MonadTime m
+  => State ValidationSettings z
+  -> ClaimsSet
+  -> m Bool
+validateClaimsSet s c =
+  and <$> sequence [ validateExpClaim s c
+                   , validateNbfClaim s c
+                   ]
+
+validateExpClaim
+  :: MonadTime m
+  => State ValidationSettings z
+  -> ClaimsSet
+  -> m Bool
+validateExpClaim _ (ClaimsSet _ _ _ (Just e) _ _ _ _) =
+  (e >) . NumericDate <$> currentTime
+validateExpClaim _ _ = return True
+
+validateNbfClaim
+  :: MonadTime m
+  => State ValidationSettings z
+  -> ClaimsSet
+  -> m Bool
+validateNbfClaim _ (ClaimsSet _ _ _ _ (Just n) _ _ _) =
+  (n <) . NumericDate <$> currentTime
+validateNbfClaim _ _ = return True
 
 
 -- | Data representing the JOSE aspects of a JWT.

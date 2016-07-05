@@ -12,13 +12,17 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module JWT where
 
 import Data.Maybe
 
 import Control.Lens
+import Control.Monad.Reader (MonadReader(..), Reader, runReader)
+import Control.Monad.Time (MonadTime(..))
 import Data.Aeson hiding ((.=))
 import Data.HashMap.Strict (insert)
 import qualified Data.Set as S
@@ -34,12 +38,18 @@ import Crypto.JWT
 intDate :: String -> Maybe NumericDate
 intDate = fmap NumericDate . parseTimeM True defaultTimeLocale "%F %T"
 
+utcTime :: String -> UTCTime
+utcTime = fromJust . parseTimeM True defaultTimeLocale "%F %T"
+
 exampleClaimsSet :: ClaimsSet
 exampleClaimsSet = emptyClaimsSet
   & claimIss .~ Just (fromString "joe")
   & claimExp .~ intDate "2011-03-22 18:43:00"
   & over unregisteredClaims (insert "http://example.com/is_root" (Bool True))
   & addClaim "http://example.com/is_root" (Bool True)
+
+instance MonadTime (Reader UTCTime) where
+  currentTime = ask
 
 spec :: Spec
 spec = do
@@ -55,6 +65,69 @@ spec = do
 
     it "formats to a parsable and equal value" $
       decode (encode exampleClaimsSet) `shouldBe` Just exampleClaimsSet
+
+    describe "when the current time is prior to the Expiration Time" $
+      let
+        now = utcTime "2010-01-01 00:00:00"
+        run = flip runReader now
+      in
+        it "can be validated" $
+          run (validateClaimsSet conf exampleClaimsSet) `shouldBe` True
+
+    describe "when the current time is after the Expiration Time" $
+      let
+        now = utcTime "2012-01-01 00:00:00"
+        run = flip runReader now
+      in
+        it "cannot be validated" $
+          run (validateClaimsSet conf exampleClaimsSet) `shouldBe` False
+
+    describe "with a Not Before claim" $
+      let
+        claimsSet = emptyClaimsSet & claimNbf .~ intDate "2016-07-05 17:37:22"
+      in do
+        describe "when the current time is prior to the Not Before claim" $
+          let
+            now = utcTime "2015-01-01 00:00:00"
+            run = flip runReader now
+          in
+            it "cannot be validated" $
+              run (validateClaimsSet conf claimsSet) `shouldBe` False
+
+        describe "when the current time is after the Not Before claim" $
+          let
+            now = utcTime "2017-01-01 00:00:00"
+            run = flip runReader now
+          in
+            it "can be validated" $
+              run (validateClaimsSet conf claimsSet) `shouldBe` True
+
+    describe "with Expiration Time and Not Before claims" $
+      let
+        claimsSet = emptyClaimsSet & claimExp .~ intDate "2011-03-22 18:43:00"
+                                   & claimNbf .~ intDate "2011-03-20 17:37:22"
+      in do
+        describe "when the current time is prior to the Not Before claim" $
+          let
+            now = utcTime "2011-03-18 00:00:00"
+            run = flip runReader now
+          in
+            it "cannot be validated" $
+              run (validateClaimsSet conf claimsSet) `shouldBe` False
+        describe "when the current time is between the Not Before and Expiration Time claims" $
+          let
+            now = utcTime "2011-03-21 18:00:00"
+            run = flip runReader now
+          in
+            it "can be validated" $
+              run (validateClaimsSet conf claimsSet) `shouldBe` True
+        describe "when the current time is after the Expiration Time claim" $
+          let
+            now = utcTime "2011-03-24 00:00:00"
+            run = flip runReader now
+          in
+            it "cannot be validated" $
+              run (validateClaimsSet conf claimsSet) `shouldBe` False
 
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do

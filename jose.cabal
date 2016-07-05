@@ -66,6 +66,7 @@ library
     , cryptonite >= 0.7
     , lens >= 4.3
     , memory >= 0.7
+    , monad-time >= 0.1
     , mtl >= 2
     , template-haskell >= 2.4
     , safe >= 0.3
@@ -115,6 +116,7 @@ test-suite tests
     , cryptonite
     , lens
     , memory
+    , monad-time
     , mtl
     , template-haskell
     , safe
