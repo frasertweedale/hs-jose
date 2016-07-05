@@ -144,16 +144,29 @@ spec = do
       decode "[\"notnum\"]"       `shouldBe` (Nothing :: Maybe [NumericDate])
 
   describe "§6.1.  Example Unsecured JWT" $
-    it "can be decoded and validated" $
-      let
-        exampleJWT = "eyJhbGciOiJub25lIn0\
-          \.\
-          \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
-          \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
-          \."
-        jwt = decodeCompact exampleJWT
-        k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
-      in do
-        fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-        fmap (validateJWSJWT conf k) jwt `shouldBe` Right True
-          where conf = validationAlgorithms .= S.singleton None
+    let
+      exampleJWT = "eyJhbGciOiJub25lIn0\
+        \.\
+        \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
+        \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
+        \."
+      jwt = decodeCompact exampleJWT
+      k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
+    in do
+      describe "when the current time is prior to the Expiration Time" $
+        let
+          now = utcTime "2010-01-01 00:00:00"
+          run = flip runReader now
+        in
+          it "can be decoded and validated" $ do
+            fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
+            fmap (run . validateJWSJWT conf k) jwt `shouldBe` Right True
+      describe "when the current time is after the Expiration Time" $
+        let
+          now = utcTime "2012-01-01 00:00:00"
+          run = flip runReader now
+        in
+          it "can be decoded, but not validated" $ do
+            fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
+            fmap (run . validateJWSJWT conf k) jwt `shouldBe` Right False
+              where conf = validationAlgorithms .= S.singleton None

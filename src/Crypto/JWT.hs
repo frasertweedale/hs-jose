@@ -289,14 +289,17 @@ instance ToCompact JWT where
   toCompact = toCompact . jwtCrypto
 
 
--- | Validate a JWT as a JWS (JSON Web Signature).
+-- | Validate a JWT as a JWS (JSON Web Signature), then as a Claims
+-- Set.
 --
 validateJWSJWT
-  :: State ValidationSettings z
+  :: MonadTime m
+  => State ValidationSettings z
   -> JWK
   -> JWT
-  -> Bool
-validateJWSJWT conf k (JWT (JWTJWS jws) _) = verifyJWS conf k jws
+  -> m Bool
+validateJWSJWT conf k (JWT (JWTJWS jws) c) =
+  (verifyJWS conf k jws &&) <$> validateClaimsSet conf c
 
 -- | Create a JWT that is a JWS.
 --
