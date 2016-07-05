@@ -230,7 +230,9 @@ instance ToJSON ClaimsSet where
 
 
 -- | Validate the claims made by a ClaimsSet. Currently only inspects
--- the exp and nbf claims.
+-- the /exp/ and /nbf/ claims. N.B. These checks are also performed by
+-- 'validateJWSJWT', which also validates any signatures, so you
+-- shouldn’t need to use this directly in the normal course of things.
 --
 validateClaimsSet
   :: MonadTime m
