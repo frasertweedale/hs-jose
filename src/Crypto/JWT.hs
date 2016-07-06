@@ -301,7 +301,10 @@ validateJWSJWT
   -> JWT
   -> m Bool
 validateJWSJWT conf k (JWT (JWTJWS jws) c) =
-  (verifyJWS conf k jws &&) <$> validateClaimsSet conf c
+  -- It is important, for security reasons, that the signature get
+  -- verified before the claims.
+  (&&) <$> pure (verifyJWS conf k jws)
+       <*> validateClaimsSet conf c
 
 -- | Create a JWT that is a JWS.
 --
