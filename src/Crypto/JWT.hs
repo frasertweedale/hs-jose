@@ -259,7 +259,7 @@ validateNbfClaim
   -> ClaimsSet
   -> m Bool
 validateNbfClaim _ (ClaimsSet _ _ _ _ (Just n) _ _ _) =
-  (n <) . NumericDate <$> currentTime
+  (n <=) . NumericDate <$> currentTime
 validateNbfClaim _ _ = return True
 
 

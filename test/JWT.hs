@@ -69,18 +69,23 @@ spec = do
     describe "when the current time is prior to the Expiration Time" $
       let
         now = utcTime "2010-01-01 00:00:00"
-        run = flip runReader now
       in
         it "can be validated" $
-          run (validateClaimsSet conf exampleClaimsSet) `shouldBe` True
+          runReader (validateClaimsSet conf exampleClaimsSet) now `shouldBe` True
+
+    describe "when the current time is exactly the Expiration Time" $
+      let
+        now = utcTime "2011-03-22 18:43:00"
+      in
+        it "cannot be validated" $
+          runReader (validateClaimsSet conf exampleClaimsSet) now `shouldBe` False
 
     describe "when the current time is after the Expiration Time" $
       let
         now = utcTime "2012-01-01 00:00:00"
-        run = flip runReader now
       in
         it "cannot be validated" $
-          run (validateClaimsSet conf exampleClaimsSet) `shouldBe` False
+          runReader (validateClaimsSet conf exampleClaimsSet) now `shouldBe` False
 
     describe "with a Not Before claim" $
       let
@@ -89,18 +94,23 @@ spec = do
         describe "when the current time is prior to the Not Before claim" $
           let
             now = utcTime "2015-01-01 00:00:00"
-            run = flip runReader now
           in
             it "cannot be validated" $
-              run (validateClaimsSet conf claimsSet) `shouldBe` False
+              runReader (validateClaimsSet conf claimsSet) now `shouldBe` False
+
+        describe "when the current time is exactly equal to the Not Before claim" $
+          let
+            now = utcTime "2016-07-05 17:37:22"
+          in
+            it "can be validated" $
+              runReader (validateClaimsSet conf claimsSet) now `shouldBe` True
 
         describe "when the current time is after the Not Before claim" $
           let
             now = utcTime "2017-01-01 00:00:00"
-            run = flip runReader now
           in
             it "can be validated" $
-              run (validateClaimsSet conf claimsSet) `shouldBe` True
+              runReader (validateClaimsSet conf claimsSet) now `shouldBe` True
 
     describe "with Expiration Time and Not Before claims" $
       let
@@ -110,24 +120,37 @@ spec = do
         describe "when the current time is prior to the Not Before claim" $
           let
             now = utcTime "2011-03-18 00:00:00"
-            run = flip runReader now
           in
             it "cannot be validated" $
-              run (validateClaimsSet conf claimsSet) `shouldBe` False
+              runReader (validateClaimsSet conf claimsSet) now `shouldBe` False
+
+        describe "when the current time is exactly equal to the Not Before claim" $
+          let
+            now = utcTime "2011-03-20 17:37:22"
+          in
+            it "can be validated" $
+              runReader (validateClaimsSet conf claimsSet) now `shouldBe` True
+
         describe "when the current time is between the Not Before and Expiration Time claims" $
           let
             now = utcTime "2011-03-21 18:00:00"
-            run = flip runReader now
           in
             it "can be validated" $
-              run (validateClaimsSet conf claimsSet) `shouldBe` True
+              runReader (validateClaimsSet conf claimsSet) now `shouldBe` True
+
+        describe "when the current time is exactly the Expiration Time" $
+          let
+            now = utcTime "2011-03-22 18:43:00"
+          in
+            it "cannot be validated" $
+              runReader (validateClaimsSet conf claimsSet) now `shouldBe` False
+
         describe "when the current time is after the Expiration Time claim" $
           let
             now = utcTime "2011-03-24 00:00:00"
-            run = flip runReader now
           in
             it "cannot be validated" $
-              run (validateClaimsSet conf claimsSet) `shouldBe` False
+              runReader (validateClaimsSet conf claimsSet) now `shouldBe` False
 
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
@@ -161,6 +184,7 @@ spec = do
           it "can be decoded and validated" $ do
             fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
             fmap (run . validateJWSJWT conf k) jwt `shouldBe` Right True
+
       describe "when the current time is after the Expiration Time" $
         let
           now = utcTime "2012-01-01 00:00:00"
