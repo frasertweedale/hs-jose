@@ -40,6 +40,7 @@ import Data.List.NonEmpty (NonEmpty(..), toList)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
+import Data.Time (NominalDiffTime)
 
 import Crypto.JOSE.Compact
 import Crypto.JOSE.Error
@@ -282,6 +283,9 @@ data ValidationPolicy
 data ValidationSettings = ValidationSettings
   { _validationAlgorithms :: S.Set JWA.JWS.Alg
   , _validationPolicy :: ValidationPolicy
+  , _validationAllowedSkew :: NominalDiffTime
+  -- ^ The allowed skew is interpreted in absolute terms;
+  --   a nonzero value always expands the validity period.
   } deriving (Eq)
 makeLenses ''ValidationSettings
 
@@ -294,6 +298,7 @@ defaultValidationSettings = ValidationSettings
     , JWA.JWS.PS256, JWA.JWS.PS384, JWA.JWS.PS512
     ] )
   AllValidated
+  0
 
 
 -- | Verify a JWS.

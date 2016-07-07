@@ -57,17 +57,18 @@ import Control.Monad.Time (MonadTime(..))
 import Data.Bifunctor
 import Data.Maybe
 
-import Control.Lens (makeLenses, over)
-import Control.Monad.State (State)
+import Control.Lens (makeLenses, makePrisms, over, view)
+import Control.Monad.State (State, execState)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
-import Data.Time
-import Data.Time.Clock.POSIX
+import Data.Time (UTCTime, addUTCTime)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Network.URI (parseURI)
 
 import Crypto.JOSE
+import Crypto.JOSE.JWS.Internal (defaultValidationSettings)
 import Crypto.JOSE.Types
 
 
@@ -115,6 +116,7 @@ instance ToJSON StringOrURI where
 --   1970-01-01T0:0:0Z UTC until the specified UTC date\/time.
 --
 newtype NumericDate = NumericDate UTCTime deriving (Eq, Ord, Show)
+makePrisms ''NumericDate
 
 instance FromJSON NumericDate where
   parseJSON = withScientific "NumericDate" $
@@ -239,27 +241,38 @@ validateClaimsSet
   => State ValidationSettings z
   -> ClaimsSet
   -> m Bool
-validateClaimsSet s c =
-  and <$> sequence [ validateExpClaim s c
-                   , validateNbfClaim s c
-                   ]
+validateClaimsSet configure claims =
+  let
+    conf = execState configure defaultValidationSettings
+  in
+    and <$> sequence [ validateExpClaim conf claims
+                     , validateNbfClaim conf claims
+                     ]
 
 validateExpClaim
   :: MonadTime m
-  => State ValidationSettings z
+  => ValidationSettings
   -> ClaimsSet
   -> m Bool
-validateExpClaim _ (ClaimsSet _ _ _ (Just e) _ _ _ _) =
-  (e >) . NumericDate <$> currentTime
+validateExpClaim conf (ClaimsSet _ _ _ (Just e) _ _ _ _) =
+  let
+    skew = view validationAllowedSkew conf
+  in do
+    now <- currentTime
+    return $ now < addUTCTime (abs skew) (view _NumericDate e)
 validateExpClaim _ _ = return True
 
 validateNbfClaim
   :: MonadTime m
-  => State ValidationSettings z
+  => ValidationSettings
   -> ClaimsSet
   -> m Bool
-validateNbfClaim _ (ClaimsSet _ _ _ _ (Just n) _ _ _) =
-  (n <=) . NumericDate <$> currentTime
+validateNbfClaim conf (ClaimsSet _ _ _ _ (Just n) _ _ _) =
+  let
+    skew = view validationAllowedSkew conf
+  in do
+    now <- currentTime
+    return $ now >= addUTCTime (negate (abs skew)) (view _NumericDate n)
 validateNbfClaim _ _ = return True
 
 

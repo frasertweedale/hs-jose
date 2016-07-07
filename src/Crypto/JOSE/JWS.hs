@@ -36,6 +36,7 @@ module Crypto.JOSE.JWS
   , ValidationSettings
   , validationAlgorithms
   , validationPolicy
+  , validationAllowedSkew
   , verifyJWS
   ) where
 
