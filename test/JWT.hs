@@ -66,43 +66,44 @@ spec = do
     it "formats to a parsable and equal value" $
       decode (encode exampleClaimsSet) `shouldBe` Just exampleClaimsSet
 
-    describe "when the current time is prior to the Expiration Time" $
-      let
-        now = utcTime "2010-01-01 00:00:00"
-      in
-        it "can be validated" $
-          runReader (validateClaimsSet conf exampleClaimsSet) now `shouldBe` True
+    describe "with an Expiration Time claim" $ do
+      describe "when the current time is prior to the Expiration Time" $
+        let
+          now = utcTime "2010-01-01 00:00:00"
+        in
+          it "can be validated" $
+            runReader (validateClaimsSet conf exampleClaimsSet) now `shouldBe` True
 
-    describe "when the current time is exactly the Expiration Time" $
-      let
-        now = utcTime "2011-03-22 18:43:00"
-      in
-        it "cannot be validated" $
-          runReader (validateClaimsSet conf exampleClaimsSet) now `shouldBe` False
+      describe "when the current time is exactly the Expiration Time" $
+        let
+          now = utcTime "2011-03-22 18:43:00"
+        in
+          it "cannot be validated" $
+            runReader (validateClaimsSet conf exampleClaimsSet) now `shouldBe` False
 
-    describe "when the current time is after the Expiration Time" $
-      let
-        now = utcTime "2011-03-22 18:43:01"  -- 1s after expiry
-      in do
-        it "cannot be validated" $
-          runReader (validateClaimsSet conf exampleClaimsSet) now
-            `shouldBe` False
-        it "cannot be validated if nonzero skew tolerance < delta" $
-          let conf' = conf >> validationAllowedSkew .= 1
-          in runReader (validateClaimsSet conf' exampleClaimsSet) now
-            `shouldBe` False
-        it "can be validated if nonzero skew tolerance = delta" $
-          let conf' = conf >> validationAllowedSkew .= 2
-          in runReader (validateClaimsSet conf' exampleClaimsSet) now
-            `shouldBe` True
-        it "can be validated if nonzero skew tolerance > delta" $
-          let conf' = conf >> validationAllowedSkew .= 3
-          in runReader (validateClaimsSet conf' exampleClaimsSet) now
-            `shouldBe` True
-        it "can be validated if negative skew tolerance = delta" $
-          let conf' = conf >> validationAllowedSkew .= 3
-          in runReader (validateClaimsSet conf' exampleClaimsSet) now
-            `shouldBe` True
+      describe "when the current time is after the Expiration Time" $
+        let
+          now = utcTime "2011-03-22 18:43:01"  -- 1s after expiry
+        in do
+          it "cannot be validated" $
+            runReader (validateClaimsSet conf exampleClaimsSet) now
+              `shouldBe` False
+          it "cannot be validated if nonzero skew tolerance < delta" $
+            let conf' = conf >> validationAllowedSkew .= 1
+            in runReader (validateClaimsSet conf' exampleClaimsSet) now
+              `shouldBe` False
+          it "can be validated if nonzero skew tolerance = delta" $
+            let conf' = conf >> validationAllowedSkew .= 2
+            in runReader (validateClaimsSet conf' exampleClaimsSet) now
+              `shouldBe` True
+          it "can be validated if nonzero skew tolerance > delta" $
+            let conf' = conf >> validationAllowedSkew .= 3
+            in runReader (validateClaimsSet conf' exampleClaimsSet) now
+              `shouldBe` True
+          it "can be validated if negative skew tolerance = delta" $
+            let conf' = conf >> validationAllowedSkew .= 3
+            in runReader (validateClaimsSet conf' exampleClaimsSet) now
+              `shouldBe` True
 
     describe "with a Not Before claim" $
       let
