@@ -39,6 +39,7 @@ module Crypto.JWT
   , defaultJWTValidationSettings
   , HasJWTValidationSettings(..)
   , HasAllowedSkew(..)
+  , HasAudiencePredicate(..)
 
   , createJWSJWT
   , validateJWSJWT
@@ -65,7 +66,8 @@ import Data.Bifunctor
 import Data.Maybe
 import qualified Data.String
 
-import Control.Lens (Lens', makeClassy, makeLenses, makePrisms, over, view)
+import Control.Lens (
+  Lens', _Just, makeClassy, makeLenses, makePrisms, over, preview, view)
 import Control.Monad.State (State, execState, put)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
@@ -246,6 +248,7 @@ data JWTValidationSettings = JWTValidationSettings
   , _jwtValidationSettingsAllowedSkew :: NominalDiffTime
   -- ^ The allowed skew is interpreted in absolute terms;
   --   a nonzero value always expands the validity period.
+  , _jwtValidationSettingsAudiencePredicate :: StringOrURI -> Bool
   }
 makeClassy ''JWTValidationSettings
 
@@ -254,14 +257,19 @@ instance HasValidationSettings JWTValidationSettings where
 
 class HasAllowedSkew s where
   allowedSkew :: Lens' s NominalDiffTime
+class HasAudiencePredicate s where
+  audiencePredicate :: Lens' s (StringOrURI -> Bool)
 
 instance HasJWTValidationSettings a => HasAllowedSkew a where
   allowedSkew = jwtValidationSettingsAllowedSkew
+instance HasJWTValidationSettings a => HasAudiencePredicate a where
+  audiencePredicate = jwtValidationSettingsAudiencePredicate
 
 defaultJWTValidationSettings :: JWTValidationSettings
 defaultJWTValidationSettings = JWTValidationSettings
   defaultValidationSettings
   0
+  (const True)
 
 -- | Validate the claims made by a ClaimsSet. Currently only inspects
 -- the /exp/ and /nbf/ claims. N.B. These checks are also performed by
@@ -269,13 +277,14 @@ defaultJWTValidationSettings = JWTValidationSettings
 -- shouldn’t need to use this directly in the normal course of things.
 --
 validateClaimsSet
-  :: (MonadTime m, HasAllowedSkew a)
+  :: (MonadTime m, HasAllowedSkew a, HasAudiencePredicate a)
   => a
   -> ClaimsSet
   -> m Bool
 validateClaimsSet conf claims =
   and <$> sequence [ validateExpClaim conf claims
                    , validateNbfClaim conf claims
+                   , pure $ validateAudClaim conf claims
                    ]
 
 validateExpClaim
@@ -297,6 +306,15 @@ validateNbfClaim conf (ClaimsSet _ _ _ _ (Just n) _ _ _) = do
   now <- currentTime
   return $ now >= addUTCTime (negate (abs (view allowedSkew conf))) (view _NumericDate n)
 validateNbfClaim _ _ = return True
+
+validateAudClaim
+  :: (HasAudiencePredicate s)
+  => s
+  -> ClaimsSet
+  -> Bool
+validateAudClaim conf claims =
+  maybe True (or . fmap (view audiencePredicate conf))
+    (preview (claimAud . _Just . _Audience) claims)
 
 
 -- | Data representing the JOSE aspects of a JWT.

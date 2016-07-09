@@ -191,6 +191,22 @@ spec = do
             it "cannot be validated" $
               runReader (validateClaimsSet conf claimsSet) now `shouldBe` False
 
+    describe "with an Audience claim" $ do
+      let now = utcTime "2001-01-01 00:00:00"
+          conf' = set audiencePredicate (== "baz") conf
+      describe "when claim is set but empty" $ do
+        let claims = emptyClaimsSet & set claimAud (Just (Audience []))
+        it "cannot be validated" $
+          runReader (validateClaimsSet conf claims) now `shouldBe` False
+      describe "when claim is nonempty but predicate does not match any value" $ do
+        let claims = emptyClaimsSet & set claimAud (Just (Audience ["foo", "bar"]))
+        it "cannot be validated" $
+          runReader (validateClaimsSet conf' claims) now `shouldBe` False
+      describe "when claim is nonempty and predicate matches a value" $ do
+        let claims = emptyClaimsSet & set claimAud (Just (Audience ["foo", "bar", "baz"]))
+        it "cannot be validated" $
+          runReader (validateClaimsSet conf' claims) now `shouldBe` True
+
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
       (decode "[\"foo\"]" >>= headMay >>= getString) `shouldBe` Just "foo"
