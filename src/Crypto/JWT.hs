@@ -12,8 +12,10 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 {-|
 
@@ -32,6 +34,11 @@ module Crypto.JWT
   , claimSub
   , unregisteredClaims
   , addClaim
+
+  , JWTValidationSettings
+  , defaultJWTValidationSettings
+  , HasJWTValidationSettings(..)
+  , HasAllowedSkew(..)
 
   , createJWSJWT
   , validateJWSJWT
@@ -57,18 +64,17 @@ import Control.Monad.Time (MonadTime(..))
 import Data.Bifunctor
 import Data.Maybe
 
-import Control.Lens (makeLenses, makePrisms, over, view)
-import Control.Monad.State (State, execState)
+import Control.Lens (Lens', makeClassy, makeLenses, makePrisms, over, view)
+import Control.Monad.State (State, execState, put)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
-import Data.Time (UTCTime, addUTCTime)
+import Data.Time (NominalDiffTime, UTCTime, addUTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Network.URI (parseURI)
 
 import Crypto.JOSE
-import Crypto.JOSE.JWS.Internal (defaultValidationSettings)
 import Crypto.JOSE.Types
 
 
@@ -231,48 +237,61 @@ instance ToJSON ClaimsSet where
     ] ++ M.toList (filterUnregistered o)
 
 
+data JWTValidationSettings = JWTValidationSettings
+  { _jwtValidationSettingsValidationSettings :: ValidationSettings
+  , _jwtValidationSettingsAllowedSkew :: NominalDiffTime
+  -- ^ The allowed skew is interpreted in absolute terms;
+  --   a nonzero value always expands the validity period.
+  }
+makeClassy ''JWTValidationSettings
+
+instance HasValidationSettings JWTValidationSettings where
+  validationSettings = jwtValidationSettingsValidationSettings
+
+class HasAllowedSkew s where
+  allowedSkew :: Lens' s NominalDiffTime
+
+instance HasJWTValidationSettings a => HasAllowedSkew a where
+  allowedSkew = jwtValidationSettingsAllowedSkew
+
+defaultJWTValidationSettings :: JWTValidationSettings
+defaultJWTValidationSettings = JWTValidationSettings
+  defaultValidationSettings
+  0
+
 -- | Validate the claims made by a ClaimsSet. Currently only inspects
 -- the /exp/ and /nbf/ claims. N.B. These checks are also performed by
 -- 'validateJWSJWT', which also validates any signatures, so you
 -- shouldn’t need to use this directly in the normal course of things.
 --
 validateClaimsSet
-  :: MonadTime m
-  => State ValidationSettings z
+  :: (MonadTime m, HasAllowedSkew a)
+  => a
   -> ClaimsSet
   -> m Bool
-validateClaimsSet configure claims =
-  let
-    conf = execState configure defaultValidationSettings
-  in
-    and <$> sequence [ validateExpClaim conf claims
-                     , validateNbfClaim conf claims
-                     ]
+validateClaimsSet conf claims =
+  and <$> sequence [ validateExpClaim conf claims
+                   , validateNbfClaim conf claims
+                   ]
 
 validateExpClaim
-  :: MonadTime m
-  => ValidationSettings
+  :: (MonadTime m, HasAllowedSkew a)
+  => a
   -> ClaimsSet
   -> m Bool
-validateExpClaim conf (ClaimsSet _ _ _ (Just e) _ _ _ _) =
-  let
-    skew = view validationAllowedSkew conf
-  in do
-    now <- currentTime
-    return $ now < addUTCTime (abs skew) (view _NumericDate e)
+validateExpClaim conf (ClaimsSet _ _ _ (Just e) _ _ _ _) = do
+  now <- currentTime
+  return $ now < addUTCTime (abs (view allowedSkew conf)) (view _NumericDate e)
 validateExpClaim _ _ = return True
 
 validateNbfClaim
-  :: MonadTime m
-  => ValidationSettings
+  :: (MonadTime m, HasAllowedSkew conf)
+  => conf
   -> ClaimsSet
   -> m Bool
-validateNbfClaim conf (ClaimsSet _ _ _ _ (Just n) _ _ _) =
-  let
-    skew = view validationAllowedSkew conf
-  in do
-    now <- currentTime
-    return $ now >= addUTCTime (negate (abs skew)) (view _NumericDate n)
+validateNbfClaim conf (ClaimsSet _ _ _ _ (Just n) _ _ _) = do
+  now <- currentTime
+  return $ now >= addUTCTime (negate (abs (view allowedSkew conf))) (view _NumericDate n)
 validateNbfClaim _ _ = return True
 
 
@@ -309,15 +328,19 @@ instance ToCompact JWT where
 --
 validateJWSJWT
   :: MonadTime m
-  => State ValidationSettings z
+  => State JWTValidationSettings z
   -> JWK
   -> JWT
   -> m Bool
-validateJWSJWT conf k (JWT (JWTJWS jws) c) =
+validateJWSJWT configure k (JWT (JWTJWS jws) c) =
+  let
+    conf = execState configure defaultJWTValidationSettings
+    jwsConfigure = put (view validationSettings conf)
   -- It is important, for security reasons, that the signature get
   -- verified before the claims.
-  (&&) <$> pure (verifyJWS conf k jws)
-       <*> validateClaimsSet conf c
+  in
+    (&&) <$> pure (verifyJWS jwsConfigure k jws)
+         <*> validateClaimsSet conf c
 
 -- | Create a JWT that is a JWS.
 --

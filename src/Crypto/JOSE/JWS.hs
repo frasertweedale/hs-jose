@@ -32,11 +32,13 @@ module Crypto.JOSE.JWS
   , jwsPayload
   , signJWS
 
+  , HasValidationSettings(..)
+  , HasAlgorithms(..)
+  , HasValidationPolicy(..)
+
   , ValidationPolicy(..)
   , ValidationSettings
-  , validationAlgorithms
-  , validationPolicy
-  , validationAllowedSkew
+  , defaultValidationSettings
   , verifyJWS
   ) where
 

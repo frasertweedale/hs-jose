@@ -13,6 +13,8 @@
 -- limitations under the License.
 
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_HADDOCK hide #-}
@@ -40,7 +42,6 @@ import Data.List.NonEmpty (NonEmpty(..), toList)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import Data.Time (NominalDiffTime)
 
 import Crypto.JOSE.Compact
 import Crypto.JOSE.Error
@@ -281,13 +282,20 @@ data ValidationPolicy
   deriving (Eq)
 
 data ValidationSettings = ValidationSettings
-  { _validationAlgorithms :: S.Set JWA.JWS.Alg
-  , _validationPolicy :: ValidationPolicy
-  , _validationAllowedSkew :: NominalDiffTime
-  -- ^ The allowed skew is interpreted in absolute terms;
-  --   a nonzero value always expands the validity period.
-  } deriving (Eq)
-makeLenses ''ValidationSettings
+  { _validationSettingsAlgorithms :: S.Set JWA.JWS.Alg
+  , _validationSettingsValidationPolicy :: ValidationPolicy
+  }
+makeClassy ''ValidationSettings
+
+class HasAlgorithms s where
+  algorithms :: Lens' s (S.Set JWA.JWS.Alg)
+class HasValidationPolicy s where
+  validationPolicy :: Lens' s ValidationPolicy
+
+instance HasValidationSettings a => HasAlgorithms a where
+  algorithms = validationSettingsAlgorithms
+instance HasValidationSettings a => HasValidationPolicy a where
+  validationPolicy = validationSettingsValidationPolicy
 
 defaultValidationSettings :: ValidationSettings
 defaultValidationSettings = ValidationSettings
@@ -298,7 +306,6 @@ defaultValidationSettings = ValidationSettings
     , JWA.JWS.PS256, JWA.JWS.PS384, JWA.JWS.PS512
     ] )
   AllValidated
-  0
 
 
 -- | Verify a JWS.
@@ -319,7 +326,7 @@ verifyJWS
 verifyJWS configure k (JWS p sigs) =
   let
     conf = execState configure defaultValidationSettings
-    algs = conf ^. validationAlgorithms
+    algs = conf ^. algorithms
     policy = conf ^. validationPolicy
     shouldValidateSig = maybe False (`elem` algs) . algorithm
     applyPolicy AnyValidated xs = or xs

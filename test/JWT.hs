@@ -22,6 +22,7 @@ import Data.Maybe
 
 import Control.Lens
 import Control.Monad.Reader (MonadReader(..), Reader, runReader)
+import Control.Monad.State (execState)
 import Control.Monad.Time (MonadTime(..))
 import Data.Aeson hiding ((.=))
 import Data.HashMap.Strict (insert)
@@ -53,6 +54,9 @@ instance MonadTime (Reader UTCTime) where
 
 spec :: Spec
 spec = do
+  let configure = algorithms .= (S.singleton None)
+  let conf = execState configure defaultJWTValidationSettings
+
   describe "JWT Claims Set" $ do
     it "parses from JSON correctly" $
       let
@@ -89,19 +93,19 @@ spec = do
             runReader (validateClaimsSet conf exampleClaimsSet) now
               `shouldBe` False
           it "cannot be validated if nonzero skew tolerance < delta" $
-            let conf' = conf >> validationAllowedSkew .= 1
+            let conf' = set allowedSkew 1 conf
             in runReader (validateClaimsSet conf' exampleClaimsSet) now
               `shouldBe` False
           it "can be validated if nonzero skew tolerance = delta" $
-            let conf' = conf >> validationAllowedSkew .= 2
+            let conf' = set allowedSkew 2 conf
             in runReader (validateClaimsSet conf' exampleClaimsSet) now
               `shouldBe` True
           it "can be validated if nonzero skew tolerance > delta" $
-            let conf' = conf >> validationAllowedSkew .= 3
+            let conf' = set allowedSkew 3 conf
             in runReader (validateClaimsSet conf' exampleClaimsSet) now
               `shouldBe` True
-          it "can be validated if negative skew tolerance = delta" $
-            let conf' = conf >> validationAllowedSkew .= 3
+          it "can be validated if negative skew tolerance = -delta" $
+            let conf' = set allowedSkew (-2) conf
             in runReader (validateClaimsSet conf' exampleClaimsSet) now
               `shouldBe` True
 
@@ -117,19 +121,19 @@ spec = do
               runReader (validateClaimsSet conf claimsSet) now
                 `shouldBe` False
             it "cannot be validated if nonzero skew tolerance < delta" $
-              let conf' = conf >> validationAllowedSkew .= 1
+              let conf' = set allowedSkew 1 conf
               in runReader (validateClaimsSet conf' claimsSet) now
                 `shouldBe` False
             it "can be validated if nonzero skew tolerance = delta" $
-              let conf' = conf >> validationAllowedSkew .= 2
+              let conf' = set allowedSkew 2 conf
               in runReader (validateClaimsSet conf' claimsSet) now
                 `shouldBe` True
             it "can be validated if nonzero skew tolerance > delta" $
-              let conf' = conf >> validationAllowedSkew .= 3
+              let conf' = set allowedSkew 3 conf
               in runReader (validateClaimsSet conf' claimsSet) now
                 `shouldBe` True
-            it "can be validated if negative skew tolerance = delta" $
-              let conf' = conf >> validationAllowedSkew .= 3
+            it "can be validated if negative skew tolerance = -delta" $
+              let conf' = set allowedSkew (-2) conf
               in runReader (validateClaimsSet conf' claimsSet) now
                 `shouldBe` True
 
@@ -218,7 +222,7 @@ spec = do
         in
           it "can be decoded and validated" $ do
             fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-            fmap (run . validateJWSJWT conf k) jwt `shouldBe` Right True
+            fmap (run . validateJWSJWT configure k) jwt `shouldBe` Right True
 
       describe "when the current time is after the Expiration Time" $
         let
@@ -227,5 +231,4 @@ spec = do
         in
           it "can be decoded, but not validated" $ do
             fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-            fmap (run . validateJWSJWT conf k) jwt `shouldBe` Right False
-              where conf = validationAlgorithms .= S.singleton None
+            fmap (run . validateJWSJWT configure k) jwt `shouldBe` Right False
