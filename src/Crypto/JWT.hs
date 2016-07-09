@@ -269,7 +269,7 @@ defaultJWTValidationSettings :: JWTValidationSettings
 defaultJWTValidationSettings = JWTValidationSettings
   defaultValidationSettings
   0
-  (const True)
+  (const False)
 
 -- | Validate the claims made by a ClaimsSet. Currently only inspects
 -- the /exp/ and /nbf/ claims. N.B. These checks are also performed by
