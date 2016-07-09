@@ -63,6 +63,7 @@ import Control.Monad
 import Control.Monad.Time (MonadTime(..))
 import Data.Bifunctor
 import Data.Maybe
+import qualified Data.String
 
 import Control.Lens (Lens', makeClassy, makeLenses, makePrisms, over, view)
 import Control.Monad.State (State, execState, put)
@@ -85,6 +86,9 @@ import Crypto.JOSE.Types
 --   character MUST be a URI.
 --
 data StringOrURI = Arbitrary T.Text | OrURI URI deriving (Eq, Show)
+
+instance Data.String.IsString StringOrURI where
+  fromString = Arbitrary . T.pack
 
 -- | Construct a 'StringOrURI' from text
 --
