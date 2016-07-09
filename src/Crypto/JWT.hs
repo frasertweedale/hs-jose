@@ -143,14 +143,14 @@ instance ToJSON NumericDate where
 -- /aud/ value MAY be a single case-sensitive string containing a
 -- 'StringOrURI' value.
 --
-data Audience = General [StringOrURI] | Special StringOrURI deriving (Eq, Show)
+newtype Audience = Audience [StringOrURI] deriving (Eq, Show)
+makePrisms ''Audience
 
 instance FromJSON Audience where
-  parseJSON v = fmap General (parseJSON v) <|> fmap Special (parseJSON v)
+  parseJSON v = Audience <$> (parseJSON v <|> fmap (:[]) (parseJSON v))
 
 instance ToJSON Audience where
-  toJSON (General auds) = toJSON auds
-  toJSON (Special aud)  = toJSON aud
+  toJSON (Audience auds) = toJSON auds
 
 
 -- | The JWT Claims Set represents a JSON object whose members are
