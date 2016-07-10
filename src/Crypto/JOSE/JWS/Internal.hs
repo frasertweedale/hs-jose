@@ -233,25 +233,28 @@ signingInput h p = BS.intercalate "."
 --
 instance ToCompact JWS where
   toCompact (JWS p [Signature h _ s]) =
-    Right [BSL.fromStrict $ signingInput h p, BSL.fromStrict $ toBytes s]
-  toCompact (JWS _ xs) = Left $ CompactEncodeError $
+    pure [BSL.fromStrict $ signingInput h p, BSL.fromStrict $ toBytes s]
+  toCompact (JWS _ xs) = throwError $ review _CompactEncodeError $
     "cannot compact serialize JWS with " ++ show (length xs) ++ " sigs"
 
 instance FromCompact JWS where
   fromCompact xs = case xs of
-    [h, p, s] -> do
-      h' <- decodeArmour $ T.decodeUtf8 $ BSL.toStrict h
-      p' <- decodeS "payload" p
-      s' <- decodeS "signature" s
-      return $ JWS p' [Signature (Just h') Nothing s']
-    xs' -> Left $ compactErr "compact representation"
+    [h, p, s] ->
+      let
+        m = do
+          h' <- decodeArmour $ T.decodeUtf8 $ BSL.toStrict h
+          p' <- decodeS "payload" p
+          s' <- decodeS "signature" s
+          pure $ JWS p' [Signature (Just h') Nothing s']
+      in either (throwError . review _Error) pure m
+    xs' -> throwError $ compactErr "compact representation"
       $ "expected 3 parts, got " ++ show (length xs')
     where
-      compactErr s = CompactDecodeError . ((s ++ " decode failed: ") ++)
+      compactErr s = review _CompactDecodeError . ((s ++ " decode failed: ") ++)
       decodeS desc s =
         first (compactErr desc)
           (A.eitherResult $ A.parse P.value $ BSL.intercalate s ["\"", "\""])
-        >>= first JSONDecodeError . parseEither parseJSON
+        >>= first (review _JSONDecodeError) . parseEither parseJSON
 
 
 -- §5.1. Message Signing or MACing

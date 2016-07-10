@@ -216,12 +216,10 @@ spec = do
 
     describe "when the current time is prior to the Expiration Time" $
       it "can be decoded and validated" $ do
-        fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-        fmap (flip runReaderT (utcTime "2010-01-01 00:00:00") . validateJWSJWT conf k) jwt
-          `shouldBe` Right (Right () :: Either JWTError ())
+        runReaderT (jwt >>= validateJWSJWT conf k) (utcTime "2010-01-01 00:00:00")
+          `shouldBe` (Right () :: Either JWTError ())
 
     describe "when the current time is after the Expiration Time" $
       it "can be decoded, but not validated" $ do
-        fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-        fmap (flip runReaderT (utcTime "2012-01-01 00:00:00") . validateJWSJWT conf k) jwt
-          `shouldBe` Right (Left JWTExpired)
+        runReaderT (jwt >>= validateJWSJWT conf k) (utcTime "2012-01-01 00:00:00")
+          `shouldBe` Left JWTExpired

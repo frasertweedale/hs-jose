@@ -13,7 +13,6 @@
 -- limitations under the License.
 
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -66,7 +65,6 @@ module Crypto.JWT
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Time (MonadTime(..))
-import Data.Bifunctor
 import Data.Maybe
 import qualified Data.String
 
@@ -368,9 +366,10 @@ data JWT = JWT
 
 instance FromCompact JWT where
   fromCompact = fromCompact >=> toJWT where
-    toJWT (JWTJWS jws) =
-      bimap CompactDecodeError (JWT (JWTJWS jws))
-        $ eitherDecode $ jwsPayload jws
+    toJWT (JWTJWS jws) = either
+      (throwError . review _CompactDecodeError)
+      (pure . JWT (JWTJWS jws))
+      (eitherDecode $ jwsPayload jws)
 
 instance ToCompact JWT where
   toCompact = toCompact . jwtCrypto
@@ -383,7 +382,7 @@ validateJWSJWT
   ::
     ( MonadTime m, HasAllowedSkew a, HasAudiencePredicate a
     , HasValidationSettings a
-    , AsJWTError e, MonadError e m
+    , AsError e, AsJWTError e, MonadError e m
     )
   => a
   -> JWK

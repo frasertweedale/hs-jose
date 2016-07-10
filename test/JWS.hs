@@ -26,6 +26,7 @@ import qualified Data.ByteString.Base64.URL as B64U
 import Test.Hspec
 
 import Crypto.JOSE.Compact
+import Crypto.JOSE.Error (Error)
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
@@ -114,10 +115,12 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
   -- round-trip checks out
   --
   it "decodes the example to the correct value" $
-    decodeCompact compactJWS `shouldBe` Right jws
+    decodeCompact compactJWS
+      `shouldBe` (Right jws :: Either Error JWS)
 
   it "round-trips correctly" $
-    (encodeCompact jws >>= decodeCompact) `shouldBe` Right jws
+    (encodeCompact jws >>= decodeCompact)
+      `shouldBe` (Right jws :: Either Error JWS)
 
   it "computes the HMAC correctly" $
     fst (withDRG drg $ sign alg (jwk ^. jwkMaterial) (L.toStrict signingInput'))
@@ -125,7 +128,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
 
   it "validates the JWS correctly" $
     (decodeCompact compactJWS >>= verifyJWS defaultValidationSettings jwk)
-      `shouldBe` Right ()
+      `shouldBe` (Right () :: Either Error ())
 
   where
     signingInput' = "\

@@ -23,28 +23,29 @@ functions for working with such data.
 -}
 module Crypto.JOSE.Compact where
 
+import Control.Monad.Except (MonadError)
 import qualified Data.ByteString.Lazy as L
 
-import Crypto.JOSE.Error
+import Crypto.JOSE.Error (AsError)
 
 
 -- | Data that can be parsed from a compact representation.
 --
 class FromCompact a where
-  fromCompact :: [L.ByteString] -> Either Error a
+  fromCompact :: (AsError e, MonadError e m) => [L.ByteString] -> m a
 
 -- | Decode a compact representation.
 --
-decodeCompact :: FromCompact a => L.ByteString -> Either Error a
+decodeCompact :: (FromCompact a, AsError e, MonadError e m) => L.ByteString -> m a
 decodeCompact = fromCompact . L.split 46
 
 
 -- | Data that can be converted to a compact representation.
 --
 class ToCompact a where
-  toCompact :: a -> Either Error [L.ByteString]
+  toCompact :: (AsError e, MonadError e m) => a -> m [L.ByteString]
 
 -- | Encode data to a compact representation.
 --
-encodeCompact :: ToCompact a => a -> Either Error L.ByteString
+encodeCompact :: (ToCompact a, AsError e, MonadError e m) => a -> m L.ByteString
 encodeCompact = fmap (L.intercalate ".") . toCompact
