@@ -55,8 +55,7 @@ instance Monad m => MonadTime (ReaderT UTCTime m) where
 
 spec :: Spec
 spec = do
-  let configure = algorithms .= (S.singleton None)
-  let conf = execState configure defaultJWTValidationSettings
+  let conf = set algorithms (S.singleton None) defaultJWTValidationSettings
 
   describe "JWT Claims Set" $ do
     it "parses from JSON correctly" $
@@ -218,11 +217,11 @@ spec = do
     describe "when the current time is prior to the Expiration Time" $
       it "can be decoded and validated" $ do
         fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-        fmap (flip runReaderT (utcTime "2010-01-01 00:00:00") . validateJWSJWT configure k) jwt
+        fmap (flip runReaderT (utcTime "2010-01-01 00:00:00") . validateJWSJWT conf k) jwt
           `shouldBe` Right (Right () :: Either JWTError ())
 
     describe "when the current time is after the Expiration Time" $
       it "can be decoded, but not validated" $ do
         fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-        fmap (flip runReaderT (utcTime "2012-01-01 00:00:00") . validateJWSJWT configure k) jwt
+        fmap (flip runReaderT (utcTime "2012-01-01 00:00:00") . validateJWSJWT conf k) jwt
           `shouldBe` Right (Left JWTExpired)

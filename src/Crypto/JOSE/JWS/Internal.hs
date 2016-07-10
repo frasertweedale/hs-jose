@@ -23,7 +23,6 @@ module Crypto.JOSE.JWS.Internal where
 
 import Control.Applicative ((<|>))
 import Control.Monad ((>=>), when, unless)
-import Control.Monad.State (State, execState)
 import Data.Bifunctor
 import Data.Maybe
 
@@ -319,14 +318,16 @@ defaultValidationSettings = ValidationSettings
 -- prior to calling 'verifyJWS'.
 --
 verifyJWS
-  :: State ValidationSettings z
+  :: (HasAlgorithms a, HasValidationPolicy a)
+  => a
   -> JWK
   -> JWS
   -> Bool
-verifyJWS configure k (JWS p sigs) =
+verifyJWS conf k (JWS p sigs) =
   let
-    conf = execState configure defaultValidationSettings
+    algs :: S.Set JWA.JWS.Alg
     algs = conf ^. algorithms
+    policy :: ValidationPolicy
     policy = conf ^. validationPolicy
     shouldValidateSig = maybe False (`elem` algs) . algorithm
     applyPolicy AnyValidated xs = or xs

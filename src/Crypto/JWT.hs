@@ -73,7 +73,6 @@ import Control.Lens (
   makeClassy, makeClassyPrisms, makeLenses, makePrisms,
   Lens', _Just, over, preview, review, view)
 import Control.Monad.Except (MonadError(throwError))
-import Control.Monad.State (State, execState, put)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
@@ -377,18 +376,20 @@ instance ToCompact JWT where
 -- Set.
 --
 validateJWSJWT
-  :: (MonadTime m, AsJWTError e, MonadError e m)
-  => State JWTValidationSettings z
+  ::
+    ( MonadTime m, HasAllowedSkew a, HasAudiencePredicate a
+    , HasValidationSettings a
+    , AsJWTError e, MonadError e m
+    )
+  => a
   -> JWK
   -> JWT
   -> m ()
-validateJWSJWT configure k (JWT (JWTJWS jws) c) = do
+validateJWSJWT conf k (JWT (JWTJWS jws) c) = do
   -- It is important, for security reasons, that the signature get
   -- verified before the claims.
   let
-    conf = execState configure defaultJWTValidationSettings
-    jwsConfigure = put (view validationSettings conf)
-    sigGood = verifyJWS jwsConfigure k jws
+    sigGood = verifyJWS conf k jws
   if sigGood then pure () else throwError (review _JWTNotInAudience ()) -- FIXME
   validateClaimsSet conf c
 

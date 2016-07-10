@@ -81,4 +81,4 @@ checkSignJWS k signResult = case signResult of
     assert False
   Right jws -> do
     monitor (counterexample "Failed to verify")
-    assert (verifyJWS (return ()) k jws)
+    assert (verifyJWS defaultValidationSettings k jws)
