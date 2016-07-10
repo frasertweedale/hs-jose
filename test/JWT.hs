@@ -21,10 +21,11 @@ module JWT where
 import Data.Maybe
 
 import Control.Lens
-import Control.Monad.Reader (MonadReader(..), Reader, runReader)
+import Control.Monad.Reader (MonadReader(..), ReaderT, runReaderT)
 import Control.Monad.State (execState)
 import Control.Monad.Time (MonadTime(..))
 import Data.Aeson hiding ((.=))
+import Data.Functor.Identity (runIdentity)
 import Data.HashMap.Strict (insert)
 import qualified Data.Set as S
 import Data.Time
@@ -49,7 +50,7 @@ exampleClaimsSet = emptyClaimsSet
   & over unregisteredClaims (insert "http://example.com/is_root" (Bool True))
   & addClaim "http://example.com/is_root" (Bool True)
 
-instance MonadTime (Reader UTCTime) where
+instance Monad m => MonadTime (ReaderT UTCTime m) where
   currentTime = ask
 
 spec :: Spec
@@ -71,146 +72,124 @@ spec = do
       decode (encode exampleClaimsSet) `shouldBe` Just exampleClaimsSet
 
     describe "with an Expiration Time claim" $ do
-      describe "when the current time is prior to the Expiration Time" $
-        let
-          now = utcTime "2010-01-01 00:00:00"
-        in
-          it "can be validated" $
-            runReader (validateClaimsSet conf exampleClaimsSet) now `shouldBe` True
+      describe "when the current time is prior to the Expiration Time" $ do
+        let now = utcTime "2010-01-01 00:00:00"
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf exampleClaimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
 
-      describe "when the current time is exactly the Expiration Time" $
-        let
-          now = utcTime "2011-03-22 18:43:00"
-        in
-          it "cannot be validated" $
-            runReader (validateClaimsSet conf exampleClaimsSet) now `shouldBe` False
+      describe "when the current time is exactly the Expiration Time" $ do
+        let now = utcTime "2011-03-22 18:43:00"
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf exampleClaimsSet) now
+            `shouldBe` Left JWTExpired
 
-      describe "when the current time is after the Expiration Time" $
-        let
-          now = utcTime "2011-03-22 18:43:01"  -- 1s after expiry
-        in do
-          it "cannot be validated" $
-            runReader (validateClaimsSet conf exampleClaimsSet) now
-              `shouldBe` False
-          it "cannot be validated if nonzero skew tolerance < delta" $
-            let conf' = set allowedSkew 1 conf
-            in runReader (validateClaimsSet conf' exampleClaimsSet) now
-              `shouldBe` False
-          it "can be validated if nonzero skew tolerance = delta" $
-            let conf' = set allowedSkew 2 conf
-            in runReader (validateClaimsSet conf' exampleClaimsSet) now
-              `shouldBe` True
-          it "can be validated if nonzero skew tolerance > delta" $
-            let conf' = set allowedSkew 3 conf
-            in runReader (validateClaimsSet conf' exampleClaimsSet) now
-              `shouldBe` True
-          it "can be validated if negative skew tolerance = -delta" $
-            let conf' = set allowedSkew (-2) conf
-            in runReader (validateClaimsSet conf' exampleClaimsSet) now
-              `shouldBe` True
+      describe "when the current time is after the Expiration Time" $ do
+        let now = utcTime "2011-03-22 18:43:01"  -- 1s after expiry
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf exampleClaimsSet) now
+            `shouldBe` Left JWTExpired
+        it "cannot be validated if nonzero skew tolerance < delta" $
+          let conf' = set allowedSkew 1 conf
+          in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
+            `shouldBe` Left JWTExpired
+        it "can be validated if nonzero skew tolerance = delta" $
+          let conf' = set allowedSkew 2 conf
+          in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
+        it "can be validated if nonzero skew tolerance > delta" $
+          let conf' = set allowedSkew 3 conf
+          in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
+        it "can be validated if negative skew tolerance = -delta" $
+          let conf' = set allowedSkew (-2) conf
+          in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
 
-    describe "with a Not Before claim" $
+    describe "with a Not Before claim" $ do
       let
         claimsSet = emptyClaimsSet & claimNbf .~ intDate "2016-07-05 17:37:22"
-      in do
-        describe "when the current time is prior to the Not Before claim" $
-          let
-            now = utcTime "2016-07-05 17:37:20" -- 2s before nbf
-          in do
-            it "cannot be validated" $
-              runReader (validateClaimsSet conf claimsSet) now
-                `shouldBe` False
-            it "cannot be validated if nonzero skew tolerance < delta" $
-              let conf' = set allowedSkew 1 conf
-              in runReader (validateClaimsSet conf' claimsSet) now
-                `shouldBe` False
-            it "can be validated if nonzero skew tolerance = delta" $
-              let conf' = set allowedSkew 2 conf
-              in runReader (validateClaimsSet conf' claimsSet) now
-                `shouldBe` True
-            it "can be validated if nonzero skew tolerance > delta" $
-              let conf' = set allowedSkew 3 conf
-              in runReader (validateClaimsSet conf' claimsSet) now
-                `shouldBe` True
-            it "can be validated if negative skew tolerance = -delta" $
-              let conf' = set allowedSkew (-2) conf
-              in runReader (validateClaimsSet conf' claimsSet) now
-                `shouldBe` True
+      describe "when the current time is prior to the Not Before claim" $ do
+        let now = utcTime "2016-07-05 17:37:20" -- 2s before nbf
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf claimsSet) now
+            `shouldBe` Left JWTNotYetValid
+        it "cannot be validated if nonzero skew tolerance < delta" $
+          let conf' = set allowedSkew 1 conf
+          in runReaderT (validateClaimsSet conf' claimsSet) now
+            `shouldBe` Left JWTNotYetValid
+        it "can be validated if nonzero skew tolerance = delta" $
+          let conf' = set allowedSkew 2 conf
+          in runReaderT (validateClaimsSet conf' claimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
+        it "can be validated if nonzero skew tolerance > delta" $
+          let conf' = set allowedSkew 3 conf
+          in runReaderT (validateClaimsSet conf' claimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
+        it "can be validated if negative skew tolerance = -delta" $
+          let conf' = set allowedSkew (-2) conf
+          in runReaderT (validateClaimsSet conf' claimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
 
-        describe "when the current time is exactly equal to the Not Before claim" $
-          let
-            now = utcTime "2016-07-05 17:37:22"
-          in
-            it "can be validated" $
-              runReader (validateClaimsSet conf claimsSet) now `shouldBe` True
+      describe "when the current time is exactly equal to the Not Before claim" $
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2016-07-05 17:37:22")
+            `shouldBe` (Right () :: Either JWTError ())
 
-        describe "when the current time is after the Not Before claim" $
-          let
-            now = utcTime "2017-01-01 00:00:00"
-          in
-            it "can be validated" $
-              runReader (validateClaimsSet conf claimsSet) now `shouldBe` True
+      describe "when the current time is after the Not Before claim" $
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2017-01-01 00:00:00")
+            `shouldBe` (Right () :: Either JWTError ())
 
-    describe "with Expiration Time and Not Before claims" $
+    describe "with Expiration Time and Not Before claims" $ do
       let
         claimsSet = emptyClaimsSet & claimExp .~ intDate "2011-03-22 18:43:00"
                                    & claimNbf .~ intDate "2011-03-20 17:37:22"
-      in do
-        describe "when the current time is prior to the Not Before claim" $
-          let
-            now = utcTime "2011-03-18 00:00:00"
-          in
-            it "cannot be validated" $
-              runReader (validateClaimsSet conf claimsSet) now `shouldBe` False
-
-        describe "when the current time is exactly equal to the Not Before claim" $
-          let
-            now = utcTime "2011-03-20 17:37:22"
-          in
-            it "can be validated" $
-              runReader (validateClaimsSet conf claimsSet) now `shouldBe` True
-
-        describe "when the current time is between the Not Before and Expiration Time claims" $
-          let
-            now = utcTime "2011-03-21 18:00:00"
-          in
-            it "can be validated" $
-              runReader (validateClaimsSet conf claimsSet) now `shouldBe` True
-
-        describe "when the current time is exactly the Expiration Time" $
-          let
-            now = utcTime "2011-03-22 18:43:00"
-          in
-            it "cannot be validated" $
-              runReader (validateClaimsSet conf claimsSet) now `shouldBe` False
-
-        describe "when the current time is after the Expiration Time claim" $
-          let
-            now = utcTime "2011-03-24 00:00:00"
-          in
-            it "cannot be validated" $
-              runReader (validateClaimsSet conf claimsSet) now `shouldBe` False
+      describe "when the current time is prior to the Not Before claim" $
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-18 00:00:00")
+            `shouldBe` Left JWTNotYetValid
+      describe "when the current time is exactly equal to the Not Before claim" $
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-20 17:37:22")
+            `shouldBe` (Right () :: Either JWTError ())
+      describe "when the current time is between the Not Before and Expiration Time claims" $
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-21 18:00:00")
+            `shouldBe` (Right () :: Either JWTError ())
+      describe "when the current time is exactly the Expiration Time" $
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-22 18:43:00")
+            `shouldBe` Left JWTExpired
+      describe "when the current time is after the Expiration Time claim" $
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-24 00:00:00")
+            `shouldBe` Left JWTExpired
 
     describe "with an Audience claim" $ do
       let now = utcTime "2001-01-01 00:00:00"
-      describe "when claim is set but empty" $ do
-        let claims = emptyClaimsSet & set claimAud (Just (Audience []))
-        it "cannot be validated" $
-          runReader (validateClaimsSet conf claims) now `shouldBe` False
+      let conf' = set audiencePredicate (== "baz") conf
+      let conf'' = set audiencePredicate (const True) conf
       describe "when claim is nonempty, and default predicate is used" $ do
         let claims = emptyClaimsSet & set claimAud (Just (Audience ["foo"]))
         it "cannot be validated" $
-          runReader (validateClaimsSet conf claims) now `shouldBe` False
-
-      let conf' = set audiencePredicate (== "baz") conf
+          runReaderT (validateClaimsSet conf claims) now
+            `shouldBe` Left JWTNotInAudience
       describe "when claim is nonempty but predicate does not match any value" $ do
         let claims = emptyClaimsSet & set claimAud (Just (Audience ["foo", "bar"]))
         it "cannot be validated" $
-          runReader (validateClaimsSet conf' claims) now `shouldBe` False
+          runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` Left JWTNotInAudience
       describe "when claim is nonempty and predicate matches a value" $ do
         let claims = emptyClaimsSet & set claimAud (Just (Audience ["foo", "bar", "baz"]))
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` (Right () :: Either JWTError ())
+      describe "when claim is empty, and predicate is unconditionally true" $ do
+        let claims = emptyClaimsSet & set claimAud (Just (Audience []))
         it "cannot be validated" $
-          runReader (validateClaimsSet conf' claims) now `shouldBe` True
+          runReaderT (validateClaimsSet conf'' claims) now
+            `shouldBe` Left JWTNotInAudience
 
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
@@ -226,7 +205,7 @@ spec = do
       decode "[1382245921]" `shouldBe` fmap (:[]) (intDate "2013-10-20 05:12:01")
       decode "[\"notnum\"]"       `shouldBe` (Nothing :: Maybe [NumericDate])
 
-  describe "§6.1.  Example Unsecured JWT" $
+  describe "§6.1.  Example Unsecured JWT" $ do
     let
       exampleJWT = "eyJhbGciOiJub25lIn0\
         \.\
@@ -235,21 +214,15 @@ spec = do
         \."
       jwt = decodeCompact exampleJWT
       k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
-    in do
-      describe "when the current time is prior to the Expiration Time" $
-        let
-          now = utcTime "2010-01-01 00:00:00"
-          run = flip runReader now
-        in
-          it "can be decoded and validated" $ do
-            fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-            fmap (run . validateJWSJWT configure k) jwt `shouldBe` Right True
 
-      describe "when the current time is after the Expiration Time" $
-        let
-          now = utcTime "2012-01-01 00:00:00"
-          run = flip runReader now
-        in
-          it "can be decoded, but not validated" $ do
-            fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
-            fmap (run . validateJWSJWT configure k) jwt `shouldBe` Right False
+    describe "when the current time is prior to the Expiration Time" $
+      it "can be decoded and validated" $ do
+        fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
+        fmap (flip runReaderT (utcTime "2010-01-01 00:00:00") . validateJWSJWT configure k) jwt
+          `shouldBe` Right (Right () :: Either JWTError ())
+
+    describe "when the current time is after the Expiration Time" $
+      it "can be decoded, but not validated" $ do
+        fmap jwtClaimsSet jwt `shouldBe` Right exampleClaimsSet
+        fmap (flip runReaderT (utcTime "2012-01-01 00:00:00") . validateJWSJWT configure k) jwt
+          `shouldBe` Right (Left JWTExpired)

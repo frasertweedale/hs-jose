@@ -12,6 +12,8 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE TemplateHaskell #-}
+
 {-|
 
 JOSE error types.
@@ -24,6 +26,7 @@ module Crypto.JOSE.Error
 
 import qualified Crypto.PubKey.RSA as RSA
 import Crypto.Error (CryptoError)
+import Control.Lens.TH (makeClassyPrisms)
 
 -- | All the errors that can occur.
 --
@@ -43,3 +46,4 @@ data Error
   | JWSCritUnprotected
   | JWSDuplicateHeaderParameter
   deriving (Eq, Show)
+makeClassyPrisms ''Error

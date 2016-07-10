@@ -25,15 +25,9 @@ JSON Web Token implementation.
 module Crypto.JWT
   (
     JWT(..)
-  , claimAud
-  , claimExp
-  , claimIat
-  , claimIss
-  , claimJti
-  , claimNbf
-  , claimSub
-  , unregisteredClaims
-  , addClaim
+
+  , JWTError(..)
+  , AsJWTError(..)
 
   , JWTValidationSettings
   , defaultJWTValidationSettings
@@ -44,7 +38,16 @@ module Crypto.JWT
   , createJWSJWT
   , validateJWSJWT
 
-  , ClaimsSet(..)
+  , ClaimsSet(..) -- TODO hide fields
+  , claimAud
+  , claimExp
+  , claimIat
+  , claimIss
+  , claimJti
+  , claimNbf
+  , claimSub
+  , unregisteredClaims
+  , addClaim
   , emptyClaimsSet
   , validateClaimsSet
 
@@ -67,7 +70,9 @@ import Data.Maybe
 import qualified Data.String
 
 import Control.Lens (
-  Lens', _Just, makeClassy, makeLenses, makePrisms, over, preview, view)
+  makeClassy, makeClassyPrisms, makeLenses, makePrisms,
+  Lens', _Just, over, preview, review, view)
+import Control.Monad.Except (MonadError(throwError))
 import Control.Monad.State (State, execState, put)
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
@@ -79,6 +84,15 @@ import Network.URI (parseURI)
 
 import Crypto.JOSE
 import Crypto.JOSE.Types
+
+
+data JWTError
+  = JWSError Error
+  | JWTExpired
+  | JWTNotYetValid
+  | JWTNotInAudience
+  deriving (Eq, Show)
+makeClassyPrisms ''JWTError
 
 
 -- §2.  Terminology
@@ -277,43 +291,57 @@ defaultJWTValidationSettings = JWTValidationSettings
 -- shouldn’t need to use this directly in the normal course of things.
 --
 validateClaimsSet
-  :: (MonadTime m, HasAllowedSkew a, HasAudiencePredicate a)
+  ::
+    ( MonadTime m, HasAllowedSkew a, HasAudiencePredicate a
+    , AsJWTError e, MonadError e m
+    )
   => a
   -> ClaimsSet
-  -> m Bool
+  -> m ()
 validateClaimsSet conf claims =
-  and <$> sequence [ validateExpClaim conf claims
-                   , validateNbfClaim conf claims
-                   , pure $ validateAudClaim conf claims
-                   ]
+  sequence_
+    [ validateExpClaim conf claims
+    , validateNbfClaim conf claims
+    , validateAudClaim conf claims
+    ]
 
 validateExpClaim
-  :: (MonadTime m, HasAllowedSkew a)
+  :: (MonadTime m, HasAllowedSkew a, AsJWTError e, MonadError e m)
   => a
   -> ClaimsSet
-  -> m Bool
+  -> m ()
 validateExpClaim conf (ClaimsSet _ _ _ (Just e) _ _ _ _) = do
   now <- currentTime
-  return $ now < addUTCTime (abs (view allowedSkew conf)) (view _NumericDate e)
-validateExpClaim _ _ = return True
+  if now < addUTCTime (abs (view allowedSkew conf)) (view _NumericDate e)
+    then pure ()
+    else throwError (review _JWTExpired ())
+validateExpClaim _ _ = pure ()
 
 validateNbfClaim
-  :: (MonadTime m, HasAllowedSkew conf)
-  => conf
+  :: (MonadTime m, HasAllowedSkew a, AsJWTError e, MonadError e m)
+  => a
   -> ClaimsSet
-  -> m Bool
+  -> m ()
 validateNbfClaim conf (ClaimsSet _ _ _ _ (Just n) _ _ _) = do
   now <- currentTime
-  return $ now >= addUTCTime (negate (abs (view allowedSkew conf))) (view _NumericDate n)
-validateNbfClaim _ _ = return True
+  if now >= addUTCTime (negate (abs (view allowedSkew conf))) (view _NumericDate n)
+    then pure ()
+    else throwError (review _JWTNotYetValid ())
+validateNbfClaim _ _ = pure ()
 
 validateAudClaim
-  :: (HasAudiencePredicate s)
+  :: (HasAudiencePredicate s, AsJWTError e, MonadError e m)
   => s
   -> ClaimsSet
-  -> Bool
+  -> m ()
 validateAudClaim conf claims =
-  maybe True (or . fmap (view audiencePredicate conf))
+  maybe
+    (pure ())
+    (\auds ->
+      if or (view audiencePredicate conf <$> auds)
+      then pure ()
+      else throwError (review _JWTNotInAudience ())
+      )
     (preview (claimAud . _Just . _Audience) claims)
 
 
@@ -349,20 +377,20 @@ instance ToCompact JWT where
 -- Set.
 --
 validateJWSJWT
-  :: MonadTime m
+  :: (MonadTime m, AsJWTError e, MonadError e m)
   => State JWTValidationSettings z
   -> JWK
   -> JWT
-  -> m Bool
-validateJWSJWT configure k (JWT (JWTJWS jws) c) =
+  -> m ()
+validateJWSJWT configure k (JWT (JWTJWS jws) c) = do
+  -- It is important, for security reasons, that the signature get
+  -- verified before the claims.
   let
     conf = execState configure defaultJWTValidationSettings
     jwsConfigure = put (view validationSettings conf)
-  -- It is important, for security reasons, that the signature get
-  -- verified before the claims.
-  in
-    (&&) <$> pure (verifyJWS jwsConfigure k jws)
-         <*> validateClaimsSet conf c
+    sigGood = verifyJWS jwsConfigure k jws
+  if sigGood then pure () else throwError (review _JWTNotInAudience ()) -- FIXME
+  validateClaimsSet conf c
 
 -- | Create a JWT that is a JWS.
 --
