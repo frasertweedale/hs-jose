@@ -27,6 +27,7 @@ import Data.Bifunctor
 import Data.Maybe
 
 import Control.Lens hiding ((.=))
+import Control.Monad.Except (MonadError(throwError))
 import Data.Aeson
 import qualified Data.Aeson.Parser as P
 import Data.Aeson.Types
@@ -277,7 +278,8 @@ data ValidationPolicy
   = AnyValidated
   -- ^ One successfully validated signature is sufficient
   | AllValidated
-  -- ^ All signatures for which validation is attempted must be validated
+  -- ^ All signatures in all configured algorithms must be validated.
+  -- No signatures in configured algorithms is also an error.
   deriving (Eq)
 
 data ValidationSettings = ValidationSettings
@@ -318,11 +320,11 @@ defaultValidationSettings = ValidationSettings
 -- prior to calling 'verifyJWS'.
 --
 verifyJWS
-  :: (HasAlgorithms a, HasValidationPolicy a)
+  :: (HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m)
   => a
   -> JWK
   -> JWS
-  -> Bool
+  -> m ()
 verifyJWS conf k (JWS p sigs) =
   let
     algs :: S.Set JWA.JWS.Alg
@@ -330,9 +332,11 @@ verifyJWS conf k (JWS p sigs) =
     policy :: ValidationPolicy
     policy = conf ^. validationPolicy
     shouldValidateSig = maybe False (`elem` algs) . algorithm
-    applyPolicy AnyValidated xs = or xs
-    applyPolicy AllValidated [] = False
-    applyPolicy AllValidated xs = and xs
+    applyPolicy AnyValidated xs =
+      if or xs then pure () else throwError (review _JWSNoValidSignatures ())
+    applyPolicy AllValidated [] = throwError (review _JWSNoSignatures ())
+    applyPolicy AllValidated xs =
+      if and xs then pure () else throwError (review _JWSInvalidSignature ())
     validate = (== Right True) . verifySig k p
   in
     applyPolicy policy $ map validate $ filter shouldValidateSig sigs

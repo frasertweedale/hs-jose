@@ -13,6 +13,7 @@
 -- limitations under the License.
 
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -92,6 +93,9 @@ data JWTError
   | JWTNotInAudience
   deriving (Eq, Show)
 makeClassyPrisms ''JWTError
+
+instance AsJWTError e => AsError e where
+  _Error = _JWSError
 
 
 -- §2.  Terminology
@@ -388,10 +392,7 @@ validateJWSJWT
 validateJWSJWT conf k (JWT (JWTJWS jws) c) = do
   -- It is important, for security reasons, that the signature get
   -- verified before the claims.
-  let
-    sigGood = verifyJWS conf k jws
-  if sigGood then pure () else throwError (review _JWTNotInAudience ()) -- FIXME
-  validateClaimsSet conf c
+  verifyJWS conf k jws >> validateClaimsSet conf c
 
 -- | Create a JWT that is a JWS.
 --

@@ -26,6 +26,7 @@ import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
 import Test.QuickCheck.Instances ()
 
+import Crypto.JOSE.Error (Error)
 import Crypto.JOSE.Types
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
@@ -81,4 +82,5 @@ checkSignJWS k signResult = case signResult of
     assert False
   Right jws -> do
     monitor (counterexample "Failed to verify")
-    assert (verifyJWS defaultValidationSettings k jws)
+    assert (verifyJWS defaultValidationSettings k jws
+      == (Right () :: Either Error ()))

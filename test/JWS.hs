@@ -124,7 +124,8 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
       `shouldBe` Right (BS.pack macOctets)
 
   it "validates the JWS correctly" $
-    fmap (verifyJWS defaultValidationSettings jwk) (decodeCompact compactJWS) `shouldBe` Right True
+    (decodeCompact compactJWS >>= verifyJWS defaultValidationSettings jwk)
+      `shouldBe` Right ()
 
   where
     signingInput' = "\

@@ -22,6 +22,7 @@ JOSE error types.
 module Crypto.JOSE.Error
   (
     Error(..)
+  , AsError(..)
   ) where
 
 import qualified Crypto.PubKey.RSA as RSA
@@ -45,5 +46,11 @@ data Error
   | JWSMissingAlg
   | JWSCritUnprotected
   | JWSDuplicateHeaderParameter
+  | JWSNoValidSignatures
+  -- ^ 'AnyValidated' policy active, and no valid signature encountered
+  | JWSInvalidSignature
+  -- ^ 'AllValidated' policy active, and invalid signature encountered
+  | JWSNoSignatures
+  -- ^ 'AllValidated' policy active, and there were no signatures on object
   deriving (Eq, Show)
 makeClassyPrisms ''Error
