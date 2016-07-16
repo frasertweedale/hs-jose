@@ -19,8 +19,10 @@
 module JWT where
 
 import Data.Maybe
+import Data.Monoid ((<>))
 
 import Control.Lens
+import Control.Lens.Extras (is)
 import Control.Monad.Reader (MonadReader(..), ReaderT, runReaderT)
 import Control.Monad.State (execState)
 import Control.Monad.Time (MonadTime(..))
@@ -223,3 +225,10 @@ spec = do
       it "can be decoded, but not validated" $ do
         runReaderT (jwt >>= validateJWSJWT conf k) (utcTime "2012-01-01 00:00:00")
           `shouldBe` Left JWTExpired
+
+    describe "when signature is invalid and token is expired" $
+      it "fails on sig validation (claim validation not reached)" $ do
+        let jwt' = decodeCompact (exampleJWT <> "badsig")
+        (runReaderT (jwt' >>= validateJWSJWT conf k) (utcTime "2012-01-01 00:00:00")
+          :: Either JWTError ())
+          `shouldSatisfy` is (_Left . _JWSInvalidSignature)
