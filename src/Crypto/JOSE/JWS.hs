@@ -24,8 +24,9 @@ module Crypto.JOSE.JWS
     Alg(..)
 
   , JWSHeader(..)
-  , emptyJWSHeader
   , newJWSHeader
+  , Protection(..)
+  , HeaderParam(..)
 
   , JWS(..)
   , newJWS
