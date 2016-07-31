@@ -39,6 +39,7 @@ import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import qualified Data.HashMap.Strict as M
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Set as S
+import Data.Proxy (Proxy(..))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 
@@ -68,14 +69,15 @@ critInvalidNames = [
 newtype CritParameters = CritParameters (NonEmpty T.Text)
   deriving (Eq, Show)
 
-critObjectParser :: Object -> T.Text -> Parser T.Text
-critObjectParser o s
+critObjectParser :: [T.Text] -> Object -> T.Text -> Parser T.Text
+critObjectParser exts o s
   | s `elem` critInvalidNames = fail "crit key is reserved"
+  | s `notElem` exts          = fail "crit key is not understood"
   | not (s `M.member` o)      = fail "crit key is not present in headers"
   | otherwise                 = pure s
 
-parseCrit :: Object -> NonEmpty T.Text -> Parser CritParameters
-parseCrit o = fmap CritParameters . mapM (critObjectParser o)
+parseCrit :: [T.Text] -> Object -> NonEmpty T.Text -> Parser CritParameters
+parseCrit exts o = fmap CritParameters . mapM (critObjectParser exts o)
   -- TODO fail on duplicate strings
 
 instance FromJSON CritParameters where
@@ -119,6 +121,12 @@ param (HeaderParam _ a) = a
 newJWSHeader :: (Protection, JWA.JWS.Alg) -> JWSHeader
 newJWSHeader alg = JWSHeader (uncurry HeaderParam alg) z z z z z z z z z z
   where z = Nothing
+
+
+class HasParams a where
+  params :: a -> [(Protection, Pair)]
+  extensions :: Proxy a -> [T.Text]
+  extensions = const []
 
 
 {- TODO
@@ -175,7 +183,9 @@ parseHeader hp hu = JWSHeader
   <*> headerOptional "typ" hp hu
   <*> headerOptional "cty" hp hu
   <*> (headerOptionalProtected "crit" hp hu
-    >>= mapM (parseCrit (fromMaybe mempty hp <> fromMaybe mempty hu)))
+    >>= mapM (parseCrit
+      (extensions (Proxy :: Proxy JWSHeader))
+      (fromMaybe mempty hp <> fromMaybe mempty hu)))
 
 -- | This instance will only work for a "complete" header, i.e.
 -- "alg" field is present.  It assumes the header is the protected
@@ -232,9 +242,6 @@ instance ToJSON Signature where
     in
       object $ (pro . unp) [("signature" .= sig)]
 
-
-class HasParams a where
-  params :: a -> [(Protection, Pair)]
 
 instance HasParams JWSHeader where
   params (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =

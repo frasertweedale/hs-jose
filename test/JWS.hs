@@ -94,20 +94,6 @@ headerSpec = describe "(unencoded) Header" $ do
         (newJWSHeader (Protected, JWA.JWS.HS256))
           { headerTyp = Just (HeaderParam Protected "JWT") } )
 
-  {- TODO need proper way to extend JWS with new crit params
-  it "Rejects unprotected \"crit\" header"
-    let
-      s = "{\"payload\":\"\",\"signatures\":[{\"header\":{\"alg\":\"none\"},\"signature\":\"\"}]}"
-    in
-      undefined
-  -}
-
-  it "rejects duplicate headers" $
-    let
-      s = "{\"protected\":\"eyJraWQiOiIifQ\",\"header\":{\"alg\":\"none\",\"kid\":\"\"},\"signature\":\"\"}"
-    in
-      (eitherDecode s :: Either String Signature) `shouldSatisfy` is _Left
-
   it "parses signature correctly" $
     let
       sigJSON =
@@ -119,6 +105,28 @@ headerSpec = describe "(unencoded) Header" $ do
       sig = Signature (Just "eyJhbGciOiJSUzI1NiJ9") h (Types.Base64Octets "")
     in
       eitherDecode sigJSON `shouldBe` Right sig
+
+  it "rejects duplicate headers" $
+    let
+      -- protected header: {"kid":""}
+      s = "{\"protected\":\"eyJraWQiOiIifQ\",\"header\":{\"alg\":\"none\",\"kid\":\"\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String Signature) `shouldSatisfy` is _Left
+
+  it "rejects unknown crit parameters" $
+    let
+      -- protected header: {"crit":["foo"],"foo":""}
+      s = "{\"protected\":\"eyJjcml0IjpbImZvbyJdLCJmb28iOiIifQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String Signature) `shouldSatisfy` is _Left
+
+  {- TODO need proper way to extend JWS with new crit params
+  it "Rejects unprotected \"crit\" header"
+    let
+      s = "{\"payload\":\"\",\"signatures\":[{\"header\":{\"alg\":\"none\"},\"signature\":\"\"}]}"
+    in
+      undefined
+  -}
 
 
 examplePayload :: Types.Base64Octets
