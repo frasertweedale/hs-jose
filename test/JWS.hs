@@ -20,6 +20,7 @@ import Data.Maybe
 import Data.Monoid ((<>))
 
 import Control.Lens
+import Control.Lens.Extras (is)
 import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as L
@@ -82,6 +83,7 @@ critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $
       -}
 
 
+
 headerSpec :: Spec
 headerSpec = describe "(unencoded) Header" $ do
   it "parses from JSON correctly" $
@@ -91,6 +93,20 @@ headerSpec = describe "(unencoded) Header" $ do
       eitherDecode headerJSON `shouldBe` Right (
         (newJWSHeader (Protected, JWA.JWS.HS256))
           { headerTyp = Just (HeaderParam Protected "JWT") } )
+
+  {- TODO need proper way to extend JWS with new crit params
+  it "Rejects unprotected \"crit\" header"
+    let
+      s = "{\"payload\":\"\",\"signatures\":[{\"header\":{\"alg\":\"none\"},\"signature\":\"\"}]}"
+    in
+      undefined
+  -}
+
+  it "rejects duplicate headers" $
+    let
+      s = "{\"protected\":\"eyJraWQiOiIifQ\",\"header\":{\"alg\":\"none\",\"kid\":\"\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String Signature) `shouldSatisfy` is _Left
 
   it "parses signature correctly" $
     let

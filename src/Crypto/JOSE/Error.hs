@@ -42,10 +42,7 @@ data Error
   | CompactEncodeError String -- ^ Cannot produce compact representation of data
   | CompactDecodeError String -- ^ Cannot decode compact representation
   | JSONDecodeError String    -- ^ JSON (Aeson) decoding error
-  | JWSMissingHeader
-  | JWSMissingAlg
   | JWSCritUnprotected
-  | JWSDuplicateHeaderParameter
   | JWSNoValidSignatures
   -- ^ 'AnyValidated' policy active, and no valid signature encountered
   | JWSInvalidSignature

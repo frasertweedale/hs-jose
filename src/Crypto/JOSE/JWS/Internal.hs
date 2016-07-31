@@ -22,7 +22,6 @@
 module Crypto.JOSE.JWS.Internal where
 
 import Control.Applicative ((<|>))
-import Control.Monad ((>=>), when, unless)
 import Data.Bifunctor
 import Data.Maybe
 import Data.Monoid ((<>))
@@ -125,19 +124,7 @@ newJWSHeader alg = JWSHeader (uncurry HeaderParam alg) z z z z z z z z z z
 {- TODO
 checkHeaders :: Signature -> Either Error Signature
 checkHeaders sig@(Signature h h' _) = do
-  unless (isJust h || isJust h') (Left JWSMissingHeader)
-  unless (isJust $ algorithm sig) (Left JWSMissingAlg)
-  when (isJust $ h' >>= headerCrit) (Left JWSCritUnprotected)
-  when hasDup (Left JWSDuplicateHeaderParameter)
-  return sig
-  where
-    isDup f = isJust (h >>= f . (^. value)) && isJust (h' >>= f)
-    hasDup = or
-      [ isDup headerAlg, isDup headerJku, isDup headerJwk
-      , isDup headerKid, isDup headerX5u, isDup headerX5c
-      , isDup headerX5t, isDup headerX5tS256, isDup headerTyp
-      , isDup headerCty
-      ]
+  when (isJust $ h' >>= headerCrit) (Left JWSCritUnprotected) --test
       -}
 
 headerOptional
