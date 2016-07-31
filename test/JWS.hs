@@ -113,6 +113,13 @@ headerSpec = describe "(unencoded) Header" $ do
     in
       (eitherDecode s :: Either String Signature) `shouldSatisfy` is _Left
 
+  it "rejects reserved crit parameters" $
+    let
+      -- protected header: {"crit":["kid"],"kid":""}
+      s = "{\"protected\":\"eyJjcml0IjpbImtpZCJdLCJraWQiOiIifQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String Signature) `shouldSatisfy` is _Left
+
   it "rejects unknown crit parameters" $
     let
       -- protected header: {"crit":["foo"],"foo":""}
