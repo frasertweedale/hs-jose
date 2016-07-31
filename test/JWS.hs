@@ -83,25 +83,16 @@ critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $
       -}
 
 
-
 headerSpec :: Spec
-headerSpec = describe "(unencoded) Header" $ do
-  it "parses from JSON correctly" $
-    let
-      headerJSON = "{\"typ\":\"JWT\",\r\n \"alg\":\"HS256\"}"
-    in
-      eitherDecode headerJSON `shouldBe` Right (
-        (newJWSHeader (Protected, JWA.JWS.HS256))
-          { headerTyp = Just (HeaderParam Protected "JWT") } )
-
+headerSpec = describe "JWS Header" $ do
   it "parses signature correctly" $
     let
       sigJSON =
         "{\"protected\":\"eyJhbGciOiJSUzI1NiJ9\",\
         \ \"header\":{\"kid\":\"2010-12-29\"},\
         \ \"signature\":\"\"}"
-      h = (newJWSHeader (Protected, JWA.JWS.RS256))
-        { headerKid = Just (HeaderParam Unprotected "2010-12-29") }
+      h = newJWSHeader (Protected, JWA.JWS.RS256)
+        & jwsHeaderKid .~ Just (HeaderParam Unprotected "2010-12-29")
       sig = Signature (Just "eyJhbGciOiJSUzI1NiJ9") h (Types.Base64Octets "")
     in
       eitherDecode sigJSON `shouldBe` Right sig
@@ -111,21 +102,24 @@ headerSpec = describe "(unencoded) Header" $ do
       -- protected header: {"kid":""}
       s = "{\"protected\":\"eyJraWQiOiIifQ\",\"header\":{\"alg\":\"none\",\"kid\":\"\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String Signature) `shouldSatisfy` is _Left
+      (eitherDecode s :: Either String (Signature JWSHeader))
+        `shouldSatisfy` is _Left
 
   it "rejects reserved crit parameters" $
     let
       -- protected header: {"crit":["kid"],"kid":""}
       s = "{\"protected\":\"eyJjcml0IjpbImtpZCJdLCJraWQiOiIifQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String Signature) `shouldSatisfy` is _Left
+      (eitherDecode s :: Either String (Signature JWSHeader))
+        `shouldSatisfy` is _Left
 
   it "rejects unknown crit parameters" $
     let
       -- protected header: {"crit":["foo"],"foo":""}
       s = "{\"protected\":\"eyJjcml0IjpbImZvbyJdLCJmb28iOiIifQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String Signature) `shouldSatisfy` is _Left
+      (eitherDecode s :: Either String (Signature JWSHeader))
+        `shouldSatisfy` is _Left
 
   {- TODO need proper way to extend JWS with new crit params
   it "Rejects unprotected \"crit\" header"
@@ -151,19 +145,20 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
   --
   it "decodes the example to the correct value" $
     decodeCompact compactJWS
-      `shouldBe` (Right jws :: Either Error JWS)
+      `shouldBe` (Right jws :: Either Error (JWS JWSHeader))
 
   it "round-trips correctly" $
     (encodeCompact jws >>= decodeCompact)
-      `shouldBe` (Right jws :: Either Error JWS)
+      `shouldBe` (Right jws :: Either Error (JWS JWSHeader))
 
   it "computes the HMAC correctly" $
     fst (withDRG drg $ sign alg (jwk ^. jwkMaterial) (L.toStrict signingInput'))
       `shouldBe` Right (BS.pack macOctets)
 
   it "validates the JWS correctly" $
-    (decodeCompact compactJWS >>= verifyJWS defaultValidationSettings jwk)
-      `shouldBe` (Right () :: Either Error ())
+    ( (decodeCompact compactJWS :: Either Error (JWS JWSHeader))
+      >>= verifyJWS defaultValidationSettings jwk
+    ) `shouldSatisfy` is _Right
 
   where
     signingInput' = "\
@@ -176,8 +171,8 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
     signature = Signature encodedProtectedHeader h (Types.Base64Octets mac)
     encodedProtectedHeader = Just "eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9"
     alg = JWA.JWS.HS256
-    h = (newJWSHeader (Protected, alg))
-      { headerTyp = Just (HeaderParam Protected "JWT") }
+    h = newJWSHeader (Protected, alg)
+        & jwsHeaderTyp .~ Just (HeaderParam Protected "JWT")
     mac = foldr BS.cons BS.empty macOctets
     macOctets =
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
@@ -293,14 +288,15 @@ appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
   it "decodes the correct JWS" $ do
     eitherDecode exampleJWS `shouldBe` Right jws
     eitherDecode exampleJWS' `shouldBe` Right jws'
-    lr (eitherDecode exampleFlatJWSWithSignatures :: Either String JWS) `shouldBe` L
+    (eitherDecode exampleFlatJWSWithSignatures :: Either String (JWS JWSHeader))
+      `shouldSatisfy` is _Left
 
   where
     jws = JWS examplePayload [sig1, sig2]
     jws' = JWS examplePayload [sig2]
     sig1 = Signature Nothing h1' (Types.Base64Octets mac1)
     h1 = newJWSHeader (Protected, JWA.JWS.RS256)
-    h1' = h1 { headerKid = Just (HeaderParam Unprotected "2010-12-29") }
+    h1' = h1 & jwsHeaderKid .~ Just (HeaderParam Unprotected "2010-12-29")
     mac1 = foldr BS.cons BS.empty
       [112, 46, 33, 137, 67, 232, 143, 209, 30, 181, 216, 45, 191, 120, 69,
       243, 65, 6, 174, 27, 129, 255, 247, 115, 17, 22, 173, 209, 113, 125,
@@ -322,7 +318,7 @@ appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
       251, 71]
     sig2 = Signature Nothing h2' (Types.Base64Octets mac2)
     h2 = newJWSHeader (Protected, JWA.JWS.ES256)
-    h2' = h2 { headerKid = Just (HeaderParam Unprotected "e9bc097a-ce51-4036-9562-d2ade882db0d") }
+    h2' = h2 & jwsHeaderKid .~ Just (HeaderParam Unprotected "e9bc097a-ce51-4036-9562-d2ade882db0d")
     mac2 = B64U.decodeLenient
       "DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8ISlSA\
       \pmWQxfKTUJqPP3-Kg6NU1Q"
@@ -374,9 +370,3 @@ appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
          \lSApmWQxfKTUJqPP3-Kg6NU1Q\",\
       \ \"signatures\":\"bogus\"\
       \}"
-
-data LR = L | R deriving (Eq, Show)
-
-lr :: Either a b -> LR
-lr (Left _) = L
-lr _ = R

@@ -75,7 +75,11 @@ prop_rsaSignAndVerify msg = monadicIO $ do
   alg <- pick $ oneof $ pure <$> [RS256, RS384, RS512, PS256, PS384, PS512]
   wp (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k) (checkSignJWS k)
 
-checkSignJWS :: (Monad m, Show e) => JWK -> Either e JWS -> PropertyM m ()
+checkSignJWS
+  :: (Monad m, Show e)
+  => JWK
+  -> Either e (JWS JWSHeader)
+  -> PropertyM m ()
 checkSignJWS k signResult = case signResult of
   Left e -> do
     monitor (counterexample $ "Failed to sign: " ++ show e)

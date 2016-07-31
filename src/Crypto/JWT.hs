@@ -348,7 +348,7 @@ validateAudClaim conf claims =
 
 -- | Data representing the JOSE aspects of a JWT.
 --
-data JWTCrypto = JWTJWS JWS deriving (Eq, Show)
+data JWTCrypto = JWTJWS (JWS JWSHeader) deriving (Eq, Show)
 
 instance FromCompact JWTCrypto where
   fromCompact = fmap JWTJWS . fromCompact
