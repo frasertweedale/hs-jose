@@ -43,8 +43,6 @@ drg = drgNewTest (1,2,3,4,5)
 
 spec :: Spec
 spec = do
-  --critSpec
-  --critSpec'
   headerSpec
   appendixA1Spec
   appendixA2Spec
@@ -52,35 +50,19 @@ spec = do
   appendixA5Spec
   appendixA6Spec
 
-{-
-critSpec :: Spec
-critSpec = describe "JWS §4.1.10. \"crit\" Header Parameter; parsing" $
-  it "parses from JSON correctly" $ do
-    decode good `shouldBe` Just (CritParameters $ pure "exp")
-    decode "{}" `shouldBe` (Nothing :: Maybe CritParameters)
-    decode missingParam `shouldBe` (Nothing :: Maybe CritParameters)
-    decode critNotArray `shouldBe` (Nothing :: Maybe CritParameters)
-    decode critEmptyArray `shouldBe` (Nothing :: Maybe CritParameters)
-    decode critValueNotString `shouldBe` (Nothing :: Maybe CritParameters)
-    decode critValueNotValid `shouldBe` (Nothing :: Maybe CritParameters)
-    where
-      good = "{\"alg\":\"ES256\",\"crit\":[\"exp\"],\"exp\":1363284000}"
-      missingParam = "{\"alg\":\"ES256\",\"crit\":[\"nope\"]}"
-      critNotArray = "{\"alg\":\"ES256\",\"crit\":\"exp\"}"
-      critEmptyArray = "{\"alg\":\"ES256\",\"crit\":[]}"
-      critValueNotString = "{\"alg\":\"ES256\",\"crit\":[1234]}"
-      critValueNotValid = "{\"alg\":\"ES256\",\"crit\":[\"crit\"]}"
 
-critSpec' :: Spec
-critSpec' = describe "JWS §4.1.10. \"crit\" Header Parameter; full example" $
-  it "parses from JSON correctly" $
-    decode s `shouldBe` Just
-      (newJWSHeader (Protected, JWA.JWS.ES256)
-      { headerCrit = Just critValue })
-    where
-      s = "{\"alg\":\"ES256\",\"crit\":[\"exp\"],\"exp\":1363284000}"
-      critValue = CritParameters $ return ("exp", Number 1363284000)
-      -}
+-- Extension of JWSHeader to test "crit" behaviour
+--
+newtype JWSHeader' = JWSHeader' { unJWSHeader' :: JWSHeader }
+  deriving (Eq, Show)
+_JWSHeader' :: Iso' JWSHeader' JWSHeader
+_JWSHeader' = iso unJWSHeader' JWSHeader'
+instance HasJWSHeader JWSHeader' where
+  jWSHeader = _JWSHeader'
+instance HasParams JWSHeader' where
+  parseParamsFor proxy hp hu = JWSHeader' <$> parseParamsFor proxy hp hu
+  params (JWSHeader' h) = params h
+  extensions = const ["foo"]
 
 
 headerSpec :: Spec
@@ -121,13 +103,44 @@ headerSpec = describe "JWS Header" $ do
       (eitherDecode s :: Either String (Signature JWSHeader))
         `shouldSatisfy` is _Left
 
-  {- TODO need proper way to extend JWS with new crit params
-  it "Rejects unprotected \"crit\" header"
+  it "accepts known crit parameter in protected header" $
     let
-      s = "{\"payload\":\"\",\"signatures\":[{\"header\":{\"alg\":\"none\"},\"signature\":\"\"}]}"
+      -- protected header: {"crit":["foo"],"foo":""}
+      s = "{\"protected\":\"eyJjcml0IjpbImZvbyJdLCJmb28iOiIifQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      undefined
-  -}
+      (eitherDecode s :: Either String (Signature JWSHeader'))
+        `shouldSatisfy` is _Right
+
+  it "accepts known crit parameter in unprotected header" $
+    let
+      -- protected header: {"crit":["foo"]}
+      s = "{\"protected\":\"eyJjcml0IjpbImZvbyJdfQ\",\"header\":{\"alg\":\"none\",\"foo\":\"\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String (Signature JWSHeader'))
+        `shouldSatisfy` is _Right
+
+  it "rejects known crit parameter that does not appear in JOSE header" $
+    let
+      -- protected header: {"crit":["foo"]}
+      s = "{\"protected\":\"eyJjcml0IjpbImZvbyJdfQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String (Signature JWSHeader'))
+        `shouldSatisfy` is _Left
+
+  it "rejects unprotected crit parameters" $
+    let
+      s = "{\"header\":{\"alg\":\"none\",\"crit\":[\"foo\"],\"foo\":\"\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String (Signature JWSHeader'))
+        `shouldSatisfy` is _Left
+
+  it "rejects empty crit parameters" $
+    let
+      -- protected header: {"crit":[]}
+      s = "{\"protected\":\"eyJjcml0IjpbXX0\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String (Signature JWSHeader'))
+        `shouldSatisfy` is _Left
 
 
 examplePayload :: Types.Base64Octets

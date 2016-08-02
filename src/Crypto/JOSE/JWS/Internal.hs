@@ -132,11 +132,6 @@ class HasJWSHeader a => HasParams a where
 parseParams :: forall a. HasParams a => Maybe Object -> Maybe Object -> Parser a
 parseParams hp hu = parseParamsFor (Proxy :: Proxy a) hp hu
 
-{- TODO
-checkHeaders :: Signature -> Either Error Signature
-checkHeaders sig@(Signature h h' _) = do
-  when (isJust $ h' >>= headerCrit) (Left JWSCritUnprotected) --test
-      -}
 
 headerOptional
   :: FromJSON a
