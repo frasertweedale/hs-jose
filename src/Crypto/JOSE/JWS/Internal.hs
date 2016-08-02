@@ -16,6 +16,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_HADDOCK hide #-}
 
@@ -126,8 +127,10 @@ class HasJWSHeader a => HasParams a where
   extensions :: Proxy a -> [T.Text]
   extensions = const []
 
-  parseParams :: Maybe Object -> Maybe Object -> Parser a
+  parseParamsFor :: HasParams b => Proxy b -> Maybe Object -> Maybe Object -> Parser a
 
+parseParams :: forall a. HasParams a => Maybe Object -> Maybe Object -> Parser a
+parseParams hp hu = parseParamsFor (Proxy :: Proxy a) hp hu
 
 {- TODO
 checkHeaders :: Signature -> Either Error Signature
@@ -219,7 +222,7 @@ instance HasParams a => ToJSON (Signature a) where
 
 
 instance HasParams JWSHeader where
-  parseParams hp hu = JWSHeader
+  parseParamsFor proxy hp hu = JWSHeader
     <$> headerRequired "alg" hp hu
     <*> headerOptional "jku" hp hu
     <*> headerOptional "jwk" hp hu
@@ -232,7 +235,7 @@ instance HasParams JWSHeader where
     <*> headerOptional "cty" hp hu
     <*> (headerOptionalProtected "crit" hp hu
       >>= mapM (parseCrit
-        (extensions (Proxy :: Proxy JWSHeader))
+        (extensions proxy)
         (fromMaybe mempty hp <> fromMaybe mempty hu)))
   params (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
     catMaybes
