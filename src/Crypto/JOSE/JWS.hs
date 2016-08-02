@@ -23,8 +23,12 @@ module Crypto.JOSE.JWS
   (
     Alg(..)
 
+  , HasJWSHeader(..)
   , JWSHeader(..)
   , newJWSHeader
+
+  , Signature
+  , header
 
   , JWS(..)
   , newJWS

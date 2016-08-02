@@ -32,7 +32,7 @@ import Crypto.JOSE.Error (Error)
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
-import Crypto.JOSE.JWS.Internal
+import Crypto.JOSE.JWS.Internal (Signature(Signature))
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.Types as Types
 import Crypto.JOSE.Types.Armour
