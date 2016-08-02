@@ -49,8 +49,8 @@ import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
 
 
-critInvalidNames :: [T.Text]
-critInvalidNames = [
+jwsCritInvalidNames :: [T.Text]
+jwsCritInvalidNames = [
   "alg"
   , "jku"
   , "jwk"
@@ -67,15 +67,16 @@ critInvalidNames = [
 newtype CritParameters = CritParameters (NonEmpty T.Text)
   deriving (Eq, Show)
 
-critObjectParser :: [T.Text] -> Object -> T.Text -> Parser T.Text
-critObjectParser exts o s
-  | s `elem` critInvalidNames = fail "crit key is reserved"
+critObjectParser :: [T.Text] -> [T.Text] -> Object -> T.Text -> Parser T.Text
+critObjectParser reserved exts o s
+  | s `elem` reserved         = fail "crit key is reserved"
   | s `notElem` exts          = fail "crit key is not understood"
   | not (s `M.member` o)      = fail "crit key is not present in headers"
   | otherwise                 = pure s
 
-parseCrit :: [T.Text] -> Object -> NonEmpty T.Text -> Parser CritParameters
-parseCrit exts o = fmap CritParameters . mapM (critObjectParser exts o)
+parseCrit :: [T.Text] -> [T.Text] -> Object -> NonEmpty T.Text -> Parser CritParameters
+parseCrit reserved exts o =
+  fmap CritParameters . mapM (critObjectParser reserved exts o)
   -- TODO fail on duplicate strings
 
 instance FromJSON CritParameters where
@@ -229,8 +230,7 @@ instance HasParams JWSHeader where
     <*> headerOptional "typ" hp hu
     <*> headerOptional "cty" hp hu
     <*> (headerOptionalProtected "crit" hp hu
-      >>= mapM (parseCrit
-        (extensions proxy)
+      >>= mapM (parseCrit jwsCritInvalidNames (extensions proxy)
         (fromMaybe mempty hp <> fromMaybe mempty hu)))
   params (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
     catMaybes
