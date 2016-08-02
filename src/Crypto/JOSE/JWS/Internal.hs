@@ -121,7 +121,7 @@ newJWSHeader alg = JWSHeader (uncurry HeaderParam alg) z z z z z z z z z z
   where z = Nothing
 
 
-class HasJWSHeader a => HasParams a where
+class HasParams a where
   params :: a -> [(Protection, Pair)]
 
   extensions :: Proxy a -> [T.Text]
@@ -346,7 +346,7 @@ instance HasParams a => FromCompact (JWS a) where
 -- | Create a new signature on a JWS.
 --
 signJWS
-  :: (HasParams a, MonadRandom m)
+  :: (HasJWSHeader a, HasParams a, MonadRandom m)
   => JWS a    -- ^ JWS to sign
   -> a        -- ^ Header for signature
   -> JWK      -- ^ Key with which to sign
@@ -407,7 +407,7 @@ defaultValidationSettings = ValidationSettings
 --
 verifyJWS
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
-      , HasParams h)
+      , HasJWSHeader h, HasParams h)
   => a
   -> JWK
   -> JWS h
@@ -429,7 +429,7 @@ verifyJWS conf k (JWS p sigs) =
     applyPolicy policy $ map validate $ filter shouldValidateSig sigs
 
 verifySig
-  :: HasParams a
+  :: (HasJWSHeader a, HasParams a)
   => JWK
   -> Types.Base64Octets
   -> Signature a
