@@ -25,8 +25,6 @@ module Crypto.JOSE.JWS
 
   , JWSHeader(..)
   , newJWSHeader
-  , Protection(..)
-  , HeaderParam(..)
 
   , JWS(..)
   , newJWS
@@ -41,7 +39,10 @@ module Crypto.JOSE.JWS
   , ValidationSettings
   , defaultValidationSettings
   , verifyJWS
+
+  , module Crypto.JOSE.Header
   ) where
 
 import Crypto.JOSE.JWA.JWS
 import Crypto.JOSE.JWS.Internal
+import Crypto.JOSE.Header

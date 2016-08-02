@@ -16,7 +16,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_HADDOCK hide #-}
 
@@ -29,15 +28,12 @@ import Data.Monoid ((<>))
 import Control.Lens hiding ((.=))
 import Control.Monad.Except (MonadError(throwError))
 import Data.Aeson
-import Data.Aeson.Types
 import Data.Byteable
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
-import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import qualified Data.HashMap.Strict as M
 import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Set as S
-import Data.Proxy (Proxy(..))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 
@@ -45,6 +41,7 @@ import Crypto.JOSE.Compact
 import Crypto.JOSE.Error
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import Crypto.JOSE.JWK
+import Crypto.JOSE.Header
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
 
@@ -64,33 +61,6 @@ jwsCritInvalidNames = [
   , "crit"
   ]
 
-newtype CritParameters = CritParameters (NonEmpty T.Text)
-  deriving (Eq, Show)
-
-critObjectParser :: [T.Text] -> [T.Text] -> Object -> T.Text -> Parser T.Text
-critObjectParser reserved exts o s
-  | s `elem` reserved         = fail "crit key is reserved"
-  | s `notElem` exts          = fail "crit key is not understood"
-  | not (s `M.member` o)      = fail "crit key is not present in headers"
-  | otherwise                 = pure s
-
-parseCrit :: [T.Text] -> [T.Text] -> Object -> NonEmpty T.Text -> Parser CritParameters
-parseCrit reserved exts o =
-  fmap CritParameters . mapM (critObjectParser reserved exts o)
-  -- TODO fail on duplicate strings
-
-instance FromJSON CritParameters where
-  parseJSON = fmap CritParameters . parseJSON
-
-instance ToJSON CritParameters where
-  toJSON (CritParameters a) = toJSON a
-
-data Protection = Protected | Unprotected
-  deriving (Eq, Show)
-
-data HeaderParam a = HeaderParam Protection a
-  deriving (Eq, Show)
-
 -- | JWS Header data type.
 --
 data JWSHeader = JWSHeader
@@ -109,65 +79,11 @@ data JWSHeader = JWSHeader
   deriving (Eq, Show)
 makeClassy ''JWSHeader
 
-protection :: HeaderParam a -> Protection
-protection (HeaderParam b _) = b
-
-param :: HeaderParam a -> a
-param (HeaderParam _ a) = a
-
 -- | Construct a minimal header with the given algorithm
 --
 newJWSHeader :: (Protection, JWA.JWS.Alg) -> JWSHeader
 newJWSHeader alg = JWSHeader (uncurry HeaderParam alg) z z z z z z z z z z
   where z = Nothing
-
-
-class HasParams a where
-  params :: a -> [(Protection, Pair)]
-
-  extensions :: Proxy a -> [T.Text]
-  extensions = const []
-
-  parseParamsFor :: HasParams b => Proxy b -> Maybe Object -> Maybe Object -> Parser a
-
-parseParams :: forall a. HasParams a => Maybe Object -> Maybe Object -> Parser a
-parseParams hp hu = parseParamsFor (Proxy :: Proxy a) hp hu
-
-
-headerOptional
-  :: FromJSON a
-  => T.Text
-  -> Maybe Object
-  -> Maybe Object
-  -> Parser (Maybe (HeaderParam a))
-headerOptional k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
-  (Just _, Just _)    -> fail $ "duplicate header " ++ show k
-  (Just v, Nothing)   -> Just . HeaderParam Protected <$> parseJSON v
-  (Nothing, Just v)   -> Just . HeaderParam Unprotected <$> parseJSON v
-  (Nothing, Nothing)  -> pure Nothing
-
-headerOptionalProtected
-  :: FromJSON a
-  => T.Text
-  -> Maybe Object
-  -> Maybe Object
-  -> Parser (Maybe a)
-headerOptionalProtected k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
-  (_, Just _) -> fail $ "header must be protected: " ++ show k
-  (Just v, _) -> Just <$> parseJSON v
-  _           -> pure Nothing
-
-headerRequired
-  :: FromJSON a
-  => T.Text
-  -> Maybe Object
-  -> Maybe Object
-  -> Parser (HeaderParam a)
-headerRequired k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
-  (Just _, Just _)    -> fail $ "duplicate header " ++ show k
-  (Just v, Nothing)   -> HeaderParam Protected <$> parseJSON v
-  (Nothing, Just v)   -> HeaderParam Unprotected <$> parseJSON v
-  (Nothing, Nothing)  -> fail $ "missing required header " ++ show k
 
 
 data Signature a = Signature
@@ -247,25 +163,6 @@ instance HasParams JWSHeader where
       , fmap (\p -> (protection p, "cty" .= param p)) cty
       , fmap (\p -> (Protected,    "crit" .= p)) crit
       ]
-
-
-protectedParams :: HasParams a => a -> Maybe Value {- ^ Object -}
-protectedParams h =
-  case (map snd . filter ((== Protected) . fst) . params) h of
-    [] -> Nothing
-    xs -> Just (object xs)
-
-protectedParamsEncoded :: HasParams a => a -> BSL.ByteString
-protectedParamsEncoded h =
-  case protectedParams h of
-    Nothing -> ""
-    Just o  -> (Types.unpad . B64UL.encode . encode) o
-
-unprotectedParams :: HasParams a => a -> Maybe Value {- ^ Object -}
-unprotectedParams h =
-  case (map snd . filter ((== Unprotected) . fst) . params) h of
-    [] -> Nothing
-    xs -> Just (object xs)
 
 
 -- | JSON Web Signature data type.  Consists of a payload and a
