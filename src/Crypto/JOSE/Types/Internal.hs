@@ -66,7 +66,7 @@ instance IsChar Word8 where
 
 -- | Add appropriate base64 '=' padding.
 --
-pad :: (Snoc s s a a, IsChar a, Eq a) => s -> s
+pad :: (Snoc s s a a, IsChar a) => s -> s
 pad = rpad 4 (fromChar '=')
 {-# INLINE [2] pad #-}
 
