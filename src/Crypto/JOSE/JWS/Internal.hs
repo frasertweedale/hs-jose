@@ -31,7 +31,7 @@ import Data.Byteable
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
-import Data.List.NonEmpty (NonEmpty(..))
+import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
@@ -73,7 +73,7 @@ data JWSHeader = JWSHeader
   , _jwsHeaderX5tS256 :: Maybe (HeaderParam Types.Base64SHA256)
   , _jwsHeaderTyp :: Maybe (HeaderParam String)  -- ^ Content Type (of object)
   , _jwsHeaderCty :: Maybe (HeaderParam String)  -- ^ Content Type (of payload)
-  , _jwsHeaderCrit :: Maybe CritParameters
+  , _jwsHeaderCrit :: Maybe (NonEmpty T.Text)
   }
   deriving (Eq, Show)
 makeClassy ''JWSHeader
@@ -145,8 +145,8 @@ instance HasParams JWSHeader where
     <*> headerOptional "typ" hp hu
     <*> headerOptional "cty" hp hu
     <*> (headerOptionalProtected "crit" hp hu
-      >>= mapM (parseCrit jwsCritInvalidNames (extensions proxy)
-        (fromMaybe mempty hp <> fromMaybe mempty hu)))
+      >>= parseCrit jwsCritInvalidNames (extensions proxy)
+        (fromMaybe mempty hp <> fromMaybe mempty hu))
   params (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
     catMaybes
       [ Just (protection alg,      "alg" .= param alg)

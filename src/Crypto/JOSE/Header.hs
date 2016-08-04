@@ -26,7 +26,6 @@ module Crypto.JOSE.Header
   , protectedParamsEncoded
   , unprotectedParams
 
-  , CritParameters(..)
   , parseCrit
 
   , Protection(..)
@@ -40,9 +39,8 @@ module Crypto.JOSE.Header
 
 
 import Data.Proxy (Proxy(..))
-import Data.List.NonEmpty (NonEmpty)
 
-import Data.Aeson (FromJSON(..), ToJSON(..), Object, Value, encode, object)
+import Data.Aeson (FromJSON(..), Object, Value, encode, object)
 import Data.Aeson.Types (Pair, Parser)
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import qualified Data.ByteString.Lazy as L
@@ -62,7 +60,7 @@ class HasParams a where
   parseParamsFor :: HasParams b => Proxy b -> Maybe Object -> Maybe Object -> Parser a
 
 parseParams :: forall a. HasParams a => Maybe Object -> Maybe Object -> Parser a
-parseParams hp hu = parseParamsFor (Proxy :: Proxy a) hp hu
+parseParams = parseParamsFor (Proxy :: Proxy a)
 
 protectedParams :: HasParams a => a -> Maybe Value {- ^ Object -}
 protectedParams h =
@@ -139,17 +137,9 @@ headerRequired k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
   (Nothing, Nothing)  -> fail $ "missing required header " ++ show k
 
 
-newtype CritParameters = CritParameters (NonEmpty T.Text)
-  deriving (Eq, Show)
-
-instance FromJSON CritParameters where
-  parseJSON = fmap CritParameters . parseJSON
-
-instance ToJSON CritParameters where
-  toJSON (CritParameters a) = toJSON a
-
-
-critObjectParser :: [T.Text] -> [T.Text] -> Object -> T.Text -> Parser T.Text
+critObjectParser
+  :: (Foldable t0, Foldable t1, Monad m)
+  => t0 T.Text -> t1 T.Text -> Object -> T.Text -> m T.Text
 critObjectParser reserved exts o s
   | s `elem` reserved         = fail "crit key is reserved"
   | s `notElem` exts          = fail "crit key is not understood"
@@ -157,11 +147,11 @@ critObjectParser reserved exts o s
   | otherwise                 = pure s
 
 parseCrit
-  :: [T.Text]
-  -> [T.Text]
+  :: (Foldable t0, Foldable t1, Traversable t2, Traversable t3, Monad m)
+  => t0 T.Text
+  -> t1 T.Text
   -> Object
-  -> NonEmpty T.Text
-  -> Parser CritParameters
-parseCrit reserved exts o =
-  fmap CritParameters . mapM (critObjectParser reserved exts o)
+  -> t2 (t3 T.Text)
+  -> m (t2 (t3 T.Text))
+parseCrit reserved exts o = mapM (mapM (critObjectParser reserved exts o))
   -- TODO fail on duplicate strings
