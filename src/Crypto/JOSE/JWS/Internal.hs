@@ -21,7 +21,7 @@
 module Crypto.JOSE.JWS.Internal where
 
 import Control.Applicative ((<|>))
-import Data.Maybe
+import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
 
 import Control.Lens hiding ((.=))
