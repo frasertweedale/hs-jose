@@ -24,19 +24,18 @@ module Crypto.JOSE.JWE
   , JWE(..)
   ) where
 
-import Data.Bifunctor (first, bimap)
-import Data.Maybe (catMaybes)
+import Control.Applicative ((<|>))
+import Data.Bifunctor (bimap)
+import Data.Maybe (catMaybes, fromMaybe)
+import Data.Monoid ((<>))
 
 import Data.Aeson
 import Data.Aeson.Types
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Base64.URL as B64U
-import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as T
-import Data.List.NonEmpty (NonEmpty(..), toList)
+import Data.List.NonEmpty (NonEmpty)
 
 import Crypto.Cipher.AES
 import Crypto.Cipher.Types
@@ -49,11 +48,11 @@ import qualified Crypto.PubKey.RSA.OAEP as OAEP
 
 import Crypto.JOSE.AESKW
 import Crypto.JOSE.Error
+import Crypto.JOSE.Header
 import Crypto.JOSE.JWA.JWE
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
-import Crypto.JOSE.Types.Armour
 
 
 critInvalidNames :: [T.Text]
@@ -64,119 +63,110 @@ critInvalidNames =
 newtype CritParameters = CritParameters (NonEmpty (T.Text, Value))
   deriving (Eq, Show)
 
-critObjectParser :: Object -> T.Text -> Parser (T.Text, Value)
-critObjectParser o s
-  | s `elem` critInvalidNames = fail "crit key is reserved"
-  | otherwise                 = (\v -> (s, v)) <$> o .: s
-
-parseCrit :: Object -> NonEmpty T.Text -> Parser CritParameters
-parseCrit o = fmap CritParameters . mapM (critObjectParser o)
-  -- TODO fail on duplicate strings
-
-instance FromJSON CritParameters where
-  parseJSON = withObject "crit" $ \o -> o .: "crit" >>= parseCrit o
-
-instance ToJSON CritParameters where
-  toJSON (CritParameters m) = object $ ("crit", toJSON $ fmap fst m) : toList m
-
 
 data JWEHeader = JWEHeader
   { _jweAlg :: Maybe AlgWithParams
-  , _jweEnc :: Maybe Enc
+  , _jweEnc :: HeaderParam Enc
   , _jweZip :: Maybe String  -- protected header only  "DEF" (DEFLATE) defined
-  , _jweJku :: Maybe Types.URI
-  , _jweJwk :: Maybe JWK
-  , _jweKid :: Maybe String
-  , _jweX5u :: Maybe Types.URI
-  , _jweX5c :: Maybe (NonEmpty Types.Base64X509)
-  , _jweX5t :: Maybe Types.Base64SHA1
-  , _jweX5tS256 :: Maybe Types.Base64SHA256
-  , _jweTyp :: Maybe String  -- ^ Content Type (of object)
-  , _jweCty :: Maybe String  -- ^ Content Type (of payload)
-  , _jweCrit :: Maybe CritParameters
+  , _jweJku :: Maybe (HeaderParam Types.URI)
+  , _jweJwk :: Maybe (HeaderParam JWK)
+  , _jweKid :: Maybe (HeaderParam String)
+  , _jweX5u :: Maybe (HeaderParam Types.URI)
+  , _jweX5c :: Maybe (HeaderParam (NonEmpty Types.Base64X509))
+  , _jweX5t :: Maybe (HeaderParam Types.Base64SHA1)
+  , _jweX5tS256 :: Maybe (HeaderParam Types.Base64SHA256)
+  , _jweTyp :: Maybe (HeaderParam String)  -- ^ Content Type (of object)
+  , _jweCty :: Maybe (HeaderParam String)  -- ^ Content Type (of payload)
+  , _jweCrit :: Maybe (NonEmpty T.Text)
   }
   deriving (Eq, Show)
 
-newJWEHeader :: AlgWithParams -> JWEHeader
-newJWEHeader alg = JWEHeader (Just alg) z z z z z z z z z z z z where z = Nothing
+newJWEHeader :: AlgWithParams -> Enc -> JWEHeader
+newJWEHeader alg enc =
+  JWEHeader (Just alg) (HeaderParam Unprotected enc) z z z z z z z z z z z
+  where z = Nothing
 
-
-instance FromJSON JWEHeader where
-  parseJSON = withObject "JWE" $ \o -> JWEHeader
-    <$> parseJSON (Object o)
-    <*> o .: "enc"
-    <*> o .:? "zip"
-    <*> o .:? "jku"
-    <*> o .:? "jwk"
-    <*> o .:? "kid"
-    <*> o .:? "x5u"
-    <*> o .:? "x5c"
-    <*> o .:? "x5t"
-    <*> o .:? "x5t#S256"
-    <*> o .:? "typ"
-    <*> o .:? "cty"
-    <*> (o .:? "crit" >>= mapM (parseCrit o))  -- TODO
-
-instance ToJSON JWEHeader where
-  toJSON (JWEHeader alg enc _zip jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
-    object $ catMaybes
-      [ fmap ("enc" .=) enc
-      , fmap ("zip" .=) _zip
-      , fmap ("jku" .=) jku
-      , fmap ("jwk" .=) jwk
-      , fmap ("kid" .=) kid
-      , fmap ("x5u" .=) x5u
-      , fmap ("x5c" .=) x5c
-      , fmap ("x5t" .=) x5t
-      , fmap ("x5t#S256" .=) x5tS256
-      , fmap ("typ" .=) typ
-      , fmap ("cty" .=) cty
+instance HasParams JWEHeader where
+  parseParamsFor proxy hp hu = JWEHeader
+    <$> parseJSON (Object (fromMaybe mempty hp <> fromMaybe mempty hu))
+    <*> headerRequired "enc" hp hu
+    <*> headerOptionalProtected "zip" hp hu
+    <*> headerOptional "jku" hp hu
+    <*> headerOptional "jwk" hp hu
+    <*> headerOptional "kid" hp hu
+    <*> headerOptional "x5u" hp hu
+    <*> headerOptional "x5c" hp hu
+    <*> headerOptional "x5t" hp hu
+    <*> headerOptional "x5t#S256" hp hu
+    <*> headerOptional "typ" hp hu
+    <*> headerOptional "cty" hp hu
+    <*> (headerOptionalProtected "crit" hp hu
+      >>= parseCrit critInvalidNames (extensions proxy)
+        (fromMaybe mempty hp <> fromMaybe mempty hu))
+  params (JWEHeader alg enc zip' jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
+    catMaybes
+      [ undefined -- TODO
+      , Just (protection enc,      "enc" .= param enc)
+      , fmap (\p -> (Protected,    "zip" .= p)) zip'
+      , fmap (\p -> (protection p, "jku" .= param p)) jku
+      , fmap (\p -> (protection p, "jwk" .= param p)) jwk
+      , fmap (\p -> (protection p, "kid" .= param p)) kid
+      , fmap (\p -> (protection p, "x5u" .= param p)) x5u
+      , fmap (\p -> (protection p, "x5c" .= param p)) x5c
+      , fmap (\p -> (protection p, "x5t" .= param p)) x5t
+      , fmap (\p -> (protection p, "x5t#S256" .= param p)) x5tS256
+      , fmap (\p -> (protection p, "typ" .= param p)) typ
+      , fmap (\p -> (protection p, "cty" .= param p)) cty
+      , fmap (\p -> (Protected,    "crit" .= p)) crit
       ]
-      ++ Types.objectPairs (toJSON crit)
-      ++ maybe [] (Types.objectPairs . toJSON) alg
-
-instance FromArmour T.Text Error JWEHeader where
-  parseArmour s =
-        first (compactErr "header")
-          (B64UL.decode (L.fromStrict $ Types.pad $ T.encodeUtf8 s))
-        >>= first JSONDecodeError . eitherDecode
-    where
-    compactErr s' = CompactDecodeError . ((s' ++ " decode failed: ") ++)
-
-instance ToArmour T.Text JWEHeader where
-  toArmour = T.decodeUtf8 . Types.unpad . B64U.encode . L.toStrict . encode
 
 
-data JWERecipient = JWERecipient
-  { _jweHeader :: Maybe JWEHeader -- ^ JWE Per-Recipient Unprotected Header
+data JWERecipient a = JWERecipient
+  { _jweHeader :: a
   , _jweEncryptedKey :: Maybe Types.Base64Octets  -- ^ JWE Encrypted Key
   }
 
-instance FromJSON JWERecipient where
+instance FromJSON (JWERecipient a) where
   parseJSON = withObject "JWE Recipient" $ \o -> JWERecipient
-    <$> o .:? "header"
+    <$> undefined -- o .:? "header"
     <*> o .:? "encrypted_key"
 
-data JWE = JWE
-  { _jweProtected :: Maybe (Armour T.Text JWEHeader)
-  , _jweUnprotected :: Maybe JWEHeader
+parseRecipient :: HasParams a => Maybe Object -> Maybe Object -> Value -> Parser (JWERecipient a)
+parseRecipient hp hu = withObject "JWE Recipient" $ \o -> do
+  hr <- o .:? "header"
+  JWERecipient
+    <$> parseParams hp (hu <> hr)  -- TODO fail on key collision in (hr <> hu)
+    <*> o .:? "encrypted_key"
+
+-- parseParamsFor :: HasParams b => Proxy b -> Maybe Object -> Maybe Object -> Parser a
+
+data JWE a = JWE
+  { _protectedRaw :: (Maybe T.Text)      -- ^ Encoded protected header, if available
   , _jweIv :: Maybe Types.Base64Octets  -- ^ JWE Initialization Vector
   , _jweAad :: Maybe Types.Base64Octets -- ^ JWE AAD
   , _jweCiphertext :: Types.Base64Octets  -- ^ JWE Ciphertext
   , _jweTag :: Maybe Types.Base64Octets  -- ^ JWE Authentication Tag
-  , _jweRecipients :: [JWERecipient]
+  , _jweRecipients :: [JWERecipient a]
   }
 
-instance FromJSON JWE where
-  parseJSON =
-    withObject "JWE JSON Serialization" $ \o -> JWE
-      <$> o .:? "protected"
-      <*> o .:? "unprotected"
+instance HasParams a => FromJSON (JWE a) where
+  parseJSON = withObject "JWE JSON Serialization" $ \o -> do
+    hpB64 <- o .:? "protected"
+    hp <- maybe
+      (pure Nothing)
+      (withText "base64url-encoded header params"
+        (Types.parseB64Url (maybe
+          (fail "protected header contains invalid JSON")
+          pure . decode . L.fromStrict)))
+      hpB64
+    hu <- o .:? "unprotected"
+    JWE
+      <$> (Just <$> (o .: "protected" <|> pure ""))  -- raw protected header
       <*> o .:? "iv"
       <*> o .:? "aad"
       <*> o .: "ciphertext"
       <*> o .:? "tag"
-      <*> o .: "recipients"
+      <*> (o .: "recipients" >>= traverse (parseRecipient hp hu))
   -- TODO flattened serialization
 
 
