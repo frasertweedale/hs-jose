@@ -151,7 +151,6 @@ instance HasParams JWSHeader where
     catMaybes
       [ Just (protection alg,      "alg" .= param alg)
       , fmap (\p -> (protection p, "jku" .= param p)) jku
-      , fmap (\p -> (protection p, "jku" .= param p)) jku
       , fmap (\p -> (protection p, "jwk" .= param p)) jwk
       , fmap (\p -> (protection p, "kid" .= param p)) kid
       , fmap (\p -> (protection p, "x5u" .= param p)) x5u
