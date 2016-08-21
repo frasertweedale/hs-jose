@@ -54,7 +54,6 @@ library
     Crypto.JOSE.JWA.JWE.Alg
     Crypto.JOSE.JWS.Internal
     Crypto.JOSE.TH
-    Crypto.JOSE.Types.Armour
     Crypto.JOSE.Types.Internal
     Crypto.JOSE.Types.Orphans
 
