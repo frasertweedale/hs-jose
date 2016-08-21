@@ -40,6 +40,8 @@ module Crypto.JOSE.JWK
   , fromKeyMaterial
   , genJWK
 
+  , fromRSA
+
   , JWKSet(..)
 
   , module Crypto.JOSE.JWA.JWK
@@ -49,6 +51,7 @@ import Control.Applicative
 import Data.Maybe (catMaybes)
 
 import Control.Lens hiding ((.=))
+import qualified Crypto.PubKey.RSA as RSA
 import Data.Aeson
 import Data.List.NonEmpty
 
@@ -147,6 +150,12 @@ instance Arbitrary JWK where
 
 fromKeyMaterial :: KeyMaterial -> JWK
 fromKeyMaterial k = JWK k z z z z z z z z where z = Nothing
+
+
+-- | Convert RSA private key into a JWK
+--
+fromRSA :: RSA.PrivateKey -> JWK
+fromRSA = fromKeyMaterial . RSAKeyMaterial . toRSAKeyParameters
 
 
 instance AsPublicKey JWK where

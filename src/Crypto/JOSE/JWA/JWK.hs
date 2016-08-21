@@ -43,6 +43,7 @@ module Crypto.JOSE.JWA.JWK (
   , RSAPrivateKeyOptionalParameters(..)
   , RSAPrivateKeyParameters(..)
   , RSAKeyParameters(RSAKeyParameters)
+  , toRSAKeyParameters
   , rsaE
   , rsaKty
   , rsaN
@@ -322,10 +323,12 @@ instance Arbitrary RSAKeyParameters where
     <*> arbitrary
 
 genRSA :: MonadRandom m => Int -> m RSAKeyParameters
-genRSA size = do
-  (RSA.PublicKey s n e, RSA.PrivateKey _ d p q dp dq qi) <- RSA.generate size 65537
+genRSA size = toRSAKeyParameters . snd <$> RSA.generate size 65537
+
+toRSAKeyParameters :: RSA.PrivateKey -> RSAKeyParameters
+toRSAKeyParameters (RSA.PrivateKey (RSA.PublicKey s n e) d p q dp dq qi) =
   let i = Types.Base64Integer
-  return $ RSAKeyParameters RSA
+  in RSAKeyParameters RSA
     ( Types.SizedBase64Integer s n )
     ( i e )
     ( Just (RSAPrivateKeyParameters (i d)
