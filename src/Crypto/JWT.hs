@@ -92,7 +92,7 @@ data JWTError
   deriving (Eq, Show)
 makeClassyPrisms ''JWTError
 
-instance AsJWTError e => AsError e where
+instance AsError JWTError where
   _Error = _JWSError
 
 
