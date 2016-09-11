@@ -142,3 +142,13 @@ test-suite tests
   if impl(ghc < 8)
     build-depends:
         semigroups >= 0.15
+
+executable example
+  hs-source-dir: example
+  main-is:  Main.hs
+  build-depends:
+    base
+    , aeson
+    , bytestring
+    , mtl
+    , jose
