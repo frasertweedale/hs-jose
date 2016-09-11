@@ -396,12 +396,12 @@ validateJWSJWT conf k (JWT (JWTJWS jws) c) = do
 -- | Create a JWT that is a JWS.
 --
 createJWSJWT
-  :: MonadRandom m
+  :: (MonadRandom m, MonadError e m, AsError e)
   => JWK
   -> JWSHeader
   -> ClaimsSet
-  -> m (Either Error JWT)
-createJWSJWT k h c = fmap (\jws -> JWT (JWTJWS jws) c) <$>
-  signJWS (JWS payload []) h k
+  -> m JWT
+createJWSJWT k h c =
+  (\jws -> JWT (JWTJWS jws) c) <$> signJWS (JWS payload []) h k
   where
     payload = Base64Octets $ BSL.toStrict $ encode c

@@ -17,6 +17,7 @@
 module Properties where
 
 import Control.Applicative
+import Control.Monad.Except (runExceptT)
 
 import Data.Aeson
 import qualified Data.ByteString as B
@@ -58,7 +59,8 @@ prop_ecSignAndVerify :: Crv -> B.ByteString -> Property
 prop_ecSignAndVerify crv msg = monadicIO $ do
   k :: JWK <- run $ genJWK (ECGenParam crv)
   let alg = case crv of P_256 -> ES256 ; P_384 -> ES384 ; P_521 -> ES512
-  wp (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k) (checkSignJWS k)
+  wp (runExceptT (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
+    >>= verifyJWS defaultValidationSettings k)) checkSignVerifyResult
 
 prop_hmacSignAndVerify :: B.ByteString -> Property
 prop_hmacSignAndVerify msg = monadicIO $ do
@@ -66,25 +68,16 @@ prop_hmacSignAndVerify msg = monadicIO $ do
     pick $ oneof $ pure <$> [(HS256, 32), (HS384, 48), (HS512, 64)]
   keylen <- (+ minLen) <$> pick arbitrarySizedNatural
   k :: JWK <- run $ genJWK (OctGenParam keylen)
-  wp (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k) (checkSignJWS k)
+  wp (runExceptT (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
+    >>= verifyJWS defaultValidationSettings k)) checkSignVerifyResult
 
 prop_rsaSignAndVerify :: B.ByteString -> Property
 prop_rsaSignAndVerify msg = monadicIO $ do
   keylen <- pick $ oneof $ pure . (`div` 8) <$> [2048, 3072, 4096]
   k :: JWK <- run $ genJWK (RSAGenParam keylen)
   alg <- pick $ oneof $ pure <$> [RS256, RS384, RS512, PS256, PS384, PS512]
-  wp (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k) (checkSignJWS k)
+  wp (runExceptT (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
+    >>= verifyJWS defaultValidationSettings k)) checkSignVerifyResult
 
-checkSignJWS
-  :: (Monad m, Show e)
-  => JWK
-  -> Either e (JWS JWSHeader)
-  -> PropertyM m ()
-checkSignJWS k signResult = case signResult of
-  Left e -> do
-    monitor (counterexample $ "Failed to sign: " ++ show e)
-    assert False
-  Right jws -> do
-    monitor (counterexample "Failed to verify")
-    assert (verifyJWS defaultValidationSettings k jws
-      == (Right () :: Either Error ()))
+checkSignVerifyResult :: Monad m => Either Error a -> PropertyM m ()
+checkSignVerifyResult = assert . either (const False) (const True)

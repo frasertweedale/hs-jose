@@ -12,7 +12,10 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 {-|
 
@@ -25,8 +28,10 @@ module Crypto.JOSE.Error
   , AsError(..)
   ) where
 
+import Control.Monad.Trans (MonadTrans(..))
 import qualified Crypto.PubKey.RSA as RSA
 import Crypto.Error (CryptoError)
+import Crypto.Random (MonadRandom(..))
 import Control.Lens.TH (makeClassyPrisms)
 
 -- | All the errors that can occur.
@@ -51,3 +56,12 @@ data Error
   -- ^ 'AllValidated' policy active, and there were no signatures on object
   deriving (Eq, Show)
 makeClassyPrisms ''Error
+
+
+instance (
+    MonadRandom m
+  , MonadTrans t
+  , Functor (t m)
+  , Monad (t m)
+  ) => MonadRandom (t m) where
+    getRandomBytes = lift . getRandomBytes

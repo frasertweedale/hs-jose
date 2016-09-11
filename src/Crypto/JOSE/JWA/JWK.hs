@@ -64,8 +64,10 @@ module Crypto.JOSE.JWA.JWK (
   ) where
 
 import Control.Applicative
+import Control.Monad.Except (MonadError(throwError))
 import Data.Bifunctor
 import Data.Maybe
+import Data.Monoid ((<>))
 
 import Control.Lens hiding ((.=))
 import Crypto.Hash
@@ -239,20 +241,21 @@ instance Arbitrary ECKeyParameters where
         ]
 
 signEC
-  :: (BA.ByteArrayAccess msg, HashAlgorithm h, MonadRandom m)
+  :: (BA.ByteArrayAccess msg, HashAlgorithm h,
+      MonadRandom m, MonadError e m, AsError e)
   => h
   -> ECKeyParameters
   -> msg
-  -> m (Either Error B.ByteString)
+  -> m B.ByteString
 signEC h (ECKeyParameters {..}) m = case ecD of
-  Just ecD' -> Right . sigToBS <$> sig where
+  Just ecD' -> sigToBS <$> sig where
     w = ecCoordBytes ecCrv
     sig = ECDSA.sign privateKey h m
     sigToBS (ECDSA.Signature r s) =
-      Types.sizedIntegerToBS w r `B.append` Types.sizedIntegerToBS w s
+      Types.sizedIntegerToBS w r <> Types.sizedIntegerToBS w s
     privateKey = ECDSA.PrivateKey (curve ecCrv) (d ecD')
     d (Types.SizedBase64Integer _ n) = n
-  Nothing -> return (Left $ KeyMismatch "not an EC private key")
+  Nothing -> throwError (review _KeyMismatch "not an EC private key")
 
 verifyEC
   :: (BA.ByteArrayAccess msg, HashAlgorithm h)
@@ -336,14 +339,15 @@ toRSAKeyParameters (RSA.PrivateKey (RSA.PublicKey s n e) d p q dp dq qi) =
         (i p) (i q) (i dp) (i dq) (i qi) Nothing))) )
 
 signPKCS15
-  :: (PKCS15.HashAlgorithmASN1 h, MonadRandom m)
+  :: (PKCS15.HashAlgorithmASN1 h, MonadRandom m, MonadError e m, AsError e)
   => h
   -> RSAKeyParameters
   -> B.ByteString
-  -> m (Either Error B.ByteString)
+  -> m B.ByteString
 signPKCS15 h k m = case rsaPrivateKey k of
-  Left e -> return (Left e)
-  Right k' -> first RSAError <$> PKCS15.signSafer (Just h) k' m
+  Left e -> throwError (review _Error e)
+  Right k' -> PKCS15.signSafer (Just h) k' m
+    >>= either (throwError . review _RSAError) pure
 
 verifyPKCS15
   :: PKCS15.HashAlgorithmASN1 h
@@ -355,14 +359,15 @@ verifyPKCS15
 verifyPKCS15 h k m = Right . PKCS15.verify (Just h) (rsaPublicKey k) m
 
 signPSS
-  :: (HashAlgorithm h, MonadRandom m)
+  :: (HashAlgorithm h, MonadRandom m, MonadError e m, AsError e)
   => h
   -> RSAKeyParameters
   -> B.ByteString
-  -> m (Either Error B.ByteString)
+  -> m B.ByteString
 signPSS h k m = case rsaPrivateKey k of
-  Left e -> return (Left e)
-  Right k' -> first RSAError <$> PSS.signSafer (PSS.defaultPSSParams h) k' m
+  Left e -> throwError (review _Error e)
+  Right k' -> PSS.signSafer (PSS.defaultPSSParams h) k' m
+    >>= either (throwError . review _RSAError) pure
 
 verifyPSS
   :: (HashAlgorithm h)
@@ -415,15 +420,15 @@ instance Arbitrary OctKeyParameters where
   arbitrary = OctKeyParameters Oct <$> arbitrary
 
 signOct
-  :: forall h. HashAlgorithm h
+  :: forall h e m. (HashAlgorithm h, MonadError e m, AsError e)
   => h
   -> OctKeyParameters
   -> B.ByteString
-  -> Either Error B.ByteString
+  -> m B.ByteString
 signOct h (OctKeyParameters _ (Types.Base64Octets k)) m =
   if B.length k < hashDigestSize h
-  then Left KeySizeTooSmall
-  else Right $ B.pack $ BA.unpack (hmac k m :: HMAC h)
+  then throwError (review _KeySizeTooSmall ())
+  else pure $ B.pack $ BA.unpack (hmac k m :: HMAC h)
 
 
 -- | Key material sum type.
@@ -472,12 +477,12 @@ genKeyMaterial (OctGenParam n) =
   OctKeyMaterial . OctKeyParameters Oct . Types.Base64Octets <$> getRandomBytes n
 
 sign
-  :: MonadRandom m
+  :: (MonadRandom m, MonadError e m, AsError e)
   => JWA.JWS.Alg
   -> KeyMaterial
   -> B.ByteString
-  -> m (Either Error B.ByteString)
-sign JWA.JWS.None _ = \_ -> return $ Right ""
+  -> m B.ByteString
+sign JWA.JWS.None _ = \_ -> return ""
 sign JWA.JWS.ES256 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_256 })) = signEC SHA256 k
 sign JWA.JWS.ES384 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_384 })) = signEC SHA384 k
 sign JWA.JWS.ES512 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_521 })) = signEC SHA512 k
@@ -487,11 +492,11 @@ sign JWA.JWS.RS512 (RSAKeyMaterial k) = signPKCS15 SHA512 k
 sign JWA.JWS.PS256 (RSAKeyMaterial k) = signPSS SHA256 k
 sign JWA.JWS.PS384 (RSAKeyMaterial k) = signPSS SHA384 k
 sign JWA.JWS.PS512 (RSAKeyMaterial k) = signPSS SHA512 k
-sign JWA.JWS.HS256 (OctKeyMaterial k) = return . signOct SHA256 k
-sign JWA.JWS.HS384 (OctKeyMaterial k) = return . signOct SHA384 k
-sign JWA.JWS.HS512 (OctKeyMaterial k) = return . signOct SHA512 k
-sign h k = \_ -> return $ Left $ AlgorithmMismatch
-  $ show h ++ "cannot be used with " ++ showKeyType k ++ " key"
+sign JWA.JWS.HS256 (OctKeyMaterial k) = signOct SHA256 k
+sign JWA.JWS.HS384 (OctKeyMaterial k) = signOct SHA384 k
+sign JWA.JWS.HS512 (OctKeyMaterial k) = signOct SHA512 k
+sign h k = \_ -> throwError (review _AlgorithmMismatch
+  (show h <> "cannot be used with " <> showKeyType k <> " key"))
 
 verify
   :: JWA.JWS.Alg

@@ -241,16 +241,14 @@ instance HasParams a => FromCompact (JWS a) where
 -- | Create a new signature on a JWS.
 --
 signJWS
-  :: (HasJWSHeader a, HasParams a, MonadRandom m)
+  :: (HasJWSHeader a, HasParams a, MonadRandom m, AsError e, MonadError e m)
   => JWS a    -- ^ JWS to sign
   -> a        -- ^ Header for signature
   -> JWK      -- ^ Key with which to sign
-  -> m (Either Error (JWS a)) -- ^ JWS with new signature appended
+  -> m (JWS a) -- ^ JWS with new signature appended
 signJWS (JWS p sigs) h k =
-  fmap appendSig
+  (\sig -> JWS p (Signature Nothing h (Types.Base64Octets sig):sigs))
   <$> sign (param (view jwsHeaderAlg h)) (k ^. jwkMaterial) (signingInput (Right h) p)
-  where
-    appendSig sig = JWS p (Signature Nothing h (Types.Base64Octets sig):sigs)
 
 
 -- | Validation policy.
