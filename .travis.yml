@@ -28,6 +28,10 @@ matrix:
     compiler: ": #stack 7.10.3"
     addons: {apt: {packages: [libgmp-dev]}}
 
+  - env: ARGS="--resolver lts-7"
+    compiler: ": #stack 8.0.1"
+    addons: {apt: {packages: [libgmp-dev]}}
+
   - env: ARGS="--resolver nightly"
     compiler: ": #stack nightly (ghc-8.0.1)"
     addons: {apt: {packages: [libgmp-dev]}}
