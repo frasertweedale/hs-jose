@@ -459,8 +459,11 @@ instance ToJSON KeyMaterial where
 --
 data KeyMaterialGenParam
   = ECGenParam Crv
+  -- ^ Generate an EC key with specified curve.
   | RSAGenParam Int
+  -- ^ Generate an RSA key with specified size in /bytes/.
   | OctGenParam Int
+  -- ^ Generate a symmetric key with specified size in /bytes/.
 
 genKeyMaterial :: MonadRandom m => KeyMaterialGenParam -> m KeyMaterial
 genKeyMaterial (ECGenParam crv) = do
