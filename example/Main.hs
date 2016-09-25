@@ -2,16 +2,20 @@ import Data.Maybe (fromJust)
 import System.Environment (getArgs)
 import System.Exit (exitFailure, exitSuccess)
 
+import Control.Lens ((^.))
 import qualified Data.ByteString.Lazy as L
 import Data.Aeson (decode, encode)
 
 import Control.Monad.Except (runExceptT)
-import Crypto.JOSE.JWK (KeyMaterialGenParam(OctGenParam), genJWK)
+import Crypto.JOSE.JWK
+  ( KeyMaterialGenParam(..), jwkMaterial, KeyMaterial(..)
+  , Crv(..), genJWK
+  )
 import Crypto.JWT (
   createJWSJWT,
   validateJWSJWT, defaultJWTValidationSettings, JWTError)
 import Crypto.JOSE.Compact (decodeCompact, encodeCompact)
-import Crypto.JOSE.JWS (Alg(HS256), Protection(Protected), newJWSHeader)
+import Crypto.JOSE.JWS (Alg(..), Protection(Protected), newJWSHeader)
 
 import Crypto.JOSE.Error (Error)
 
@@ -19,13 +23,18 @@ main :: IO ()
 main = do
   args <- getArgs
   case head args of
-    "jwk-gen" -> doGen
+    "jwk-gen" -> doGen (tail args)
     "jwt-sign" -> doJwtSign (tail args)
     "jwt-verify" -> doJwtVerify (tail args)
 
-doGen :: IO ()
-doGen = do
-  jwk <- genJWK (OctGenParam 32)
+doGen :: [String] -> IO ()
+doGen [kty] = do
+  let
+    param = case kty of
+      "oct" -> OctGenParam 32
+      "rsa" -> RSAGenParam 256
+      "ec" -> ECGenParam P_256
+  jwk <- genJWK param
   L.putStr (encode jwk)
 
 -- | Mint a JWT.  Args are:
@@ -39,9 +48,14 @@ doJwtSign :: [String] -> IO ()
 doJwtSign [jwkFilename, claimsFilename] = do
   jwkData <- L.readFile jwkFilename
   claimsData <- L.readFile claimsFilename
-  let jwk = fromJust (decode jwkData)
-  let claims = fromJust (decode claimsData)
-  let header = newJWSHeader (Protected, HS256)
+  let
+    jwk = fromJust (decode jwkData)
+    claims = fromJust (decode claimsData)
+    alg = case jwk ^. jwkMaterial of
+      OctKeyMaterial _ -> HS256
+      RSAKeyMaterial _ -> RS256
+      ECKeyMaterial _ -> ES256
+  let header = newJWSHeader (Protected, alg)
   result <- runExceptT (createJWSJWT jwk header claims >>= encodeCompact)
   case result of
     Left e -> print (e :: Error) >> exitFailure

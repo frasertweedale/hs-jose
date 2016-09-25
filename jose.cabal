@@ -150,5 +150,6 @@ executable example
     base
     , aeson
     , bytestring
+    , lens
     , mtl
     , jose
