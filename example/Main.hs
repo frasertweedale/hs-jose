@@ -9,7 +9,7 @@ import Data.Aeson (decode, encode)
 import Control.Monad.Except (runExceptT)
 import Crypto.JOSE.JWK
   ( KeyMaterialGenParam(..), jwkMaterial, KeyMaterial(..)
-  , Crv(..), genJWK
+  , Crv(..), genJWK, bestJWSAlg
   )
 import Crypto.JWT (
   createJWSJWT,
@@ -56,7 +56,9 @@ doJwtSign [jwkFilename, claimsFilename] = do
       RSAKeyMaterial _ -> RS256
       ECKeyMaterial _ -> ES256
   let header = newJWSHeader (Protected, alg)
-  result <- runExceptT (createJWSJWT jwk header claims >>= encodeCompact)
+  result <- runExceptT $ do
+    alg <- bestJWSAlg jwk
+    createJWSJWT jwk header claims >>= encodeCompact
   case result of
     Left e -> print (e :: Error) >> exitFailure
     Right jwtData -> L.putStr jwtData

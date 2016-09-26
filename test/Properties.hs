@@ -36,9 +36,8 @@ properties = testGroup "Properties"
   [ testProperty "SizedBase64Integer round-trip"
     (prop_roundTrip :: SizedBase64Integer -> Bool)
   , testProperty "JWK round-trip" (prop_roundTrip :: JWK -> Bool)
-  , testProperty "ECDSA gen, sign and verify" prop_ecSignAndVerify
-  , testProperty "HMAC gen, sign and verify" prop_hmacSignAndVerify
   , testProperty "RSA gen, sign and verify" prop_rsaSignAndVerify
+  , testProperty "gen, sign with best alg, verify" prop_bestJWSAlg
   ]
 
 prop_roundTrip :: (Eq a, ToJSON a, FromJSON a) => a -> Bool
@@ -55,29 +54,28 @@ debugRoundTrip f = monadicIO $ do
     "JSON: \n" ++ show encoded ++ "\n\nDecoded: \n" ++ show (decode encoded :: Maybe [a])
   assert $ f a
 
-prop_ecSignAndVerify :: Crv -> B.ByteString -> Property
-prop_ecSignAndVerify crv msg = monadicIO $ do
-  k :: JWK <- run $ genJWK (ECGenParam crv)
-  let alg = case crv of P_256 -> ES256 ; P_384 -> ES384 ; P_521 -> ES512
-  wp (runExceptT (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
-    >>= verifyJWS defaultValidationSettings k)) checkSignVerifyResult
-
-prop_hmacSignAndVerify :: B.ByteString -> Property
-prop_hmacSignAndVerify msg = monadicIO $ do
-  (alg, minLen) <-
-    pick $ oneof $ pure <$> [(HS256, 32), (HS384, 48), (HS512, 64)]
-  keylen <- (+ minLen) <$> pick arbitrarySizedNatural
-  k :: JWK <- run $ genJWK (OctGenParam keylen)
-  wp (runExceptT (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
-    >>= verifyJWS defaultValidationSettings k)) checkSignVerifyResult
-
 prop_rsaSignAndVerify :: B.ByteString -> Property
 prop_rsaSignAndVerify msg = monadicIO $ do
-  keylen <- pick $ oneof $ pure . (`div` 8) <$> [2048, 3072, 4096]
+  keylen <- pick $ elements ((`div` 8) <$> [2048, 3072, 4096])
   k :: JWK <- run $ genJWK (RSAGenParam keylen)
-  alg <- pick $ oneof $ pure <$> [RS256, RS384, RS512, PS256, PS384, PS512]
+  alg <- pick $ elements [RS256, RS384, RS512, PS256, PS384, PS512]
+  monitor (collect alg)
   wp (runExceptT (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
     >>= verifyJWS defaultValidationSettings k)) checkSignVerifyResult
+
+prop_bestJWSAlg :: B.ByteString -> Property
+prop_bestJWSAlg msg = monadicIO $ do
+  genParam <- pick arbitrary
+  k <- run $ genJWK genParam
+  case bestJWSAlg k of
+    Left (_ :: Error) -> assert False
+    Right alg -> do
+      monitor (collect alg)
+      let
+        go = do
+          jws <- signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
+          verifyJWS defaultValidationSettings k jws
+      wp (runExceptT go) checkSignVerifyResult
 
 checkSignVerifyResult :: Monad m => Either Error a -> PropertyM m ()
 checkSignVerifyResult = assert . either (const False) (const True)

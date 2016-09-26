@@ -46,6 +46,8 @@ module Crypto.JOSE.JWK
 
   , JWKSet(..)
 
+  , bestJWSAlg
+
   , module Crypto.JOSE.JWA.JWK
   ) where
 
@@ -53,12 +55,15 @@ import Control.Applicative
 import Data.Maybe (catMaybes)
 
 import Control.Lens hiding ((.=))
+import Control.Monad.Except (MonadError(throwError))
 import qualified Crypto.PubKey.RSA as RSA
 import Data.Aeson
+import qualified Data.ByteString as B
 import Data.List.NonEmpty
 
 import Test.QuickCheck
 
+import Crypto.JOSE.Error
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
 import Crypto.JOSE.JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
@@ -175,3 +180,29 @@ newtype JWKSet = JWKSet [JWK] deriving (Eq, Show)
 
 instance FromJSON JWKSet where
   parseJSON = withObject "JWKSet" (\o -> JWKSet <$> o .: "keys")
+
+
+-- | Choose the cryptographically strongest JWS algorithm for a
+-- given key.  The JWK "alg" algorithm parameter is ignored.
+--
+bestJWSAlg
+  :: (MonadError e m, AsError e)
+  => JWK
+  -> m JWA.JWS.Alg
+bestJWSAlg jwk = case view jwkMaterial jwk of
+  ECKeyMaterial k -> pure $ case ecCrv k of
+    P_256 -> JWA.JWS.ES256
+    P_384 -> JWA.JWS.ES384
+    P_521 -> JWA.JWS.ES512
+  RSAKeyMaterial k ->
+    let
+      Types.SizedBase64Integer size _ = view rsaN k
+    in
+      if size >= 2048 `div` 8
+      then pure JWA.JWS.PS512
+      else throwError (review _KeySizeTooSmall ())
+  OctKeyMaterial (OctKeyParameters { octK = Types.Base64Octets k })
+    | B.length k >= 512 `div` 8 -> pure JWA.JWS.HS512
+    | B.length k >= 384 `div` 8 -> pure JWA.JWS.HS384
+    | B.length k >= 256 `div` 8 -> pure JWA.JWS.HS256
+    | otherwise -> throwError (review _KeySizeTooSmall ())
