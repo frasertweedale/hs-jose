@@ -146,6 +146,7 @@ test-suite tests
 executable example
   hs-source-dirs: example
   main-is:  Main.hs
+  ghc-options:    -Wall
   build-depends:
     base
     , aeson
