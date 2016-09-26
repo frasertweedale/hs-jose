@@ -69,7 +69,7 @@ import Data.Bifunctor
 import Data.Maybe
 import Data.Monoid ((<>))
 
-import Control.Lens hiding ((.=))
+import Control.Lens hiding ((.=), elements)
 import Crypto.Hash
 import Crypto.MAC.HMAC
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
@@ -84,7 +84,7 @@ import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
 import Data.List.NonEmpty
-import Test.QuickCheck
+import Test.QuickCheck (Arbitrary(..), arbitrarySizedNatural, elements, oneof)
 
 import Crypto.JOSE.Error
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
@@ -464,6 +464,14 @@ data KeyMaterialGenParam
   -- ^ Generate an RSA key with specified size in /bytes/.
   | OctGenParam Int
   -- ^ Generate a symmetric key with specified size in /bytes/.
+  deriving (Eq, Show)
+
+instance Arbitrary KeyMaterialGenParam where
+  arbitrary = oneof
+    [ ECGenParam <$> arbitrary
+    , RSAGenParam <$> elements ((`div` 8) <$> [2048, 3072, 4096])
+    , OctGenParam <$> liftA2 (+) arbitrarySizedNatural (elements [32, 48, 64])
+    ]
 
 genKeyMaterial :: MonadRandom m => KeyMaterialGenParam -> m KeyMaterial
 genKeyMaterial (ECGenParam crv) = do
