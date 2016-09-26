@@ -42,6 +42,8 @@ module Crypto.JOSE.JWK
 
   , fromRSA
 
+  , JWKAlg(..)
+
   , JWKSet(..)
 
   , module Crypto.JOSE.JWA.JWK
@@ -65,15 +67,20 @@ import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
 
 
--- | JWK §3.3.  "alg" (Algorithm) Parameter
+-- | RFC 7517 §4.4.  "alg" (Algorithm) Parameter
 --
-data Alg = JWSAlg JWA.JWS.Alg | JWEAlg JWA.JWE.Alg
+-- See also RFC 7518 §6.4. which states that for "oct" keys, an
+-- "alg" member SHOULD be present to identify the algorithm intended
+-- to be used with the key, unless the application uses another
+-- means or convention to determine the algorithm used.
+--
+data JWKAlg = JWSAlg JWA.JWS.Alg | JWEAlg JWA.JWE.Alg
   deriving (Eq, Show)
 
-instance FromJSON Alg where
+instance FromJSON JWKAlg where
   parseJSON v = (JWSAlg <$> parseJSON v) <|> (JWEAlg <$> parseJSON v)
 
-instance ToJSON Alg where
+instance ToJSON JWKAlg where
   toJSON (JWSAlg alg) = toJSON alg
   toJSON (JWEAlg alg) = toJSON alg
 
@@ -98,7 +105,7 @@ data JWK = JWK
     _jwkMaterial :: Crypto.JOSE.JWA.JWK.KeyMaterial
   , _jwkUse :: Maybe KeyUse
   , _jwkKeyOps :: Maybe [KeyOp]
-  , _jwkAlg :: Maybe Alg
+  , _jwkAlg :: Maybe JWKAlg
   , _jwkKid :: Maybe String
   , _jwkX5u :: Maybe Types.URI
   , _jwkX5c :: Maybe (NonEmpty Types.Base64X509)
