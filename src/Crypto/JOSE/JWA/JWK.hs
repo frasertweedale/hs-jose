@@ -54,9 +54,12 @@ module Crypto.JOSE.JWA.JWK (
   -- * Parameters for Symmetric Keys
   , OctKeyParameters(..)
 
+  -- * Key generation
   , KeyMaterialGenParam(..)
   , KeyMaterial(..)
   , genKeyMaterial
+
+  -- * Signing and verification
   , sign
   , verify
 
