@@ -46,18 +46,11 @@ doGen [kty] = do
 --
 doJwtSign :: [String] -> IO ()
 doJwtSign [jwkFilename, claimsFilename] = do
-  jwkData <- L.readFile jwkFilename
-  claimsData <- L.readFile claimsFilename
-  let
-    jwk = fromJust (decode jwkData)
-    claims = fromJust (decode claimsData)
-    alg = case jwk ^. jwkMaterial of
-      OctKeyMaterial _ -> HS256
-      RSAKeyMaterial _ -> RS256
-      ECKeyMaterial _ -> ES256
-  let header = newJWSHeader (Protected, alg)
+  Just jwk <- decode <$> L.readFile jwkFilename
+  Just claims <- decode <$> L.readFile claimsFilename
   result <- runExceptT $ do
     alg <- bestJWSAlg jwk
+    let header = newJWSHeader (Protected, alg)
     createJWSJWT jwk header claims >>= encodeCompact
   case result of
     Left e -> print (e :: Error) >> exitFailure
