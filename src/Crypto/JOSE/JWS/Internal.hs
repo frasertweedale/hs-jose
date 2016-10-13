@@ -21,6 +21,7 @@
 module Crypto.JOSE.JWS.Internal where
 
 import Control.Applicative ((<|>))
+import Data.Foldable (toList)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
 
@@ -290,13 +291,11 @@ defaultValidationSettings = ValidationSettings
 
 -- | Verify a JWS.
 --
--- Verification succeeds if any signature on the JWS is successfully
--- validated with the given 'Key'.
---
--- If only specific signatures need to be validated, and the
--- 'ValidationPolicy' argument is not enough to express this,
--- the caller is responsible for removing irrelevant signatures
--- prior to calling 'verifyJWS'.
+-- Signatures made with an unsupported algorithms are ignored.
+-- If the validation policy is 'AnyValidated', a single successfully
+-- validated signature is sufficient.  If the validation policy is
+-- 'AllValidated' then all remaining signatures (there must be at least one)
+-- must be valid.
 --
 verifyJWS
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
@@ -319,7 +318,7 @@ verifyJWS conf k (JWS p sigs) =
       if and xs then pure () else throwError (review _JWSInvalidSignature ())
     validate = (== Right True) . verifySig k p
   in
-    applyPolicy policy $ map validate $ filter shouldValidateSig sigs
+    applyPolicy policy $ map validate $ filter shouldValidateSig $ toList sigs
 
 verifySig
   :: (HasJWSHeader a, HasParams a)
