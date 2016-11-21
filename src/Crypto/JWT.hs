@@ -171,6 +171,7 @@ instance FromJSON Audience where
   parseJSON v = Audience <$> (parseJSON v <|> fmap (:[]) (parseJSON v))
 
 instance ToJSON Audience where
+  toJSON (Audience [aud]) = toJSON aud
   toJSON (Audience auds) = toJSON auds
 
 

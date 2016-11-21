@@ -192,6 +192,11 @@ spec = do
           runReaderT (validateClaimsSet conf'' claims) now
             `shouldBe` Left JWTNotInAudience
 
+      describe "when claim has one value" $ do
+        let claims = emptyClaimsSet & set claimAud (Just (Audience ["foo"]))
+        it "serialises to string" $ encode claims `shouldBe` "{\"aud\":\"foo\"}"
+        it "round trips" $ decode (encode claims) `shouldBe` Just claims
+
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
       (decode "[\"foo\"]" >>= headMay >>= getString) `shouldBe` Just "foo"
