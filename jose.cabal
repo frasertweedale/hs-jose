@@ -14,11 +14,6 @@ description:
   are implemented, however, the ECDSA implementation is is
   vulnerable to timing attacks and should therefore only be used for
   JWS verification.
-  .
-  The 'Crypto.JOSE.Legacy' module is provided for working with the
-  Mozilla Persona (formerly BrowserID) key format.  Only RSA keys
-  are supported - DSA keys cannot be used and must be handled as
-  opaque objects.
 
 homepage:            https://github.com/frasertweedale/hs-jose
 bug-reports:         https://github.com/frasertweedale/hs-jose/issues
@@ -42,7 +37,6 @@ library
     Crypto.JOSE.JWE
     Crypto.JOSE.JWK
     Crypto.JOSE.JWS
-    Crypto.JOSE.Legacy
     Crypto.JOSE.Types
     Crypto.JWT
 
