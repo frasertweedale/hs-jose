@@ -60,7 +60,7 @@ prop_rsaSignAndVerify msg = monadicIO $ do
   k :: JWK <- run $ genJWK (RSAGenParam keylen)
   alg <- pick $ elements [RS256, RS384, RS512, PS256, PS384, PS512]
   monitor (collect alg)
-  wp (runExceptT (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
+  wp (runExceptT (signJWS msg [(newJWSHeader (Protected, alg), k)]
     >>= verifyJWS defaultValidationSettings k)) (checkSignVerifyResult msg)
 
 prop_bestJWSAlg :: B.ByteString -> Property
@@ -74,7 +74,7 @@ prop_bestJWSAlg msg = monadicIO $ do
       monitor (collect alg)
       let
         go = do
-          jws <- signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
+          jws <- signJWS msg [(newJWSHeader (Protected, alg), k)]
           verifyJWS defaultValidationSettings k jws
       wp (runExceptT go) (checkSignVerifyResult msg)
 

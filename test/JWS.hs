@@ -222,7 +222,7 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
     compactJWS = signingInput' <> ".dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
-    jws = decodeCompact compactJWS :: Either Error (JWS JWSHeader)
+    jws = decodeCompact compactJWS :: Either Error (JWS Identity JWSHeader)
     alg = JWA.JWS.HS256
     h = newJWSHeader (Protected, alg)
         & typ .~ Just (HeaderParam Protected "JWT")
@@ -327,7 +327,7 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
 
   where
     jws = fst $ withDRG drg $ runExceptT $
-      signJWS (newJWS examplePayloadBytes) (newJWSHeader (Protected, JWA.JWS.None)) undefined
+      signJWS examplePayloadBytes (Identity (newJWSHeader (Protected, JWA.JWS.None), undefined))
     exampleJWS = "eyJhbGciOiJub25lIn0\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
@@ -338,21 +338,39 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
 appendixA6Spec :: Spec
 appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Serialization" $ do
   it "decodes JWS with multiple signatures correctly" $ do
-    let jws = eitherDecode exampleJWS :: Either String (JWS JWSHeader)
+    let jws = eitherDecode exampleJWSTwoSigs :: Either String (JWS [] JWSHeader)
     lengthOf (_Right . signatures) jws `shouldBe` 2
     jws ^? _Right . signatures . header `shouldBe` Just h1'
     jws ^? _Right . signatures . signature `shouldBe` Just mac1
     jws ^? _Right . dropping 1 signatures . header `shouldBe` Just h2'
     jws ^? _Right . dropping 1 signatures . signature `shouldBe` Just mac2
 
-  it "decodes flattened JWS correctly" $ do
-    let jws = eitherDecode exampleJWS' :: Either String (JWS JWSHeader)
+  it "decodes single-sig Generalised JWS correctly" $ do
+    let jws = eitherDecode exampleJWSOneSig :: Either String (JWS [] JWSHeader)
     lengthOf (_Right . signatures) jws `shouldBe` 1
     jws ^? _Right . signatures . header `shouldBe` Just h2'
     jws ^? _Right . signatures . signature `shouldBe` Just mac2
 
-  it "fails to decode flattened JWS when \"signatures\" key is present" $
-    (eitherDecode exampleFlatJWSWithSignatures :: Either String (JWS JWSHeader))
+  it "fails to decode single-sig Generalised JWS to 'JWS Identity'" $ do
+    (eitherDecode exampleJWSOneSig :: Either String (JWS Identity JWSHeader))
+      `shouldSatisfy` is _Left
+
+  it "decodes flattened JWS to 'JWS []' correctly" $ do
+    let jws = eitherDecode exampleJWSFlat :: Either String (JWS [] JWSHeader)
+    lengthOf (_Right . signatures) jws `shouldBe` 1
+    jws ^? _Right . signatures . header `shouldBe` Just h2'
+    jws ^? _Right . signatures . signature `shouldBe` Just mac2
+
+  it "decodes flattened JWS to 'JWS Identity' correctly" $ do
+    let jws = eitherDecode exampleJWSFlat :: Either String (JWS Identity JWSHeader)
+    lengthOf (_Right . signatures) jws `shouldBe` 1
+    jws ^? _Right . signatures . header `shouldBe` Just h2'
+    jws ^? _Right . signatures . signature `shouldBe` Just mac2
+
+  it "fails to decode flattened JWS when \"signatures\" key is present" $ do
+    (eitherDecode exampleFlatJWSWithSignatures :: Either String (JWS [] JWSHeader))
+      `shouldSatisfy` is _Left
+    (eitherDecode exampleFlatJWSWithSignatures :: Either String (JWS Identity JWSHeader))
       `shouldSatisfy` is _Left
 
   where
@@ -383,7 +401,7 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
       "DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8ISlSA\
       \pmWQxfKTUJqPP3-Kg6NU1Q"
 
-    exampleJWS = "\
+    exampleJWSTwoSigs = "\
       \{\"payload\":\
       \  \"eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGF\
           \tcGxlLmNvbS9pc19yb290Ijp0cnVlfQ\",\
@@ -405,7 +423,19 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
       \     \"DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8IS\
             \lSApmWQxfKTUJqPP3-Kg6NU1Q\"}]\
       \}"
-    exampleJWS' = "\
+    exampleJWSOneSig = "\
+      \{\"payload\":\
+      \  \"eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGF\
+          \tcGxlLmNvbS9pc19yb290Ijp0cnVlfQ\",\
+      \ \"signatures\":[\
+      \   {\"protected\":\"eyJhbGciOiJFUzI1NiJ9\",\
+      \    \"header\":\
+      \     {\"kid\":\"e9bc097a-ce51-4036-9562-d2ade882db0d\"},\
+      \    \"signature\":\
+      \     \"DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8IS\
+            \lSApmWQxfKTUJqPP3-Kg6NU1Q\"}]\
+      \}"
+    exampleJWSFlat = "\
       \{\
       \ \"payload\":\
       \  \"eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGF\

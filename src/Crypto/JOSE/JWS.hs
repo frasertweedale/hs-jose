@@ -20,12 +20,12 @@ Object Notation (JSON) based data structures.  It is defined in
 <https://tools.ietf.org/html/rfc7515 RFC 7515>.
 
 @
-doJwsSign :: 'JWK' -> L.ByteString -> IO (Either 'Error' ('JWS' 'JWSHeader'))
+doJwsSign :: 'JWK' -> L.ByteString -> IO (Either 'Error' ('JWS' [] 'JWSHeader'))
 doJwsSign jwk payload = runExceptT $ do
   alg \<- 'bestJWSAlg' jwk
-  'signJWS' ('newJWS' payload) ('newJWSHeader' ('Protected', alg)) jwk
+  'signJWS' payload [('newJWSHeader' ('Protected', alg), jwk)]
 
-doJwsVerify :: 'JWK' -> 'JWS' 'JWSHeader' -> IO (Either 'Error' ())
+doJwsVerify :: 'JWK' -> 'JWS' [] 'JWSHeader' -> IO (Either 'Error' ())
 doJwsVerify jwk jws = runExceptT $ 'verifyJWS'' jwk jws
 @
 
@@ -39,11 +39,13 @@ doJwsVerify jwk jws = runExceptT $ 'verifyJWS'' jwk jws
 
 module Crypto.JOSE.JWS
   (
+  -- * Overview
+    JWS
+
   -- ** Defining additional header parameters
   -- $extending
 
   -- * JWS creation
-    newJWS
   , newJWSHeader
   , signJWS
 
@@ -59,8 +61,7 @@ module Crypto.JOSE.JWS
   , HasAlgorithms(..)
   , HasValidationPolicy(..)
 
-  -- * JWS objects
-  , JWS
+  -- * Signature data
   , signatures
   , Signature
   , header
@@ -81,6 +82,7 @@ import Data.Foldable (toList)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
 import Data.List.NonEmpty (NonEmpty)
+import Data.Traversable (traverse)
 import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))
@@ -101,7 +103,6 @@ import Crypto.JOSE.JWK.Store
 import Crypto.JOSE.Header
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
-
 
 {- $extending
 
@@ -344,43 +345,61 @@ instance HasParams JWSHeader where
 -- | JSON Web Signature data type.  The payload can only be
 -- accessed by verifying the JWS.
 --
--- Parameterised by the header type.
+-- Parameterised by the header type, and the signature container type.
 --
--- When serialising a JWS with exactly one signature, the
--- /flattened JWS JSON serialisation/ syntax is used.
+-- Use 'encode' and 'decode' to convert a JWS to or from JSON.
+-- When encoding a @'JWS' []@ with exactly one signature, the
+-- /flattened JWS JSON serialisation/ syntax is used, otherwise
+-- the /general JWS JSON serialisation/ is used.
+-- When decoding a @'JWS' []@ either serialisation is accepted.
 --
-data JWS a = JWS Types.Base64Octets [Signature a]
-  deriving (Eq, Show)
+-- @'JWS' 'Identity'@ uses the flattened JSON serialisation
+-- or the /JWS compact serialisation/ (see 'decodeCompact' and
+-- 'encodeCompact').
+--
+-- Use 'signJWS' to create a signed/MACed JWS.
+--
+-- Use 'verifyJWS' to verify a JWS and extract the payload.
+--
+data JWS t a = JWS Types.Base64Octets (t (Signature a))
 
-signatures :: Fold (JWS a) (Signature a)
+instance (Eq (t (Signature a))) => Eq (JWS t a) where
+  JWS p sigs == JWS p' sigs' = p == p' && sigs == sigs'
+
+instance (Show (t (Signature a))) => Show (JWS t a) where
+  show (JWS p sigs) = "JWS " <> show p <> " " <> show sigs
+
+signatures :: Foldable t => Fold (JWS t a) (Signature a)
 signatures = folding (\(JWS _ sigs) -> sigs)
 
-instance HasParams a => FromJSON (JWS a) where
+instance HasParams a => FromJSON (JWS [] a) where
   parseJSON v =
     withObject "JWS JSON serialization" (\o -> JWS
       <$> o .: "payload"
       <*> o .: "signatures") v
-    <|> withObject "Flattened JWS JSON serialization" (\o ->
+    <|> fmap (\(JWS p (Identity s)) -> JWS p [s]) (parseJSON v)
+
+instance HasParams a => FromJSON (JWS Identity a) where
+  parseJSON =
+    withObject "Flattened JWS JSON serialization" $ \o ->
       if M.member "signatures" o
       then fail "\"signatures\" member MUST NOT be present"
-      else (\p s -> JWS p [s]) <$> o .: "payload" <*> parseJSON v) v
+      else (\p s -> JWS p (pure s)) <$> o .: "payload" <*> parseJSON (Object o)
 
-instance HasParams a => ToJSON (JWS a) where
+instance HasParams a => ToJSON (JWS [] a) where
   toJSON (JWS p [s]) = object $ "payload" .= p : Types.objectPairs (toJSON s)
   toJSON (JWS p ss) = object ["payload" .= p, "signatures" .= ss]
 
--- | Construct a new (unsigned) JWS
---
-newJWS :: Cons s s Word8 Word8 => s -> JWS a
-newJWS msg = JWS (Types.Base64Octets (view recons msg)) []
+instance HasParams a => ToJSON (JWS Identity a) where
+  toJSON (JWS p (Identity s)) = object $ "payload" .= p : Types.objectPairs (toJSON s)
 
 
 signingInput
   :: HasParams a
   => Either T.Text a
-  -> Types.Base64Octets
   -> B.ByteString
-signingInput h (Types.Base64Octets p) = B.intercalate "."
+  -> B.ByteString
+signingInput h p = B.intercalate "."
   [ either T.encodeUtf8 (view recons . protectedParamsEncoded) h
   , review Types.base64url p
   ]
@@ -390,8 +409,8 @@ signingInput h (Types.Base64Octets p) = B.intercalate "."
 -- The operation is defined only when there is exactly one
 -- signature and returns Nothing otherwise
 --
-instance HasParams a => ToCompact (JWS a) where
-  toCompact (JWS p [Signature raw h (Types.Base64Octets sig)]) =
+instance HasParams a => ToCompact (JWS Identity a) where
+  toCompact (JWS (Types.Base64Octets p) (Identity (Signature raw h (Types.Base64Octets sig)))) =
     case unprotectedParams h of
       Nothing -> pure
         [ view recons $ signingInput (maybe (Right h) Left raw) p
@@ -399,10 +418,8 @@ instance HasParams a => ToCompact (JWS a) where
         ]
       Just _ -> throwError $ review _CompactEncodeError $
         "cannot encode a compact JWS with unprotected headers"
-  toCompact (JWS _ sigs) = throwError $ review _CompactEncodeError $
-    "cannot compact serialize JWS with " ++ show (length sigs) ++ " sigs"
 
-instance HasParams a => FromCompact (JWS a) where
+instance HasParams a => FromCompact (JWS Identity a) where
   fromCompact xs = case xs of
     [h, p, s] -> do
       (h', p', s') <- (,,) <$> t h <*> t p <*> t s
@@ -417,18 +434,26 @@ instance HasParams a => FromCompact (JWS a) where
         . T.decodeUtf8' . view recons
 
 
--- RFC 7515 §5.1. Message Signature or MAC Computation
-
--- | Create a new signature on a JWS.
+-- | Create a signed or MACed JWS with the given payload by
+-- traversing a collection of @(header, key)@ pairs.
 --
 signJWS
+  :: ( Cons s s Word8 Word8
+     , HasJWSHeader a, HasParams a, MonadRandom m, AsError e, MonadError e m
+     , Traversable t
+     )
+  => s          -- ^ Payload
+  -> t (a, JWK) -- ^ Traversable of header, key pairs
+  -> m (JWS t a)
+signJWS s =
+  let s' = view recons s
+  in fmap (JWS (Types.Base64Octets s')) . traverse (uncurry (mkSignature s'))
+
+mkSignature
   :: (HasJWSHeader a, HasParams a, MonadRandom m, AsError e, MonadError e m)
-  => JWS a    -- ^ JWS to sign
-  -> a        -- ^ Header for signature
-  -> JWK      -- ^ Key with which to sign
-  -> m (JWS a) -- ^ JWS with new signature appended
-signJWS (JWS p sigs) h k =
-  (\sig -> JWS p (Signature Nothing h (Types.Base64Octets sig):sigs))
+  => B.ByteString -> a -> JWK -> m (Signature a)
+mkSignature p h k =
+  Signature Nothing h . Types.Base64Octets
   <$> sign (view (alg . param) h) (k ^. jwkMaterial) (signingInput (Right h) p)
 
 
@@ -500,9 +525,10 @@ defaultValidationSettings = ValidationSettings
 verifyJWS'
   ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h , JWKStore k
       , Cons s s Word8 Word8, AsEmpty s
+      , Foldable t
       )
   => k      -- ^ key or key store
-  -> JWS h  -- ^ JWS
+  -> JWS t h  -- ^ JWS
   -> m s
 verifyJWS' = verifyJWS defaultValidationSettings
 
@@ -521,10 +547,11 @@ verifyJWS
       , HasJWSHeader h, HasParams h
       , JWKStore k
       , Cons s s Word8 Word8, AsEmpty s
+      , Foldable t
       )
-  => a      -- ^ validation settings
-  -> k      -- ^ key or key store
-  -> JWS h  -- ^ JWS
+  => a        -- ^ validation settings
+  -> k        -- ^ key or key store
+  -> JWS t h  -- ^ JWS
   -> m s
 verifyJWS conf k (JWS p@(Types.Base64Octets p') sigs) =
   let
@@ -551,7 +578,7 @@ verifySig
   -> Signature a
   -> JWK
   -> Either Error Bool
-verifySig m (Signature raw h (Types.Base64Octets s)) k =
+verifySig (Types.Base64Octets m) (Signature raw h (Types.Base64Octets s)) k =
   verify (view (alg . param) h) (view jwkMaterial k) tbs s
   where
   tbs = signingInput (maybe (Right h) Left raw) m

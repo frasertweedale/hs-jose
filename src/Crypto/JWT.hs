@@ -37,12 +37,12 @@ mkClaims = do
     & 'claimAud' .~ Just ('Audience' ["bob"])
     & 'claimIat' .~ Just ('NumericDate' t)
 
-doJwtSign :: 'JWK' -> 'ClaimsSet' -> IO (Either 'JWTError' ('JWT' ('JWS' 'JWSHeader')))
+doJwtSign :: 'JWK' -> 'ClaimsSet' -> IO (Either 'JWTError' ('JWT' ('JWS' 'Identity' 'JWSHeader')))
 doJwtSign jwk claims = runExceptT $ do
   alg \<- 'bestJWSAlg' jwk
   'signClaims' jwk ('newJWSHeader' ('Protected', alg)) claims
 
-doJwtVerify :: 'JWK' -> 'JWT' ('JWS' 'JWSHeader') -> IO (Either 'JWTError' 'ClaimsSet')
+doJwtVerify :: 'JWK' -> 'JWT' ('JWS' 'Identity' 'JWSHeader') -> IO (Either 'JWTError' 'ClaimsSet')
 doJwtVerify jwk jwt = runExceptT $ do
   let config = 'defaultJWTValidationSettings' (== "bob")
   'verifyClaims' config jwk jwt
@@ -102,6 +102,7 @@ import Control.Monad.Time (MonadTime(..))
 import Control.Monad.Time.Instances ()
 #endif
 import Data.Foldable (traverse_)
+import Data.Functor.Identity
 import Data.Maybe
 import Data.List (unfoldr)
 import qualified Data.String
@@ -515,7 +516,7 @@ verifyClaims
     )
   => a
   -> k
-  -> JWT (JWS JWSHeader)
+  -> JWT (JWS Identity JWSHeader)
   -> m ClaimsSet
 verifyClaims conf k (JWT jws) =
   -- It is important, for security reasons, that the signature get
@@ -531,6 +532,6 @@ signClaims
   => JWK
   -> JWSHeader
   -> ClaimsSet
-  -> m (JWT (JWS JWSHeader))
+  -> m (JWT (JWS Identity JWSHeader))
 signClaims k h c =
-  JWT <$> signJWS (newJWS (encode c)) h k
+  JWT <$> signJWS (encode c) (Identity (h, k))
