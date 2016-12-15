@@ -26,7 +26,7 @@ JSON Web Token implementation.
 module Crypto.JWT
   (
     JWT(..)
-
+  , JWTCrypto(..)
   , JWTError(..)
   , AsJWTError(..)
 
