@@ -348,11 +348,11 @@ validateIatClaim
   => a
   -> ClaimsSet
   -> m ()
-validateIatClaim conf (ClaimsSet _ _ _ _ _ (Just e) _ _) = do
+validateIatClaim conf (ClaimsSet _ _ _ _ _ (Just t) _ _) = do
   now <- currentTime
-  if ((view checkIssuedAt conf) && (view _NumericDate e) > addUTCTime (abs (view allowedSkew conf)) now)
-    then throwError (review _JWTIssuedAtFuture ())
-    else pure ()
+  when (view checkIssuedAt conf) $
+    when ((view _NumericDate t) > addUTCTime (abs (view allowedSkew conf)) now) $
+    throwError (review _JWTIssuedAtFuture ())
 validateIatClaim _ _ = pure ()
 
 validateNbfClaim
@@ -396,7 +396,6 @@ validateIssClaim conf claims =
       else throwError (review _JWTNotInIssuer ())
       )
     (preview (claimIss . _Just) claims)
-
 
 -- | Data representing the JOSE aspects of a JWT.
 --
