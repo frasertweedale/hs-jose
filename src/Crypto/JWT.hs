@@ -36,6 +36,7 @@ module Crypto.JWT
   , HasAllowedSkew(..)
   , HasAudiencePredicate(..)
   , HasIssuerPredicate(..)
+  , HasCheckIssuedAt(..)
 
   , createJWSJWT
   , validateJWSJWT
@@ -95,6 +96,7 @@ data JWTError
   | JWTNotYetValid
   | JWTNotInIssuer
   | JWTNotInAudience
+  | JWTIssuedAtFuture
   deriving (Eq, Show)
 makeClassyPrisms ''JWTError
 
@@ -268,6 +270,7 @@ instance ToJSON ClaimsSet where
 data JWTValidationSettings = JWTValidationSettings
   { _jwtValidationSettingsValidationSettings :: ValidationSettings
   , _jwtValidationSettingsAllowedSkew :: NominalDiffTime
+  , _jwtValidationSettingsCheckIssuedAt :: Bool
   -- ^ The allowed skew is interpreted in absolute terms;
   --   a nonzero value always expands the validity period.
   , _jwtValidationSettingsAudiencePredicate :: StringOrURI -> Bool
@@ -284,6 +287,8 @@ class HasAudiencePredicate s where
   audiencePredicate :: Lens' s (StringOrURI -> Bool)
 class HasIssuerPredicate s where
   issuerPredicate :: Lens' s (StringOrURI -> Bool)
+class HasCheckIssuedAt s where
+  checkIssuedAt :: Lens' s Bool
 
 instance HasJWTValidationSettings a => HasAllowedSkew a where
   allowedSkew = jwtValidationSettingsAllowedSkew
@@ -291,11 +296,14 @@ instance HasJWTValidationSettings a => HasAudiencePredicate a where
   audiencePredicate = jwtValidationSettingsAudiencePredicate
 instance HasJWTValidationSettings a => HasIssuerPredicate a where
   issuerPredicate = jwtValidationSettingsIssuerPredicate
+instance HasJWTValidationSettings a => HasCheckIssuedAt a where
+  checkIssuedAt = jwtValidationSettingsCheckIssuedAt
 
 defaultJWTValidationSettings :: JWTValidationSettings
 defaultJWTValidationSettings = JWTValidationSettings
   defaultValidationSettings
   0
+  True
   (const False)
   (const True)
 
@@ -308,6 +316,7 @@ validateClaimsSet
   ::
     ( MonadTime m, HasAllowedSkew a, HasAudiencePredicate a
     , HasIssuerPredicate a
+    , HasCheckIssuedAt a
     , AsJWTError e, MonadError e m
     )
   => a
@@ -316,6 +325,7 @@ validateClaimsSet
 validateClaimsSet conf claims =
   sequence_
     [ validateExpClaim conf claims
+    , validateIatClaim conf claims
     , validateNbfClaim conf claims
     , validateIssClaim conf claims
     , validateAudClaim conf claims
@@ -332,6 +342,18 @@ validateExpClaim conf (ClaimsSet _ _ _ (Just e) _ _ _ _) = do
     then pure ()
     else throwError (review _JWTExpired ())
 validateExpClaim _ _ = pure ()
+
+validateIatClaim
+  :: (MonadTime m, HasCheckIssuedAt a, HasAllowedSkew a, AsJWTError e, MonadError e m)
+  => a
+  -> ClaimsSet
+  -> m ()
+validateIatClaim conf (ClaimsSet _ _ _ _ _ (Just e) _ _) = do
+  now <- currentTime
+  if ((view checkIssuedAt conf) && (view _NumericDate e) > addUTCTime (abs (view allowedSkew conf)) now)
+    then throwError (review _JWTIssuedAtFuture ())
+    else pure ()
+validateIatClaim _ _ = pure ()
 
 validateNbfClaim
   :: (MonadTime m, HasAllowedSkew a, AsJWTError e, MonadError e m)
@@ -375,6 +397,7 @@ validateIssClaim conf claims =
       )
     (preview (claimIss . _Just) claims)
 
+
 -- | Data representing the JOSE aspects of a JWT.
 --
 data JWTCrypto = JWTJWS (JWS JWSHeader) deriving (Eq, Show)
@@ -411,6 +434,7 @@ validateJWSJWT
   ::
     ( MonadTime m, HasAllowedSkew a, HasAudiencePredicate a
     , HasIssuerPredicate a
+    , HasCheckIssuedAt a
     , HasValidationSettings a
     , AsError e, AsJWTError e, MonadError e m
     )
