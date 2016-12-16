@@ -202,7 +202,7 @@ spec = do
       let conf' = set issuerPredicate (== "baz") conf
       describe "when issuer is nonempty, and predicate is matched" $ do
         let claims = emptyClaimsSet & set claimIss (Just "baz")
-        it "cannot be validated" $
+        it "can be validated" $
           runReaderT (validateClaimsSet conf' claims) now
             `shouldBe` (Right () :: Either JWTError ())
       describe "when issuer is nonempty but predicate is not matched" $ do
@@ -212,7 +212,7 @@ spec = do
             `shouldBe` Left JWTNotInIssuer
       describe "when claim is empty, and default predicate is unconditionally true" $ do
         let claims = emptyClaimsSet & set claimIss (Just "")
-        it "cannot be validated" $
+        it "can be validated" $
           runReaderT (validateClaimsSet conf claims) now
             `shouldBe` (Right () :: Either JWTError ())
 
@@ -241,7 +241,7 @@ spec = do
       k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
 
     describe "when the current time is prior to the Expiration Time" $
-      it "can be decoded and validated" $
+      it "can be decoded and validated" $ do
         runReaderT (jwt >>= validateJWSJWT conf k) (utcTime "2010-01-01 00:00:00")
           `shouldBe` (Right () :: Either JWTError ())
 
