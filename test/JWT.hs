@@ -107,6 +107,44 @@ spec = do
           in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
             `shouldBe` (Right () :: Either JWTError ())
 
+    describe "with an Issued At claim" $ do
+      let claimsSetWithIat = set claimIat (intDate "2011-02-22 18:43:00") emptyClaimsSet
+
+      describe "when the current time is after to the Issued At" $ do
+        let now = utcTime "2011-03-01 00:00:00"
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf claimsSetWithIat) now
+            `shouldBe` (Right () :: Either JWTError ())
+
+      describe "when the current time is exactly the Issued At" $ do
+        let now = utcTime "2011-02-22 18:43:00"
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf claimsSetWithIat) now
+            `shouldBe` (Right () :: Either JWTError ())
+
+      describe "when the current time is prior to the Issued At" $ do
+        let now = utcTime "2011-02-22 18:42:59"  -- 1s before issued at
+        it "cannot be validated if nonzero skew tolerance < delta" $
+          let conf' = set allowedSkew 0 conf
+          in runReaderT (validateClaimsSet conf' claimsSetWithIat) now
+            `shouldBe` Left JWTIssuedAtFuture
+        it "can be validated if nonzero skew tolerance < delta but validation is off" $
+          let conf' = set checkIssuedAt False conf
+          in runReaderT (validateClaimsSet conf' claimsSetWithIat) now
+            `shouldBe` (Right () :: Either JWTError ())
+        it "can be validated if nonzero skew tolerance = delta" $
+          let conf' = set allowedSkew 1 conf
+          in runReaderT (validateClaimsSet conf' claimsSetWithIat) now
+            `shouldBe` (Right () :: Either JWTError ())
+        it "can be validated if nonzero skew tolerance > delta" $
+          let conf' = set allowedSkew 2 conf
+          in runReaderT (validateClaimsSet conf' claimsSetWithIat) now
+            `shouldBe` (Right () :: Either JWTError ())
+        it "can be validated if negative skew tolerance = -delta" $
+          let conf' = set allowedSkew (-1) conf
+          in runReaderT (validateClaimsSet conf' claimsSetWithIat) now
+            `shouldBe` (Right () :: Either JWTError ())
+
     describe "with a Not Before claim" $ do
       let
         claimsSet = emptyClaimsSet & claimNbf .~ intDate "2016-07-05 17:37:22"
