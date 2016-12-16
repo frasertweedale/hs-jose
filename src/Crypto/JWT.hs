@@ -35,6 +35,7 @@ module Crypto.JWT
   , HasJWTValidationSettings(..)
   , HasAllowedSkew(..)
   , HasAudiencePredicate(..)
+  , HasIssuerPredicate(..)
 
   , createJWSJWT
   , validateJWSJWT
@@ -93,6 +94,8 @@ data JWTError
   | JWTExpired
   | JWTNotYetValid
   | JWTNotInAudience
+  | JWTNotInIssuer
+  | JWTIssuedAtFuture
   deriving (Eq, Show)
 makeClassyPrisms ''JWTError
 
@@ -269,6 +272,7 @@ data JWTValidationSettings = JWTValidationSettings
   -- ^ The allowed skew is interpreted in absolute terms;
   --   a nonzero value always expands the validity period.
   , _jwtValidationSettingsAudiencePredicate :: StringOrURI -> Bool
+  , _jwtValidationSettingsIssuerPredicate :: StringOrURI -> Bool
   }
 makeClassy ''JWTValidationSettings
 
@@ -279,16 +283,21 @@ class HasAllowedSkew s where
   allowedSkew :: Lens' s NominalDiffTime
 class HasAudiencePredicate s where
   audiencePredicate :: Lens' s (StringOrURI -> Bool)
+class HasIssuerPredicate s where
+  issuerPredicate :: Lens' s (StringOrURI -> Bool)
 
 instance HasJWTValidationSettings a => HasAllowedSkew a where
   allowedSkew = jwtValidationSettingsAllowedSkew
 instance HasJWTValidationSettings a => HasAudiencePredicate a where
   audiencePredicate = jwtValidationSettingsAudiencePredicate
+instance HasJWTValidationSettings a => HasIssuerPredicate a where
+  issuerPredicate = jwtValidationSettingsIssuerPredicate
 
 defaultJWTValidationSettings :: JWTValidationSettings
 defaultJWTValidationSettings = JWTValidationSettings
   defaultValidationSettings
   0
+  (const False)
   (const False)
 
 -- | Validate the claims made by a ClaimsSet. Currently only inspects
@@ -299,6 +308,7 @@ defaultJWTValidationSettings = JWTValidationSettings
 validateClaimsSet
   ::
     ( MonadTime m, HasAllowedSkew a, HasAudiencePredicate a
+    , HasIssuerPredicate a
     , AsJWTError e, MonadError e m
     )
   => a
@@ -307,7 +317,9 @@ validateClaimsSet
 validateClaimsSet conf claims =
   sequence_
     [ validateExpClaim conf claims
+    , validateIatClaim conf claims
     , validateNbfClaim conf claims
+    , validateIssClaim conf claims
     , validateAudClaim conf claims
     ]
 
@@ -322,6 +334,18 @@ validateExpClaim conf (ClaimsSet _ _ _ (Just e) _ _ _ _) = do
     then pure ()
     else throwError (review _JWTExpired ())
 validateExpClaim _ _ = pure ()
+
+validateIatClaim
+  :: (MonadTime m, HasAllowedSkew a, AsJWTError e, MonadError e m)
+  => a
+  -> ClaimsSet
+  -> m ()
+validateIatClaim conf (ClaimsSet _ _ _ _ _ (Just e) _ _) = do
+  now <- currentTime
+  if (view _NumericDate e) > addUTCTime (abs (view allowedSkew conf)) now
+    then throwError (review _JWTIssuedAtFuture ())
+    else pure ()
+validateIatClaim _ _ = pure ()
 
 validateNbfClaim
   :: (MonadTime m, HasAllowedSkew a, AsJWTError e, MonadError e m)
@@ -349,6 +373,21 @@ validateAudClaim conf claims =
       else throwError (review _JWTNotInAudience ())
       )
     (preview (claimAud . _Just . _Audience) claims)
+
+validateIssClaim
+  :: (HasIssuerPredicate s, AsJWTError e, MonadError e m)
+  => s
+  -> ClaimsSet
+  -> m ()
+validateIssClaim conf claims =
+  maybe
+    (pure ())
+    (\iss ->
+      if view issuerPredicate conf iss
+      then pure ()
+      else throwError (review _JWTNotInIssuer ())
+      )
+    (preview (claimIss . _Just) claims)
 
 
 -- | Data representing the JOSE aspects of a JWT.
@@ -386,6 +425,7 @@ instance ToCompact JWT where
 validateJWSJWT
   ::
     ( MonadTime m, HasAllowedSkew a, HasAudiencePredicate a
+    , HasIssuerPredicate a
     , HasValidationSettings a
     , AsError e, AsJWTError e, MonadError e m
     )
