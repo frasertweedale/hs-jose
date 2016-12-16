@@ -197,6 +197,25 @@ spec = do
         it "serialises to string" $ encode claims `shouldBe` "{\"aud\":\"foo\"}"
         it "round trips" $ decode (encode claims) `shouldBe` Just claims
 
+    describe "with an Issuer claim" $ do
+      let now = utcTime "2001-01-01 00:00:00"
+      let conf' = set issuerPredicate (== "baz") conf
+      describe "when issuer is nonempty, and predicate is matched" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "baz")
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` (Right () :: Either JWTError ())
+      describe "when issuer is nonempty but predicate is not matched" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "bar")
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` Left JWTNotInIssuer
+      describe "when claim is empty, and default predicate is unconditionally true" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "")
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf claims) now
+            `shouldBe` (Right () :: Either JWTError ())
+
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
       (decode "[\"foo\"]" >>= headMay >>= getString) `shouldBe` Just "foo"
@@ -222,7 +241,7 @@ spec = do
       k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
 
     describe "when the current time is prior to the Expiration Time" $
-      it "can be decoded and validated" $ do
+      it "can be decoded and validated" $
         runReaderT (jwt >>= validateJWSJWT conf k) (utcTime "2010-01-01 00:00:00")
           `shouldBe` (Right () :: Either JWTError ())
 
