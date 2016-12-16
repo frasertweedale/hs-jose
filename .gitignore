@@ -5,5 +5,3 @@ cabal.sandbox.config
 
 *.o
 *.hi
-
-TAGS

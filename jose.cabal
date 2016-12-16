@@ -19,7 +19,8 @@ homepage:            https://github.com/frasertweedale/hs-jose
 bug-reports:         https://github.com/frasertweedale/hs-jose/issues
 license:             Apache-2.0
 license-file:        LICENSE
-extra-source-files:  README.md
+extra-source-files:
+  README.md
 author:              Fraser Tweedale
 maintainer:          frase@frase.id.au
 copyright:           Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
