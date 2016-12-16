@@ -49,6 +49,7 @@ exampleClaimsSet :: ClaimsSet
 exampleClaimsSet = emptyClaimsSet
   & claimIss .~ Just (fromString "joe")
   & claimExp .~ intDate "2011-03-22 18:43:00"
+  & claimIat .~ intDate "2011-02-22 18:43:00"
   & over unregisteredClaims (insert "http://example.com/is_root" (Bool True))
   & addClaim "http://example.com/is_root" (Bool True)
 
@@ -57,7 +58,9 @@ instance Monad m => MonadTime (ReaderT UTCTime m) where
 
 spec :: Spec
 spec = do
-  let conf = set algorithms (S.singleton None) defaultJWTValidationSettings
+  let conf = defaultJWTValidationSettings
+             & algorithms .~ S.singleton None
+             & jwtValidationSettingsIssuerPredicate .~ (== fromString "joe")
 
   describe "JWT Claims Set" $ do
     it "parses from JSON correctly" $
@@ -65,6 +68,7 @@ spec = do
         claimsJSON = "\
           \{\"iss\":\"joe\",\r\n\
           \ \"exp\":1300819380,\r\n\
+          \ \"iat\":1298400180,\r\n\
           \ \"http://example.com/is_root\":true}"
       in
         decode claimsJSON `shouldBe` Just exampleClaimsSet
@@ -74,7 +78,7 @@ spec = do
 
     describe "with an Expiration Time claim" $ do
       describe "when the current time is prior to the Expiration Time" $ do
-        let now = utcTime "2010-01-01 00:00:00"
+        let now = utcTime "2011-03-01 00:00:00"
         it "can be validated" $
           runReaderT (validateClaimsSet conf exampleClaimsSet) now
             `shouldBe` (Right () :: Either JWTError ())
@@ -104,6 +108,38 @@ spec = do
             `shouldBe` (Right () :: Either JWTError ())
         it "can be validated if negative skew tolerance = -delta" $
           let conf' = set allowedSkew (-2) conf
+          in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
+
+    describe "with an Issued At claim" $ do
+      describe "when the current time is after to the Issued At" $ do
+        let now = utcTime "2011-03-01 00:00:00"
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf exampleClaimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
+
+      describe "when the current time is exactly the Issued At" $ do
+        let now = utcTime "2011-02-22 18:43:00"
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf exampleClaimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
+
+      describe "when the current time is prior to the Issued At" $ do
+        let now = utcTime "2011-02-22 18:42:59"  -- 1s before issued at
+        it "cannot be validated if nonzero skew tolerance < delta" $
+          let conf' = set allowedSkew 0 conf
+          in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
+            `shouldBe` Left JWTIssuedAtFuture
+        it "can be validated if nonzero skew tolerance = delta" $
+          let conf' = set allowedSkew 1 conf
+          in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
+        it "can be validated if nonzero skew tolerance > delta" $
+          let conf' = set allowedSkew 2 conf
+          in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
+            `shouldBe` (Right () :: Either JWTError ())
+        it "can be validated if negative skew tolerance = -delta" $
+          let conf' = set allowedSkew (-1) conf
           in runReaderT (validateClaimsSet conf' exampleClaimsSet) now
             `shouldBe` (Right () :: Either JWTError ())
 
@@ -196,6 +232,31 @@ spec = do
         let claims = emptyClaimsSet & set claimAud (Just (Audience ["foo"]))
         it "serialises to string" $ encode claims `shouldBe` "{\"aud\":\"foo\"}"
         it "round trips" $ decode (encode claims) `shouldBe` Just claims
+
+    describe "with an Issuer claim" $ do
+      let now = utcTime "2001-01-01 00:00:00"
+      let conf' = set issuerPredicate (== "baz") conf
+      let conf'' = set issuerPredicate (const True) conf
+      describe "when issuer is nonempty, and default predicate is used" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "foo")
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf claims) now
+            `shouldBe` Left JWTNotInIssuer
+      describe "when issuer is nonempty, and default predicate is matched" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "joe")
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf claims) now
+            `shouldBe` (Right () :: Either JWTError ())
+      describe "when issuer is nonempty but predicate does not match any value" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "bar")
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` Left JWTNotInIssuer
+      describe "when claim is empty, and predicate is unconditionally true" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "")
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf'' claims) now
+            `shouldBe` (Right () :: Either JWTError ())
 
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
