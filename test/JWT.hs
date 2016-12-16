@@ -197,6 +197,25 @@ spec = do
         it "serialises to string" $ encode claims `shouldBe` "{\"aud\":\"foo\"}"
         it "round trips" $ decode (encode claims) `shouldBe` Just claims
 
+    describe "with an Issuer claim" $ do
+      let now = utcTime "2001-01-01 00:00:00"
+      let conf' = set issuerPredicate (== "baz") conf
+      describe "when issuer is nonempty, and predicate is matched" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "baz")
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` (Right () :: Either JWTError ())
+      describe "when issuer is nonempty but predicate is not matched" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "bar")
+        it "cannot be validated" $
+          runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` Left JWTNotInIssuer
+      describe "when claim is empty, and default predicate is unconditionally true" $ do
+        let claims = emptyClaimsSet & set claimIss (Just "")
+        it "can be validated" $
+          runReaderT (validateClaimsSet conf claims) now
+            `shouldBe` (Right () :: Either JWTError ())
+
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
       (decode "[\"foo\"]" >>= headMay >>= getString) `shouldBe` Just "foo"
