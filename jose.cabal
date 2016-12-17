@@ -39,14 +39,14 @@ library
     Crypto.JOSE.JWS
     Crypto.JOSE.Types
     Crypto.JWT
-
-  other-modules:
     Crypto.JOSE.AESKW
     Crypto.JOSE.JWA.JWK
+    Crypto.JOSE.JWS.Internal
     Crypto.JOSE.JWA.JWS
     Crypto.JOSE.JWA.JWE
     Crypto.JOSE.JWA.JWE.Alg
-    Crypto.JOSE.JWS.Internal
+
+  other-modules:
     Crypto.JOSE.TH
     Crypto.JOSE.Types.Internal
     Crypto.JOSE.Types.Orphans
@@ -91,7 +91,7 @@ source-repository head
 
 test-suite tests
   type:           exitcode-stdio-1.0
-  hs-source-dirs: src, test
+  hs-source-dirs: test
   main-is:        Test.hs
   other-modules:
     AESKW
@@ -122,6 +122,8 @@ test-suite tests
     , network-uri
     , vector
     , x509
+
+    , jose
 
     , tasty
     , tasty-hspec
