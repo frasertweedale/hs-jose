@@ -71,6 +71,7 @@ import Control.Monad.Time (MonadTime(..))
 #if ! MIN_VERSION_monad_time(0,2,0)
 import Control.Monad.Time.Instances ()
 #endif
+import Data.Foldable (traverse_)
 import Data.Maybe
 import qualified Data.String
 
@@ -323,12 +324,12 @@ validateClaimsSet
   -> ClaimsSet
   -> m ()
 validateClaimsSet conf claims =
-  sequence_
-    [ validateExpClaim conf claims
-    , validateIatClaim conf claims
-    , validateNbfClaim conf claims
-    , validateIssClaim conf claims
-    , validateAudClaim conf claims
+  traverse_ (($ claims) . ($ conf))
+    [ validateExpClaim
+    , validateIatClaim
+    , validateNbfClaim
+    , validateIssClaim
+    , validateAudClaim
     ]
 
 validateExpClaim
@@ -336,66 +337,59 @@ validateExpClaim
   => a
   -> ClaimsSet
   -> m ()
-validateExpClaim conf (ClaimsSet _ _ _ (Just e) _ _ _ _) = do
-  now <- currentTime
-  if now < addUTCTime (abs (view allowedSkew conf)) (view _NumericDate e)
-    then pure ()
-    else throwError (review _JWTExpired ())
-validateExpClaim _ _ = pure ()
+validateExpClaim conf =
+  traverse_ (\t -> do
+    now <- currentTime
+    unless (now < addUTCTime (abs (view allowedSkew conf)) (view _NumericDate t)) $
+      throwError (review _JWTExpired ()))
+  . preview (claimExp . _Just)
 
 validateIatClaim
   :: (MonadTime m, HasCheckIssuedAt a, HasAllowedSkew a, AsJWTError e, MonadError e m)
   => a
   -> ClaimsSet
   -> m ()
-validateIatClaim conf (ClaimsSet _ _ _ _ _ (Just t) _ _) = do
-  now <- currentTime
-  when (view checkIssuedAt conf) $
-    when ((view _NumericDate t) > addUTCTime (abs (view allowedSkew conf)) now) $
-    throwError (review _JWTIssuedAtFuture ())
-validateIatClaim _ _ = pure ()
+validateIatClaim conf =
+  traverse_ (\t -> do
+    now <- currentTime
+    when (view checkIssuedAt conf) $
+      when ((view _NumericDate t) > addUTCTime (abs (view allowedSkew conf)) now) $
+        throwError (review _JWTIssuedAtFuture ()))
+    . preview (claimIat . _Just)
 
 validateNbfClaim
   :: (MonadTime m, HasAllowedSkew a, AsJWTError e, MonadError e m)
   => a
   -> ClaimsSet
   -> m ()
-validateNbfClaim conf (ClaimsSet _ _ _ _ (Just n) _ _ _) = do
-  now <- currentTime
-  if now >= addUTCTime (negate (abs (view allowedSkew conf))) (view _NumericDate n)
-    then pure ()
-    else throwError (review _JWTNotYetValid ())
-validateNbfClaim _ _ = pure ()
+validateNbfClaim conf =
+  traverse_ (\t -> do
+    now <- currentTime
+    unless (now >= addUTCTime (negate (abs (view allowedSkew conf))) (view _NumericDate t)) $
+      throwError (review _JWTNotYetValid ()))
+  . preview (claimNbf . _Just)
 
 validateAudClaim
   :: (HasAudiencePredicate s, AsJWTError e, MonadError e m)
   => s
   -> ClaimsSet
   -> m ()
-validateAudClaim conf claims =
-  maybe
-    (pure ())
-    (\auds ->
-      if or (view audiencePredicate conf <$> auds)
-      then pure ()
-      else throwError (review _JWTNotInAudience ())
-      )
-    (preview (claimAud . _Just . _Audience) claims)
+validateAudClaim conf =
+  traverse_
+    (\auds -> unless (or (view audiencePredicate conf <$> auds)) $
+        throwError (review _JWTNotInAudience ()))
+  . preview (claimAud . _Just . _Audience)
 
 validateIssClaim
   :: (HasIssuerPredicate s, AsJWTError e, MonadError e m)
   => s
   -> ClaimsSet
   -> m ()
-validateIssClaim conf claims =
-  maybe
-    (pure ())
-    (\iss ->
-      if view issuerPredicate conf iss
-      then pure ()
-      else throwError (review _JWTNotInIssuer ())
-      )
-    (preview (claimIss . _Just) claims)
+validateIssClaim conf =
+  traverse_ (\iss ->
+    unless (view issuerPredicate conf iss) $
+      throwError (review _JWTNotInIssuer ()))
+  . preview (claimIss . _Just)
 
 -- | Data representing the JOSE aspects of a JWT.
 --
