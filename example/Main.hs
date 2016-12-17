@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 
+import Data.String (fromString)
 import System.Environment (getArgs)
 import System.Exit (exitFailure, exitSuccess)
 
@@ -7,10 +8,15 @@ import qualified Data.ByteString.Lazy as L
 import Data.Aeson (decode, encode)
 
 import Control.Monad.Except (runExceptT)
+import Control.Lens (set)
 import Crypto.JOSE.JWK (KeyMaterialGenParam(..), Crv(..), genJWK, bestJWSAlg)
 import Crypto.JWT
-  ( createJWSJWT, validateJWSJWT
-  , defaultJWTValidationSettings, JWTError)
+  ( JWTError
+  , createJWSJWT
+  , validateJWSJWT
+  , defaultJWTValidationSettings
+  , audiencePredicate
+  )
 import Crypto.JOSE.Compact (decodeCompact, encodeCompact)
 import Crypto.JOSE.JWS (Protection(Protected), newJWSHeader)
 
@@ -57,17 +63,20 @@ doJwtSign [jwkFilename, claimsFilename] = do
 -- | Validate a JWT.  Args are:
 --
 -- 1. filename of JWK
--- 2. filename of a claims object
+-- 2. filename of a JWT
+-- 3. audience
+--
+-- Extraneous trailing args are ignored.
 --
 -- Exit code indicates validity.
 --
 doJwtVerify :: [String] -> IO ()
-doJwtVerify [jwkFilename, jwtFilename] = do
+doJwtVerify (jwkFilename : jwtFilename : aud : _) = do
+  let
+    conf = set audiencePredicate (== fromString aud) defaultJWTValidationSettings
   Just jwk <- decode <$> L.readFile jwkFilename
   jwtData <- L.readFile jwtFilename
-  result <- runExceptT (
-    decodeCompact jwtData
-    >>= validateJWSJWT defaultJWTValidationSettings jwk)
+  result <- runExceptT (decodeCompact jwtData >>= validateJWSJWT conf jwk)
   case result of
     Left e -> print (e :: JWTError) >> exitFailure
     Right _ -> exitSuccess
