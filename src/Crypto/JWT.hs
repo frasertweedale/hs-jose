@@ -303,7 +303,7 @@ defaultJWTValidationSettings :: JWTValidationSettings
 defaultJWTValidationSettings = JWTValidationSettings
   defaultValidationSettings
   0
-  True
+  False
   (const False)
   (const True)
 

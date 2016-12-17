@@ -109,6 +109,7 @@ spec = do
 
     describe "with an Issued At claim" $ do
       let claimsSetWithIat = set claimIat (intDate "2011-02-22 18:43:00") emptyClaimsSet
+      let conf = set checkIssuedAt True defaultJWTValidationSettings
 
       describe "when the current time is after to the Issued At" $ do
         let now = utcTime "2011-03-01 00:00:00"
