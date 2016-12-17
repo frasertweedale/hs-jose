@@ -5,10 +5,10 @@ synopsis:
 description:
   .
   An implementation of the Javascript Object Signing and Encryption
-  (JOSE) and JSON Web Token (JWT; RFC 5717) formats.
+  (JOSE) and JSON Web Token (JWT; RFC 7519) formats.
   .
-  The JSON Web Signature (JWS; RFC 5715) implementation is complete.
-  JSON Web Encryption (JWE; RFC 5716) is not yet implemented.
+  The JSON Web Signature (JWS; RFC 7515) implementation is complete.
+  JSON Web Encryption (JWE; RFC 7516) is not yet implemented.
   .
   All JWS algorithms (HMAC, ECDSA, RSASSA-PKCS-v1_5 and RSASSA-PSS)
   are implemented, however, the ECDSA implementation is is
