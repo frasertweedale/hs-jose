@@ -105,7 +105,7 @@ instance AsError JWTError where
   _Error = _JWSError
 
 
--- §2.  Terminology
+-- RFC 7519 §2.  Terminology
 
 -- | A JSON string value, with the additional requirement that while
 --   arbitrary string values MAY be used, any value containing a /:/

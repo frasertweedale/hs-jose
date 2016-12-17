@@ -151,7 +151,7 @@ examplePayload = Types.Base64Octets "\
 
 
 appendixA1Spec :: Spec
-appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
+appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
   -- can't make aeson encode JSON to exact representation used in
   -- IETF doc, be we can go in reverse and then ensure that the
   -- round-trip checks out
@@ -202,7 +202,7 @@ appendixA1Spec = describe "JWS A.1.  Example JWS using HMAC SHA-256" $ do
 
 
 appendixA2Spec :: Spec
-appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
+appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
     fst (withDRG drg $ runExceptT (sign JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput'))
       `shouldBe` (Right sig :: Either Error BS.ByteString)
@@ -255,7 +255,7 @@ appendixA2Spec = describe "JWS A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" 
 
 
 appendixA3Spec :: Spec
-appendixA3Spec = describe "JWS A.3.  Example JWS using ECDSA P-256 SHA-256" $
+appendixA3Spec = describe "RFC 7515 A.3.  Example JWS using ECDSA P-256 SHA-256" $
   it "validates the signature correctly" $
     verify JWA.JWS.ES256 (jwk ^. jwkMaterial) signingInput' sig `shouldBe` Right True
   where
@@ -280,7 +280,7 @@ appendixA3Spec = describe "JWS A.3.  Example JWS using ECDSA P-256 SHA-256" $
       143, 63, 127, 138, 131, 163, 84, 213]
 
 appendixA5Spec :: Spec
-appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
+appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
   it "encodes the correct JWS" $
     (jws >>= encodeCompact) `shouldBe` (Right exampleJWS :: Either Error L.ByteString)
 
@@ -298,7 +298,7 @@ appendixA5Spec = describe "JWS A.5.  Example Plaintext JWS" $ do
 
 
 appendixA6Spec :: Spec
-appendixA6Spec = describe "JWS A.6.  Example JWS Using JWS JSON Serialization" $
+appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Serialization" $
   it "decodes the correct JWS" $ do
     eitherDecode exampleJWS `shouldBe` Right jws
     eitherDecode exampleJWS' `shouldBe` Right jws'

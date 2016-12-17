@@ -36,7 +36,7 @@ spec = do
   jwsAppendixA1Spec
 
 jwsAppendixA1Spec :: Spec
-jwsAppendixA1Spec = describe "JWS A.1.1.  JWK" $ do
+jwsAppendixA1Spec = describe "RFC 7515 A.1.1.  JWK" $ do
   -- can't make aeson encode JSON to exact representation used in
   -- IETF doc, be we can go in reverse and then ensure that the
   -- round-trip checks out
@@ -62,7 +62,7 @@ jwsAppendixA1Spec = describe "JWS A.1.1.  JWK" $ do
        192,205,154,245,103,208,128,163]
 
 jwk3Spec :: Spec
-jwk3Spec = describe "JWK §3. Example JWK" $
+jwk3Spec = describe "RFC 7517 §3. Example JWK" $
   it "successfully decodes the examples" $
     lr (eitherDecode exampleJWK :: Either String JWK) `shouldBe` R
     where
@@ -71,11 +71,11 @@ jwk3Spec = describe "JWK §3. Example JWK" $
       \ \"crv\":\"P-256\",\
       \ \"x\":\"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU\",\
       \ \"y\":\"x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0\",\
-      \ \"kid\":\"Public key used in JWS A.3 example\"\
+      \ \"kid\":\"Public key used in JWS spec Appendix A.3 example\"\
       \}"
 
 jwkAppendixA1Spec :: Spec
-jwkAppendixA1Spec = describe "JWK A.1.  Example Public Keys" $
+jwkAppendixA1Spec = describe "RFC 7517 A.1.  Example Public Keys" $
   it "successfully decodes the examples" $
     lr (eitherDecode exampleJWKSet :: Either String JWKSet) `shouldBe` R
     where
@@ -102,7 +102,7 @@ jwkAppendixA1Spec = describe "JWK A.1.  Example Public Keys" $
       `L.append` exampleRSA `L.append` "]}"
 
 jwkAppendixA2Spec :: Spec
-jwkAppendixA2Spec = describe "JWK A.2.  Example Private Keys" $
+jwkAppendixA2Spec = describe "RFC 7517 A.2.  Example Private Keys" $
   it "successfully decodes the examples" $
     lr (eitherDecode exampleJWKSet :: Either String JWKSet) `shouldBe` R
     where
@@ -152,7 +152,7 @@ jwkAppendixA2Spec = describe "JWK A.2.  Example Private Keys" $
       \}"
 
 jwkAppendixA3Spec :: Spec
-jwkAppendixA3Spec = describe "JWK A.3. Example Symmetric Keys" $
+jwkAppendixA3Spec = describe "RFC 7517 A.3. Example Symmetric Keys" $
   it "successfully decodes the examples" $
     lr (eitherDecode exampleJWKSet :: Either String JWKSet) `shouldBe` R
     where
@@ -166,7 +166,7 @@ jwkAppendixA3Spec = describe "JWK A.3. Example Symmetric Keys" $
       \    {\"kty\":\"oct\",\
       \     \"k\":\"AyM1SysPpbyDfgZld3umj1qzKObwVMkoqQ-EstJQLr_T-1qS0gZH75\
       \aKtMN3Yj0iPS4hcgUuTwjAzZr1Z9CAow\",\
-      \     \"kid\":\"HMAC key used in JWS A.1 example\"}\
+      \     \"kid\":\"HMAC key used in JWS spec Appendix A.1 example\"}\
       \  ]\
       \}"
 
@@ -209,7 +209,7 @@ jwkAppendixBSpec = describe "JWK B.  Example Use of \"x5c\" (X.509 Certificate C
       \}"
 
 jwkAppendixC1Spec :: Spec
-jwkAppendixC1Spec = describe "JWK C.1. Plaintext RSA Private Key" $
+jwkAppendixC1Spec = describe "RFC 7517  C.1. Plaintext RSA Private Key" $
   it "successfully decodes the example" $
     lr (eitherDecode exampleJWK :: Either String JWK) `shouldBe` R
     where

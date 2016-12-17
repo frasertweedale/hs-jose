@@ -237,7 +237,7 @@ instance HasParams a => FromCompact (JWS a) where
         . T.decodeUtf8' . BSL.toStrict
 
 
--- §5.1. Message Signing or MACing
+-- RFC 7515 §5.1. Message Signature or MAC Computation
 
 -- | Create a new signature on a JWS.
 --

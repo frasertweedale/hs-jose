@@ -25,7 +25,7 @@ module Crypto.JOSE.JWA.JWS where
 import qualified Crypto.JOSE.TH
 
 
--- | JWA §3.1.  "alg" (Algorithm) Header Parameters for JWS
+-- | RFC 7518 §3.1.  "alg" (Algorithm) Header Parameters Values for JWS
 --
 $(Crypto.JOSE.TH.deriveJOSEType "Alg" [
   "HS256"   -- HMAC SHA ; REQUIRED

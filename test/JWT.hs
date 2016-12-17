@@ -268,7 +268,7 @@ spec = do
       decode "[1382245921]" `shouldBe` fmap (:[]) (intDate "2013-10-20 05:12:01")
       decode "[\"notnum\"]"       `shouldBe` (Nothing :: Maybe [NumericDate])
 
-  describe "§6.1.  Example Unsecured JWT" $ do
+  describe "RFC 7519 §6.1.  Example Unsecured JWT" $ do
     let
       exampleJWT = "eyJhbGciOiJub25lIn0\
         \.\

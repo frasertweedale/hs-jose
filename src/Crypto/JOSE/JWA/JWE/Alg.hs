@@ -25,7 +25,7 @@ module Crypto.JOSE.JWA.JWE.Alg where
 import qualified Crypto.JOSE.TH
 
 
--- | JWA §4.1.  "alg" (Algorithm) Header Parameter Values for JWE
+-- | RFC 7518 §4.1.  "alg" (Algorithm) Header Parameter Values for JWE
 --
 -- This section is shuffled off into its own module to avoid
 -- circular import via Crypto.JOSE.JWK, which needs Alg.

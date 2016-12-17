@@ -90,7 +90,7 @@ instance ToJSON JWKAlg where
   toJSON (JWEAlg alg) = toJSON alg
 
 
--- | JWK §3.3.  "key_ops" (Key Operations) Parameter
+-- | RFC 7517 §4.3.  "key_ops" (Key Operations) Parameter
 --
 $(Crypto.JOSE.TH.deriveJOSEType "KeyOp"
   [ "sign", "verify", "encrypt", "decrypt"
@@ -98,12 +98,12 @@ $(Crypto.JOSE.TH.deriveJOSEType "KeyOp"
   ])
 
 
--- | JWK §3.2.  "use" (Public Key Use) Parameter
+-- | RFC 7517 §4.2.  "use" (Public Key Use) Parameter
 --
 $(Crypto.JOSE.TH.deriveJOSEType "KeyUse" ["sig", "enc"])
 
 
--- | JWK §3.  JSON Web Key (JWK) Format
+-- | RFC 7517 §4.  JSON Web Key (JWK) Format
 --
 data JWK = JWK
   {
@@ -174,7 +174,7 @@ instance AsPublicKey JWK where
   asPublicKey = prism' id (jwkMaterial (preview asPublicKey))
 
 
--- | JWK §4.  JSON Web Key Set (JWK Set) Format
+-- | RFC 7517 §5.  JWK Set Format
 --
 newtype JWKSet = JWKSet [JWK] deriving (Eq, Show)
 

@@ -34,8 +34,7 @@ import Crypto.JOSE.Types.Internal (objectPairs)
 import Data.Aeson
 
 
---
--- JWA §4.  Cryptographic Algorithms for Encryption
+-- | RFC 7518 §4.  Cryptographic Algorithms for Key Management
 --
 data AlgWithParams
   = RSA1_5
@@ -107,7 +106,7 @@ instance ToJSON AlgWithParams where
   toJSON (PBES2_HS512_A256KW params)  = algWithParamsObject params "PBES2-HS512+A256KW"
 
 
--- | JWA §4.7.1.  Header Parameters Used for ECDH Key Agreement
+-- | RFC 7518 §4.6.1.  Header Parameters Used for ECDH Key Agreement
 --
 data ECDHParameters = ECDHParameters
   { _epk :: JWK                 -- ^ Ephemeral Public Key ; a JWK PUBLIC key
@@ -129,7 +128,7 @@ instance ToJSON ECDHParameters where
     ]
 
 
--- | JWA §4.8.1.  Header Parameters Used for AES GCM Key Encryption
+-- | RFC 7518 §4.7.1.  Header Parameters Used for AES GCM Key Encryption
 --
 data AESGCMParameters = AESGCMParameters
   { _iv :: Base64Octets  -- ^ Initialization Vector  (must be 96 bits?)
@@ -145,7 +144,7 @@ instance ToJSON AESGCMParameters where
   toJSON (AESGCMParameters iv tag) = object ["iv" .= iv, "tag" .= tag]
 
 
--- | JWA §4.9.1.  Header Parameters Used for PBES2 Key Encryption
+-- | RFC 7518 §4.8.1.  Header Parameters Used for PBES2 Key Encryption
 --
 data PBES2Parameters =  PBES2Parameters
   { _p2s :: Base64Octets   -- ^ PBKDF2 salt input
@@ -161,7 +160,7 @@ instance ToJSON PBES2Parameters where
   toJSON (PBES2Parameters p2s p2c) = object ["p2s" .= p2s, "p2c" .= p2c]
 
 
--- | JWA §4.2.  "enc" (Encryption Method) Header Parameters Values for JWE
+-- | RFC 7518 §5  Cryptographic Algorithms for Content Encryption
 --
 $(deriveJOSEType "Enc" [
   "A128CBC-HS256"   -- AES HMAC SHA authenticated encryption  Required
