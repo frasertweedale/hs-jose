@@ -47,7 +47,7 @@ utcTime = fromJust . parseTimeM True defaultTimeLocale "%F %T"
 
 exampleClaimsSet :: ClaimsSet
 exampleClaimsSet = emptyClaimsSet
-  & claimIss .~ Just (fromString "joe")
+  & claimIss .~ preview stringOrUri ("joe" :: String)
   & claimExp .~ intDate "2011-03-22 18:43:00"
   & over unregisteredClaims (insert "http://example.com/is_root" (Bool True))
   & addClaim "http://example.com/is_root" (Bool True)
@@ -256,8 +256,8 @@ spec = do
 
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
-      (decode "[\"foo\"]" >>= headMay >>= getString) `shouldBe` Just "foo"
-      (decode "[\"http://example.com\"]" >>= headMay >>= getURI)
+      (decode "[\"foo\"]" >>= headMay >>= preview string) `shouldBe` Just "foo"
+      (decode "[\"http://example.com\"]" >>= headMay >>= preview uri)
         `shouldBe` parseURI "http://example.com"
       decode "[\":\"]" `shouldBe` (Nothing :: Maybe [StringOrURI])
       decode "[12345]" `shouldBe` (Nothing :: Maybe [StringOrURI])

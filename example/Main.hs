@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 
-import Data.String (fromString)
+import Data.Maybe (fromJust)
 import System.Environment (getArgs)
 import System.Exit (exitFailure, exitSuccess)
 
@@ -8,7 +8,7 @@ import qualified Data.ByteString.Lazy as L
 import Data.Aeson (decode, encode)
 
 import Control.Monad.Except (runExceptT)
-import Control.Lens (set)
+import Control.Lens (preview, set)
 import Crypto.JOSE.JWK (KeyMaterialGenParam(..), Crv(..), genJWK, bestJWSAlg)
 import Crypto.JWT
   ( JWTError
@@ -16,6 +16,7 @@ import Crypto.JWT
   , validateJWSJWT
   , defaultJWTValidationSettings
   , audiencePredicate
+  , stringOrUri
   )
 import Crypto.JOSE.Compact (decodeCompact, encodeCompact)
 import Crypto.JOSE.JWS (Protection(Protected), newJWSHeader)
@@ -73,7 +74,8 @@ doJwtSign [jwkFilename, claimsFilename] = do
 doJwtVerify :: [String] -> IO ()
 doJwtVerify (jwkFilename : jwtFilename : aud : _) = do
   let
-    conf = set audiencePredicate (== fromString aud) defaultJWTValidationSettings
+    aud' = fromJust $ preview stringOrUri aud
+    conf = set audiencePredicate (== aud') defaultJWTValidationSettings
   Just jwk <- decode <$> L.readFile jwkFilename
   jwtData <- L.readFile jwtFilename
   result <- runExceptT (decodeCompact jwtData >>= validateJWSJWT conf jwk)

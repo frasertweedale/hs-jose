@@ -13,6 +13,7 @@
 -- limitations under the License.
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -57,10 +58,9 @@ module Crypto.JWT
   , Audience(..)
 
   , StringOrURI
-  , fromString
-  , fromURI
-  , getString
-  , getURI
+  , stringOrUri
+  , string
+  , uri
 
   , NumericDate(..)
   ) where
@@ -73,11 +73,13 @@ import Control.Monad.Time.Instances ()
 #endif
 import Data.Foldable (traverse_)
 import Data.Maybe
+import Data.List (unfoldr)
 import qualified Data.String
 
 import Control.Lens (
   makeClassy, makeClassyPrisms, makeLenses, makePrisms,
-  Lens', _Just, over, preview, review, view)
+  Lens', _Just, over, preview, review, view,
+  Prism', prism', Cons, cons, uncons, iso, Iso')
 import Control.Monad.Except (MonadError(throwError))
 import Data.Aeson
 import qualified Data.ByteString.Lazy as BSL
@@ -111,41 +113,38 @@ instance AsError JWTError where
 --   arbitrary string values MAY be used, any value containing a /:/
 --   character MUST be a URI.
 --
-data StringOrURI = Arbitrary T.Text | OrURI URI deriving (Eq, Show)
+data StringOrURI = Arbitrary String | OrURI URI deriving (Eq, Show)
 
 instance Data.String.IsString StringOrURI where
-  fromString = Arbitrary . T.pack
+  fromString = fromJust . preview stringOrUri
 
--- | Construct a 'StringOrURI' from text
---
-fromString :: T.Text -> StringOrURI
-fromString s = maybe (Arbitrary s) OrURI $ parseURI $ T.unpack s
+consString :: (Cons s s Char Char, Monoid s) => Iso' s String
+consString = iso (unfoldr uncons) (foldr cons mempty)
 
--- | Construct a 'StringOrURI' from a URI
---
-fromURI :: URI -> StringOrURI
-fromURI = OrURI
+stringOrUri :: (Cons s s Char Char, Monoid s) => Prism' s StringOrURI
+stringOrUri = consString . prism' rev fwd
+  where
+  rev (Arbitrary s) = s
+  rev (OrURI x) = show x
+  fwd s = if ':' `elem` s then OrURI <$> parseURI s else pure (Arbitrary s)
 
--- | Get the
-getString :: StringOrURI -> Maybe T.Text
-getString (Arbitrary a) = Just a
-getString (OrURI _) = Nothing
+string :: Prism' StringOrURI String
+string = prism' Arbitrary f where
+  f (Arbitrary s) = Just s
+  f _ = Nothing
 
--- | Get the uri from a 'StringOrURI'
---
-getURI :: StringOrURI -> Maybe URI
-getURI (Arbitrary _) = Nothing
-getURI (OrURI a) = Just a
+uri :: Prism' StringOrURI URI
+uri = prism' OrURI f where
+  f (OrURI s) = Just s
+  f _ = Nothing
 
 instance FromJSON StringOrURI where
-  parseJSON = withText "StringOrURI" (\s ->
-    if T.any (== ':') s
-    then OrURI <$> parseJSON (String s)
-    else pure $ Arbitrary s)
+  parseJSON = withText "StringOrURI"
+    (maybe (fail "failed to parse StringOrURI") pure . preview stringOrUri)
 
 instance ToJSON StringOrURI where
   toJSON (Arbitrary s)  = toJSON s
-  toJSON (OrURI uri)    = toJSON $ show uri
+  toJSON (OrURI x)      = toJSON $ show x
 
 
 -- | A JSON numeric value representing the number of seconds from
