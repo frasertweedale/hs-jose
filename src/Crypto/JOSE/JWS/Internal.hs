@@ -299,9 +299,11 @@ defaultValidationSettings = ValidationSettings
 --
 verifyJWS
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
-      , HasJWSHeader h, HasParams h)
+      , HasJWSHeader h, HasParams h
+      , JWKStore k
+      )
   => a
-  -> JWK
+  -> k
   -> JWS h
   -> m ()
 verifyJWS conf k (JWS p sigs) =
@@ -316,17 +318,17 @@ verifyJWS conf k (JWS p sigs) =
     applyPolicy AllValidated [] = throwError (review _JWSNoSignatures ())
     applyPolicy AllValidated xs =
       if and xs then pure () else throwError (review _JWSInvalidSignature ())
-    validate = (== Right True) . verifySig k p
+    validate s = anyOf keys ((== Right True) . verifySig p s) k
   in
     applyPolicy policy $ map validate $ filter shouldValidateSig $ toList sigs
 
 verifySig
   :: (HasJWSHeader a, HasParams a)
-  => JWK
-  -> Types.Base64Octets
+  => Types.Base64Octets
   -> Signature a
+  -> JWK
   -> Either Error Bool
-verifySig k m (Signature raw h (Types.Base64Octets s)) =
+verifySig m (Signature raw h (Types.Base64Octets s)) k =
   verify (param (view jwsHeaderAlg h)) (view jwkMaterial k) tbs s
   where
   tbs = signingInput (maybe (Right h) Left raw) m

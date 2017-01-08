@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -47,6 +48,8 @@ module Crypto.JOSE.JWK
   , JWKSet(..)
 
   , bestJWSAlg
+
+  , JWKStore(..)
 
   , module Crypto.JOSE.JWA.JWK
   ) where
@@ -206,3 +209,16 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
     | B.length k >= 384 `div` 8 -> pure JWA.JWS.HS384
     | B.length k >= 256 `div` 8 -> pure JWA.JWS.HS256
     | otherwise -> throwError (review _KeySizeTooSmall ())
+
+
+class JWKStore a where
+  keys :: Fold a JWK
+
+instance JWKStore JWK where
+  keys = id
+
+instance Foldable t => JWKStore (t JWK) where
+  keys = folding id
+
+instance JWKStore JWKSet where
+  keys = folding (\(JWKSet xs) -> xs)
