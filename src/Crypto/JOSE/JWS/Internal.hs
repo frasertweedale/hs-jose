@@ -42,6 +42,7 @@ import Crypto.JOSE.Compact
 import Crypto.JOSE.Error
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import Crypto.JOSE.JWK
+import Crypto.JOSE.JWK.Store
 import Crypto.JOSE.Header
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
@@ -382,7 +383,9 @@ verifyJWS conf k (JWS p sigs) =
     applyPolicy AllValidated [] = throwError (review _JWSNoSignatures ())
     applyPolicy AllValidated xs =
       if and xs then pure () else throwError (review _JWSInvalidSignature ())
-    validate s = anyOf keys ((== Right True) . verifySig p s) k
+    validate s =
+      let h = view header s
+      in anyOf (keysFor Verify h) ((== Right True) . verifySig p s) k
   in
     applyPolicy policy $ map validate $ filter shouldValidateSig $ toList sigs
 

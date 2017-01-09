@@ -36,6 +36,7 @@ library
     Crypto.JOSE.Header
     Crypto.JOSE.JWE
     Crypto.JOSE.JWK
+    Crypto.JOSE.JWK.Store
     Crypto.JOSE.JWS
     Crypto.JOSE.Types
     Crypto.JWT
