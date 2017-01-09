@@ -17,6 +17,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_HADDOCK hide #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Crypto.JOSE.JWS.Internal where
 
@@ -77,12 +78,75 @@ data JWSHeader = JWSHeader
   , _jwsHeaderCrit :: Maybe (NonEmpty T.Text)
   }
   deriving (Eq, Show)
-makeClassy ''JWSHeader
+
+instance HasAlg JWSHeader where
+  alg f h@(JWSHeader { _jwsHeaderAlg = a }) =
+    fmap (\a' -> h { _jwsHeaderAlg = a' }) (f a)
+instance HasJku JWSHeader where
+  jku f h@(JWSHeader { _jwsHeaderJku = a }) =
+    fmap (\a' -> h { _jwsHeaderJku = a' }) (f a)
+instance HasJwk JWSHeader where
+  jwk f h@(JWSHeader { _jwsHeaderJwk = a }) =
+    fmap (\a' -> h { _jwsHeaderJwk = a' }) (f a)
+instance HasKid JWSHeader where
+  kid f h@(JWSHeader { _jwsHeaderKid = a }) =
+    fmap (\a' -> h { _jwsHeaderKid = a' }) (f a)
+instance HasX5u JWSHeader where
+  x5u f h@(JWSHeader { _jwsHeaderX5u = a }) =
+    fmap (\a' -> h { _jwsHeaderX5u = a' }) (f a)
+instance HasX5c JWSHeader where
+  x5c f h@(JWSHeader { _jwsHeaderX5c = a }) =
+    fmap (\a' -> h { _jwsHeaderX5c = a' }) (f a)
+instance HasX5t JWSHeader where
+  x5t f h@(JWSHeader { _jwsHeaderX5t = a }) =
+    fmap (\a' -> h { _jwsHeaderX5t = a' }) (f a)
+instance HasX5tS256 JWSHeader where
+  x5tS256 f h@(JWSHeader { _jwsHeaderX5tS256 = a }) =
+    fmap (\a' -> h { _jwsHeaderX5tS256 = a' }) (f a)
+instance HasTyp JWSHeader where
+  typ f h@(JWSHeader { _jwsHeaderTyp = a }) =
+    fmap (\a' -> h { _jwsHeaderTyp = a' }) (f a)
+instance HasCty JWSHeader where
+  cty f h@(JWSHeader { _jwsHeaderCty = a }) =
+    fmap (\a' -> h { _jwsHeaderCty = a' }) (f a)
+instance HasCrit JWSHeader where
+  crit f h@(JWSHeader { _jwsHeaderCrit = a }) =
+    fmap (\a' -> h { _jwsHeaderCrit = a' }) (f a)
+
+class HasJWSHeader a where
+  jWSHeader :: Lens' a JWSHeader
+
+instance HasJWSHeader JWSHeader where
+  jWSHeader = id
+
+instance {-# INCOHERENT #-} HasJWSHeader a => HasAlg a where
+  alg = jWSHeader . alg
+instance {-# INCOHERENT #-} HasJWSHeader a => HasJku a where
+  jku = jWSHeader . jku
+instance {-# INCOHERENT #-} HasJWSHeader a => HasJwk a where
+  jwk = jWSHeader . jwk
+instance {-# INCOHERENT #-} HasJWSHeader a => HasKid a where
+  kid = jWSHeader . kid
+instance {-# INCOHERENT #-} HasJWSHeader a => HasX5u a where
+  x5u = jWSHeader . x5u
+instance {-# INCOHERENT #-} HasJWSHeader a => HasX5c a where
+  x5c = jWSHeader . x5c
+instance {-# INCOHERENT #-} HasJWSHeader a => HasX5t a where
+  x5t = jWSHeader . x5t
+instance {-# INCOHERENT #-} HasJWSHeader a => HasX5tS256 a where
+  x5tS256 = jWSHeader . x5tS256
+instance {-# INCOHERENT #-} HasJWSHeader a => HasTyp a where
+  typ = jWSHeader . typ
+instance {-# INCOHERENT #-} HasJWSHeader a => HasCty a where
+  cty = jWSHeader . cty
+instance {-# INCOHERENT #-} HasJWSHeader a => HasCrit a where
+  crit = jWSHeader . crit
+
 
 -- | Construct a minimal header with the given algorithm
 --
 newJWSHeader :: (Protection, JWA.JWS.Alg) -> JWSHeader
-newJWSHeader alg = JWSHeader (uncurry HeaderParam alg) z z z z z z z z z z
+newJWSHeader a = JWSHeader (uncurry HeaderParam a) z z z z z z z z z z
   where z = Nothing
 
 
@@ -148,19 +212,19 @@ instance HasParams JWSHeader where
     <*> (headerOptionalProtected "crit" hp hu
       >>= parseCrit jwsCritInvalidNames (extensions proxy)
         (fromMaybe mempty hp <> fromMaybe mempty hu))
-  params (JWSHeader alg jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
+  params h =
     catMaybes
-      [ Just (protection alg,      "alg" .= param alg)
-      , fmap (\p -> (protection p, "jku" .= param p)) jku
-      , fmap (\p -> (protection p, "jwk" .= param p)) jwk
-      , fmap (\p -> (protection p, "kid" .= param p)) kid
-      , fmap (\p -> (protection p, "x5u" .= param p)) x5u
-      , fmap (\p -> (protection p, "x5c" .= param p)) x5c
-      , fmap (\p -> (protection p, "x5t" .= param p)) x5t
-      , fmap (\p -> (protection p, "x5t#S256" .= param p)) x5tS256
-      , fmap (\p -> (protection p, "typ" .= param p)) typ
-      , fmap (\p -> (protection p, "cty" .= param p)) cty
-      , fmap (\p -> (Protected,    "crit" .= p)) crit
+      [ Just (protection (view alg h), "alg" .= param (view alg h))
+      , fmap (\p -> (protection p, "jku" .= param p)) (view jku h)
+      , fmap (\p -> (protection p, "jwk" .= param p)) (view jwk h)
+      , fmap (\p -> (protection p, "kid" .= param p)) (view kid h)
+      , fmap (\p -> (protection p, "x5u" .= param p)) (view x5u h)
+      , fmap (\p -> (protection p, "x5c" .= param p)) (view x5c h)
+      , fmap (\p -> (protection p, "x5t" .= param p)) (view x5t h)
+      , fmap (\p -> (protection p, "x5t#S256" .= param p)) (view x5tS256 h)
+      , fmap (\p -> (protection p, "typ" .= param p)) (view typ h)
+      , fmap (\p -> (protection p, "cty" .= param p)) (view cty h)
+      , fmap (\p -> (Protected,    "crit" .= p)) (view crit h)
       ]
 
 
@@ -249,7 +313,7 @@ signJWS
   -> m (JWS a) -- ^ JWS with new signature appended
 signJWS (JWS p sigs) h k =
   (\sig -> JWS p (Signature Nothing h (Types.Base64Octets sig):sigs))
-  <$> sign (param (view jwsHeaderAlg h)) (k ^. jwkMaterial) (signingInput (Right h) p)
+  <$> sign (param (view alg h)) (k ^. jwkMaterial) (signingInput (Right h) p)
 
 
 -- | Validation policy.
@@ -312,7 +376,7 @@ verifyJWS conf k (JWS p sigs) =
     algs = conf ^. algorithms
     policy :: ValidationPolicy
     policy = conf ^. validationPolicy
-    shouldValidateSig = (`elem` algs) . param . view (header . jwsHeaderAlg)
+    shouldValidateSig = (`elem` algs) . param . view (header . alg)
     applyPolicy AnyValidated xs =
       if or xs then pure () else throwError (review _JWSNoValidSignatures ())
     applyPolicy AllValidated [] = throwError (review _JWSNoSignatures ())
@@ -329,6 +393,6 @@ verifySig
   -> JWK
   -> Either Error Bool
 verifySig m (Signature raw h (Types.Base64Octets s)) k =
-  verify (param (view jwsHeaderAlg h)) (view jwkMaterial k) tbs s
+  verify (param (view alg h)) (view jwkMaterial k) tbs s
   where
   tbs = signingInput (maybe (Right h) Left raw) m

@@ -74,7 +74,7 @@ headerSpec = describe "JWS Header" $ do
         \ \"header\":{\"kid\":\"2010-12-29\"},\
         \ \"signature\":\"\"}"
       h = newJWSHeader (Protected, JWA.JWS.RS256)
-        & jwsHeaderKid .~ Just (HeaderParam Unprotected "2010-12-29")
+        & kid .~ Just (HeaderParam Unprotected "2010-12-29")
       sig = Signature (Just "eyJhbGciOiJSUzI1NiJ9") h (Types.Base64Octets "")
     in
       eitherDecode sigJSON `shouldBe` Right sig
@@ -186,7 +186,7 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
     encodedProtectedHeader = Just "eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9"
     alg = JWA.JWS.HS256
     h = newJWSHeader (Protected, alg)
-        & jwsHeaderTyp .~ Just (HeaderParam Protected "JWT")
+        & typ .~ Just (HeaderParam Protected "JWT")
     mac = foldr BS.cons BS.empty macOctets
     macOctets =
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
@@ -310,7 +310,7 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
     jws' = JWS examplePayload [sig2]
     sig1 = Signature Nothing h1' (Types.Base64Octets mac1)
     h1 = newJWSHeader (Protected, JWA.JWS.RS256)
-    h1' = h1 & jwsHeaderKid .~ Just (HeaderParam Unprotected "2010-12-29")
+    h1' = h1 & kid .~ Just (HeaderParam Unprotected "2010-12-29")
     mac1 = foldr BS.cons BS.empty
       [112, 46, 33, 137, 67, 232, 143, 209, 30, 181, 216, 45, 191, 120, 69,
       243, 65, 6, 174, 27, 129, 255, 247, 115, 17, 22, 173, 209, 113, 125,
@@ -332,7 +332,7 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
       251, 71]
     sig2 = Signature Nothing h2' (Types.Base64Octets mac2)
     h2 = newJWSHeader (Protected, JWA.JWS.ES256)
-    h2' = h2 & jwsHeaderKid .~ Just (HeaderParam Unprotected "e9bc097a-ce51-4036-9562-d2ade882db0d")
+    h2' = h2 & kid .~ Just (HeaderParam Unprotected "e9bc097a-ce51-4036-9562-d2ade882db0d")
     mac2 = B64U.decodeLenient
       "DtEhU3ljbEg8L38VWAfUAqOyKAM6-Xx-F4GawxaepmXFCgfTjDxw5djxLa8ISlSA\
       \pmWQxfKTUJqPP3-Kg6NU1Q"
