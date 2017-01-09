@@ -29,6 +29,7 @@ import Data.Bifunctor (bimap)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
 
+import Control.Lens (view)
 import Data.Aeson
 import Data.Aeson.Types
 import qualified Data.ByteArray as BA
@@ -106,17 +107,17 @@ instance HasParams JWEHeader where
   params (JWEHeader alg enc zip' jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
     catMaybes
       [ undefined -- TODO
-      , Just (protection enc,      "enc" .= param enc)
+      , Just (protection enc,      "enc" .= view param enc)
       , fmap (\p -> (Protected,    "zip" .= p)) zip'
-      , fmap (\p -> (protection p, "jku" .= param p)) jku
-      , fmap (\p -> (protection p, "jwk" .= param p)) jwk
-      , fmap (\p -> (protection p, "kid" .= param p)) kid
-      , fmap (\p -> (protection p, "x5u" .= param p)) x5u
-      , fmap (\p -> (protection p, "x5c" .= param p)) x5c
-      , fmap (\p -> (protection p, "x5t" .= param p)) x5t
-      , fmap (\p -> (protection p, "x5t#S256" .= param p)) x5tS256
-      , fmap (\p -> (protection p, "typ" .= param p)) typ
-      , fmap (\p -> (protection p, "cty" .= param p)) cty
+      , fmap (\p -> (protection p, "jku" .= view param p)) jku
+      , fmap (\p -> (protection p, "jwk" .= view param p)) jwk
+      , fmap (\p -> (protection p, "kid" .= view param p)) kid
+      , fmap (\p -> (protection p, "x5u" .= view param p)) x5u
+      , fmap (\p -> (protection p, "x5c" .= view param p)) x5c
+      , fmap (\p -> (protection p, "x5t" .= view param p)) x5t
+      , fmap (\p -> (protection p, "x5t#S256" .= view param p)) x5tS256
+      , fmap (\p -> (protection p, "typ" .= view param p)) typ
+      , fmap (\p -> (protection p, "cty" .= view param p)) cty
       , fmap (\p -> (Protected,    "crit" .= p)) crit
       ]
 

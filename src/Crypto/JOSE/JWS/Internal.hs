@@ -215,16 +215,16 @@ instance HasParams JWSHeader where
         (fromMaybe mempty hp <> fromMaybe mempty hu))
   params h =
     catMaybes
-      [ Just (protection (view alg h), "alg" .= param (view alg h))
-      , fmap (\p -> (protection p, "jku" .= param p)) (view jku h)
-      , fmap (\p -> (protection p, "jwk" .= param p)) (view jwk h)
-      , fmap (\p -> (protection p, "kid" .= param p)) (view kid h)
-      , fmap (\p -> (protection p, "x5u" .= param p)) (view x5u h)
-      , fmap (\p -> (protection p, "x5c" .= param p)) (view x5c h)
-      , fmap (\p -> (protection p, "x5t" .= param p)) (view x5t h)
-      , fmap (\p -> (protection p, "x5t#S256" .= param p)) (view x5tS256 h)
-      , fmap (\p -> (protection p, "typ" .= param p)) (view typ h)
-      , fmap (\p -> (protection p, "cty" .= param p)) (view cty h)
+      [ Just (protection (view alg h), "alg" .= (view (alg . param) h))
+      , fmap (\p -> (protection p, "jku" .= view param p)) (view jku h)
+      , fmap (\p -> (protection p, "jwk" .= view param p)) (view jwk h)
+      , fmap (\p -> (protection p, "kid" .= view param p)) (view kid h)
+      , fmap (\p -> (protection p, "x5u" .= view param p)) (view x5u h)
+      , fmap (\p -> (protection p, "x5c" .= view param p)) (view x5c h)
+      , fmap (\p -> (protection p, "x5t" .= view param p)) (view x5t h)
+      , fmap (\p -> (protection p, "x5t#S256" .= view param p)) (view x5tS256 h)
+      , fmap (\p -> (protection p, "typ" .= view param p)) (view typ h)
+      , fmap (\p -> (protection p, "cty" .= view param p)) (view cty h)
       , fmap (\p -> (Protected,    "crit" .= p)) (view crit h)
       ]
 
@@ -314,7 +314,7 @@ signJWS
   -> m (JWS a) -- ^ JWS with new signature appended
 signJWS (JWS p sigs) h k =
   (\sig -> JWS p (Signature Nothing h (Types.Base64Octets sig):sigs))
-  <$> sign (param (view alg h)) (k ^. jwkMaterial) (signingInput (Right h) p)
+  <$> sign (view (alg . param) h) (k ^. jwkMaterial) (signingInput (Right h) p)
 
 
 -- | Validation policy.
@@ -377,7 +377,7 @@ verifyJWS conf k (JWS p sigs) =
     algs = conf ^. algorithms
     policy :: ValidationPolicy
     policy = conf ^. validationPolicy
-    shouldValidateSig = (`elem` algs) . param . view (header . alg)
+    shouldValidateSig = (`elem` algs) . view (header . alg . param)
     applyPolicy AnyValidated xs =
       if or xs then pure () else throwError (review _JWSNoValidSignatures ())
     applyPolicy AllValidated [] = throwError (review _JWSNoSignatures ())
@@ -396,6 +396,6 @@ verifySig
   -> JWK
   -> Either Error Bool
 verifySig m (Signature raw h (Types.Base64Octets s)) k =
-  verify (param (view alg h)) (view jwkMaterial k) tbs s
+  verify (view (alg . param) h) (view jwkMaterial k) tbs s
   where
   tbs = signingInput (maybe (Right h) Left raw) m

@@ -106,8 +106,8 @@ data HeaderParam a = HeaderParam Protection a
 protection :: HeaderParam a -> Protection
 protection (HeaderParam b _) = b
 
-param :: HeaderParam a -> a
-param (HeaderParam _ a) = a
+param :: Lens' (HeaderParam a) a
+param f (HeaderParam p v) = fmap (\v' -> HeaderParam p v') (f v)
 
 
 -- | Parse an optional parameter that may be carried in either
