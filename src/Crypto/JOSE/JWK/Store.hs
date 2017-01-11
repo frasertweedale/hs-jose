@@ -12,7 +12,6 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
 
 {-|
@@ -48,9 +47,6 @@ class JWKStore a where
 
 instance JWKStore JWK where
   keys = id
-
-instance Foldable t => JWKStore (t JWK) where
-  keys = folding id
 
 instance JWKStore JWKSet where
   keys = folding (\(JWKSet xs) -> xs)
