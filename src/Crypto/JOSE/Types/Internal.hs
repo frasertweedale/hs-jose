@@ -19,7 +19,19 @@
 Internal utility functions for encoding/decoding JOSE types.
 
 -}
-module Crypto.JOSE.Types.Internal where
+module Crypto.JOSE.Types.Internal
+  (
+    objectPairs
+  , encodeB64
+  , parseB64
+  , encodeB64Url
+  , parseB64Url
+  , pad
+  , unpad
+  , bsToInteger
+  , integerToBS
+  , sizedIntegerToBS
+  ) where
 
 import Data.Char (ord)
 import Data.Monoid ((<>))
