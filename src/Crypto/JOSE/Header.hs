@@ -69,15 +69,25 @@ import Crypto.JOSE.Types.Internal (unpad)
 import qualified Crypto.JOSE.Types as Types
 
 
+-- | A thing with parameters.  Parameters may be 'Protected' or 'Unprotected'
+--
 class HasParams a where
   params :: a -> [(Protection, Pair)]
 
+  -- | List of "known extensions", i.e. keys that may appear in the
+  -- "crit" header parameter.
   extensions :: Proxy a -> [T.Text]
   extensions = const []
 
   parseParamsFor :: HasParams b => Proxy b -> Maybe Object -> Maybe Object -> Parser a
 
-parseParams :: forall a. HasParams a => Maybe Object -> Maybe Object -> Parser a
+-- | Parse a pair of objects (protected and unprotected header)
+--
+parseParams
+  :: forall a. HasParams a
+  => Maybe Object -- ^ protected header
+  -> Maybe Object -- ^ unprotected header
+  -> Parser a
 parseParams = parseParamsFor (Proxy :: Proxy a)
 
 protectedParams :: HasParams a => a -> Maybe Value {- ^ Object -}
@@ -86,26 +96,36 @@ protectedParams h =
     [] -> Nothing
     xs -> Just (object xs)
 
+-- | Return the encoded protected parameters
+--
 protectedParamsEncoded :: HasParams a => a -> L.ByteString
 protectedParamsEncoded =
   maybe mempty (unpad . B64UL.encode . encode) . protectedParams
 
+-- | Return unprotected params as a JSON 'Value' (always an object)
+--
 unprotectedParams :: HasParams a => a -> Maybe Value {- ^ Object -}
 unprotectedParams h =
   case (map snd . filter ((== Unprotected) . fst) . params) h of
     [] -> Nothing
     xs -> Just (object xs)
 
-
+-- | Whether a header is protected or unprotected
+--
 data Protection = Protected | Unprotected
   deriving (Eq, Show)
 
+-- | A header value, along with whether it was (or will be) encoded
+-- in the protected header
+--
 data HeaderParam a = HeaderParam Protection a
   deriving (Eq, Show)
 
+-- | Get 'Protection' from a 'HeaderParam'
 protection :: HeaderParam a -> Protection
 protection (HeaderParam b _) = b
 
+-- | Lens for a 'HeaderParam' value
 param :: Lens' (HeaderParam a) a
 param f (HeaderParam p v) = fmap (\v' -> HeaderParam p v') (f v)
 
@@ -164,12 +184,20 @@ critObjectParser reserved exts o s
   | not (s `M.member` o)      = fail "crit key is not present in headers"
   | otherwise                 = pure s
 
+-- | Parse a "crit" header param
+--
+-- Fails if:
+--
+-- * any reserved header appears in "crit" header
+-- * any value in "crit" is not a recognised extension
+-- * any value in "crit" does not have a corresponding key in the object
+--
 parseCrit
   :: (Foldable t0, Foldable t1, Traversable t2, Traversable t3, Monad m)
-  => t0 T.Text
-  -> t1 T.Text
-  -> Object
-  -> t2 (t3 T.Text)
+  => t0 T.Text -- ^ reserved header parameters
+  -> t1 T.Text -- ^ recognised extensions
+  -> Object    -- ^ full header (union of protected and unprotected headers)
+  -> t2 (t3 T.Text) -- ^ crit header
   -> m (t2 (t3 T.Text))
 parseCrit reserved exts o = mapM (mapM (critObjectParser reserved exts o))
   -- TODO fail on duplicate strings
