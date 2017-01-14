@@ -215,16 +215,16 @@ instance HasParams JWSHeader where
         (fromMaybe mempty hp <> fromMaybe mempty hu))
   params h =
     catMaybes
-      [ Just (protection (view alg h), "alg" .= (view (alg . param) h))
-      , fmap (\p -> (protection p, "jku" .= view param p)) (view jku h)
-      , fmap (\p -> (protection p, "jwk" .= view param p)) (view jwk h)
-      , fmap (\p -> (protection p, "kid" .= view param p)) (view kid h)
-      , fmap (\p -> (protection p, "x5u" .= view param p)) (view x5u h)
-      , fmap (\p -> (protection p, "x5c" .= view param p)) (view x5c h)
-      , fmap (\p -> (protection p, "x5t" .= view param p)) (view x5t h)
-      , fmap (\p -> (protection p, "x5t#S256" .= view param p)) (view x5tS256 h)
-      , fmap (\p -> (protection p, "typ" .= view param p)) (view typ h)
-      , fmap (\p -> (protection p, "cty" .= view param p)) (view cty h)
+      [ Just (view (alg . protection) h, "alg" .= (view (alg . param) h))
+      , fmap (\p -> (view protection p, "jku" .= view param p)) (view jku h)
+      , fmap (\p -> (view protection p, "jwk" .= view param p)) (view jwk h)
+      , fmap (\p -> (view protection p, "kid" .= view param p)) (view kid h)
+      , fmap (\p -> (view protection p, "x5u" .= view param p)) (view x5u h)
+      , fmap (\p -> (view protection p, "x5c" .= view param p)) (view x5c h)
+      , fmap (\p -> (view protection p, "x5t" .= view param p)) (view x5t h)
+      , fmap (\p -> (view protection p, "x5t#S256" .= view param p)) (view x5tS256 h)
+      , fmap (\p -> (view protection p, "typ" .= view param p)) (view typ h)
+      , fmap (\p -> (view protection p, "cty" .= view param p)) (view cty h)
       , fmap (\p -> (Protected,    "crit" .= p)) (view crit h)
       ]
 

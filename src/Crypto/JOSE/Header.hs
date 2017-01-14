@@ -121,9 +121,9 @@ data Protection = Protected | Unprotected
 data HeaderParam a = HeaderParam Protection a
   deriving (Eq, Show)
 
--- | Get 'Protection' from a 'HeaderParam'
-protection :: HeaderParam a -> Protection
-protection (HeaderParam b _) = b
+-- | Lens for the 'Protection' of a 'HeaderParam'
+protection :: Lens' (HeaderParam a) Protection
+protection f (HeaderParam p v) = fmap (\p' -> HeaderParam p' v) (f p)
 
 -- | Lens for a 'HeaderParam' value
 param :: Lens' (HeaderParam a) a
