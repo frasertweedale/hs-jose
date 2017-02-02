@@ -9,7 +9,7 @@ import Data.Aeson (decode, encode)
 
 import Control.Monad.Except (runExceptT)
 import Control.Lens (preview, set)
-import Crypto.JOSE.JWK (KeyMaterialGenParam(..), Crv(..), genJWK, bestJWSAlg)
+import Crypto.JOSE.JWK (KeyMaterialGenParam(..), Crv(..), JWK, genJWK, bestJWSAlg)
 import Crypto.JWT
   ( JWTError
   , createJWSJWT
@@ -78,7 +78,8 @@ doJwtVerify (jwkFilename : jwtFilename : aud : _) = do
     conf = set audiencePredicate (== aud') defaultJWTValidationSettings
   Just jwk <- decode <$> L.readFile jwkFilename
   jwtData <- L.readFile jwtFilename
-  result <- runExceptT (decodeCompact jwtData >>= validateJWSJWT conf jwk)
+  result <- runExceptT
+    (decodeCompact jwtData >>= validateJWSJWT conf (jwk :: JWK))
   case result of
     Left e -> print (e :: JWTError) >> exitFailure
     Right _ -> exitSuccess

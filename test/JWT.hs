@@ -276,7 +276,7 @@ spec = do
         \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
         \."
       jwt = decodeCompact exampleJWT
-      k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}"
+      k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}" :: JWK
 
     describe "when the current time is prior to the Expiration Time" $
       it "can be decoded and validated" $ do

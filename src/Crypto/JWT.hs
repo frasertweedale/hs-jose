@@ -429,9 +429,10 @@ validateJWSJWT
     , HasCheckIssuedAt a
     , HasValidationSettings a
     , AsError e, AsJWTError e, MonadError e m
+    , JWKStore k
     )
   => a
-  -> JWK
+  -> k
   -> JWT
   -> m ()
 validateJWSJWT conf k (JWT (JWTJWS jws) c) = do
