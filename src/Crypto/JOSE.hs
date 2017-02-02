@@ -22,12 +22,14 @@ module Crypto.JOSE
     module Crypto.JOSE.Compact
   , module Crypto.JOSE.Error
   , module Crypto.JOSE.JWK
+  , module Crypto.JOSE.JWK.Store
   , module Crypto.JOSE.JWS
   ) where
 
 import Crypto.JOSE.Compact
 import Crypto.JOSE.Error
 import Crypto.JOSE.JWK
+import Crypto.JOSE.JWK.Store
 import Crypto.JOSE.JWS
 
 {-# ANN module ("HLint: ignore Use import/export shortcut" :: String) #-}
