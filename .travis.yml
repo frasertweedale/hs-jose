@@ -32,8 +32,12 @@ matrix:
     compiler: ": #stack 8.0.1"
     addons: {apt: {packages: [libgmp-dev]}}
 
+  - env: ARGS="--resolver lts-8"
+    compiler: ": #stackage lts-8 (ghc-8.0.2)"
+    addons: {apt: {packages: [libgmp-dev]}}
+
   - env: ARGS="--resolver nightly"
-    compiler: ": #stack nightly (ghc-8.0.1)"
+    compiler: ": #stackage nightly"
     addons: {apt: {packages: [libgmp-dev]}}
 
 before_install:
