@@ -54,7 +54,7 @@ jwsAppendixA1Spec = describe "RFC 7515 A.1.1.  JWK" $ do
                \aKtMN3Yj0iPS4hcgUuTwjAzZr1Z9CAow\"\
       \}"
     jwk = JWK (OctKeyMaterial octKeyMaterial) z z z z z z z z where z = Nothing
-    octKeyMaterial = OctKeyParameters Oct $ Types.Base64Octets $
+    octKeyMaterial = OctKeyParameters . Types.Base64Octets $
       foldr B.cons B.empty
       [3,35,53,75,43,15,165,188,131,126,6,101,119,123,166,143,90,179,40,
        230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,

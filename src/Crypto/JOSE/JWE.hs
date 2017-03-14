@@ -183,11 +183,11 @@ wrap RSA_OAEP _ _ = return $ Left $ AlgorithmMismatch "Cannot use RSA_OAEP with 
 wrap alg@RSA_OAEP_256 (RSAKeyMaterial k) m = bimap RSAError (alg,) <$>
   OAEP.encrypt (OAEP.OAEPParams SHA256 (mgf1 SHA256) Nothing) (rsaPublicKey k) m
 wrap RSA_OAEP_256 _ _ = return $ Left $ AlgorithmMismatch "Cannot use RSA_OAEP_256 with non-RSA key"
-wrap A128KW (OctKeyMaterial (OctKeyParameters _ (Types.Base64Octets k))) m
+wrap A128KW (OctKeyMaterial (OctKeyParameters (Types.Base64Octets k))) m
   = return $ (A128KW,) <$> wrapAESKW (cipherInit k :: CryptoFailable AES128) m
-wrap A192KW (OctKeyMaterial (OctKeyParameters _ (Types.Base64Octets k))) m
+wrap A192KW (OctKeyMaterial (OctKeyParameters (Types.Base64Octets k))) m
   = return $ (A192KW,) <$> wrapAESKW (cipherInit k :: CryptoFailable AES192) m
-wrap A256KW (OctKeyMaterial (OctKeyParameters _ (Types.Base64Octets k))) m
+wrap A256KW (OctKeyMaterial (OctKeyParameters (Types.Base64Octets k))) m
   = return $ (A256KW,) <$> wrapAESKW (cipherInit k :: CryptoFailable AES256) m
 wrap (A128GCMKW _) k m = wrapAESGCM A128GCMKW A128GCM k m
 wrap (A192GCMKW _) k m = wrapAESGCM A192GCMKW A192GCM k m
@@ -210,7 +210,7 @@ wrapAESGCM
   -> KeyMaterial
   -> B.ByteString
   -> m (Either Error (AlgWithParams, B.ByteString))
-wrapAESGCM f enc (OctKeyMaterial (OctKeyParameters _ (Types.Base64Octets k))) m =
+wrapAESGCM f enc (OctKeyMaterial (OctKeyParameters (Types.Base64Octets k))) m =
   fmap (\(iv, tag, m') -> (f (AESGCMParameters (Types.Base64Octets iv) (Types.Base64Octets tag)), m'))
   <$> encrypt enc k m ""
 wrapAESGCM _ _ _ _ = return $ Left $ AlgorithmMismatch "Cannot use AESGCMKW with non-Oct key"

@@ -29,11 +29,6 @@ module Crypto.JOSE.JWA.JWK (
   -- * Type classes
     AsPublicKey(..)
 
-  -- * \"kty\" (Key Type) Parameter Values
-  , EC(..)
-  , RSA(..)
-  , Oct(..)
-
   -- * Parameters for Elliptic Curve Keys
   , Crv(..)
   , ECKeyParameters(..)
@@ -45,7 +40,6 @@ module Crypto.JOSE.JWA.JWK (
   , RSAKeyParameters(RSAKeyParameters)
   , toRSAKeyParameters
   , rsaE
-  , rsaKty
   , rsaN
   , rsaPrivateKeyParameters
   , rsaPublicKey
@@ -67,6 +61,7 @@ module Crypto.JOSE.JWA.JWK (
   ) where
 
 import Control.Applicative
+import Control.Monad (guard)
 import Control.Monad.Except (MonadError(throwError))
 import Data.Bifunctor
 import Data.Maybe
@@ -87,6 +82,7 @@ import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
 import Data.List.NonEmpty
+import qualified Data.Text as T
 import Test.QuickCheck (Arbitrary(..), arbitrarySizedNatural, elements, oneof)
 
 import Crypto.JOSE.Error
@@ -95,14 +91,6 @@ import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
 import Crypto.JOSE.Types.Orphans ()
-
-
--- | Elliptic Curve key type (Recommeded+)
-$(Crypto.JOSE.TH.deriveJOSEType "EC" ["EC"])
--- | RSA key type (Required)
-$(Crypto.JOSE.TH.deriveJOSEType "RSA" ["RSA"])
--- | Octet sequence (symmetric key) key type (Required)
-$(Crypto.JOSE.TH.deriveJOSEType "Oct" ["oct"])
 
 
 -- | \"crv\" (Curve) Parameter
@@ -202,9 +190,7 @@ instance Arbitrary RSAPrivateKeyParameters where
 -- | Parameters for Elliptic Curve Keys
 --
 data ECKeyParameters = ECKeyParameters
-  {
-    ecKty :: EC
-  , ecCrv :: Crv
+  { ecCrv :: Crv
   , ecX :: Types.SizedBase64Integer
   , ecY :: Types.SizedBase64Integer
   , ecD :: Maybe Types.SizedBase64Integer
@@ -213,10 +199,10 @@ data ECKeyParameters = ECKeyParameters
 
 instance FromJSON ECKeyParameters where
   parseJSON = withObject "EC" $ \o -> do
+    o .: "kty" >>= guard . (== ("EC" :: T.Text))
     crv <- o .: "crv"
     ECKeyParameters
-      <$> o .: "kty"
-      <*> pure crv
+      <$> pure crv
       <*> (o .: "x" >>= Types.checkSize (ecCoordBytes crv))
       <*> (o .: "y" >>= Types.checkSize (ecCoordBytes crv))
       <*> (o .:? "d" >>= \case
@@ -225,7 +211,7 @@ instance FromJSON ECKeyParameters where
 
 instance ToJSON ECKeyParameters where
   toJSON (ECKeyParameters {..}) = object $
-    [ "kty" .= ecKty
+    [ "kty" .= ("EC" :: T.Text)
     , "crv" .= ecCrv
     , "x" .= ecX
     , "y" .= ecY
@@ -235,7 +221,7 @@ instance Arbitrary ECKeyParameters where
   arbitrary = do
     crv <- arbitrary
     let w = ecCoordBytes crv
-    ECKeyParameters EC crv
+    ECKeyParameters crv
       <$> Types.genSizedBase64IntegerOf w
       <*> Types.genSizedBase64IntegerOf w
       <*> oneof
@@ -297,8 +283,7 @@ ecDBytes crv = ceiling (logBase 2 (fromIntegral order) / 8 :: Double) where
 -- | Parameters for RSA Keys
 --
 data RSAKeyParameters = RSAKeyParameters
-  { _rsaKty :: RSA
-  , _rsaN :: Types.SizedBase64Integer
+  { _rsaN :: Types.SizedBase64Integer
   , _rsaE :: Types.Base64Integer
   , _rsaPrivateKeyParameters :: Maybe RSAPrivateKeyParameters
   }
@@ -306,10 +291,10 @@ data RSAKeyParameters = RSAKeyParameters
 makeLenses ''RSAKeyParameters
 
 instance FromJSON RSAKeyParameters where
-  parseJSON = withObject "RSA" $ \o ->
+  parseJSON = withObject "RSA" $ \o -> do
+    o .: "kty" >>= guard . (== ("RSA" :: T.Text))
     RSAKeyParameters
-      <$> o .: "kty"
-      <*> o .: "n"
+      <$> o .: "n"
       <*> o .: "e"
       <*> if M.member "d" o
         then Just <$> parseJSON (Object o)
@@ -317,13 +302,13 @@ instance FromJSON RSAKeyParameters where
 
 instance ToJSON RSAKeyParameters where
   toJSON RSAKeyParameters {..} = object $
-      ("kty" .= _rsaKty)
+      ("kty" .= ("RSA" :: T.Text))
     : ("n" .= _rsaN)
     : ("e" .= _rsaE)
     : maybe [] (Types.objectPairs . toJSON) _rsaPrivateKeyParameters
 
 instance Arbitrary RSAKeyParameters where
-  arbitrary = RSAKeyParameters RSA
+  arbitrary = RSAKeyParameters
     <$> arbitrary
     <*> arbitrary
     <*> arbitrary
@@ -334,7 +319,7 @@ genRSA size = toRSAKeyParameters . snd <$> RSA.generate size 65537
 toRSAKeyParameters :: RSA.PrivateKey -> RSAKeyParameters
 toRSAKeyParameters (RSA.PrivateKey (RSA.PublicKey s n e) d p q dp dq qi) =
   let i = Types.Base64Integer
-  in RSAKeyParameters RSA
+  in RSAKeyParameters
     ( Types.SizedBase64Integer s n )
     ( i e )
     ( Just (RSAPrivateKeyParameters (i d)
@@ -383,7 +368,7 @@ verifyPSS h k m = Right .
   PSS.verify (PSS.defaultPSSParams h) (rsaPublicKey k) m
 
 rsaPrivateKey :: RSAKeyParameters -> Either Error RSA.PrivateKey
-rsaPrivateKey (RSAKeyParameters _
+rsaPrivateKey (RSAKeyParameters
   (Types.SizedBase64Integer size n)
   (Types.Base64Integer e)
   (Just (RSAPrivateKeyParameters (Types.Base64Integer d) opt)))
@@ -399,28 +384,31 @@ rsaPrivateKey (RSAKeyParameters _
 rsaPrivateKey _ = Left $ KeyMismatch "not an RSA private key"
 
 rsaPublicKey :: RSAKeyParameters -> RSA.PublicKey
-rsaPublicKey (RSAKeyParameters _
+rsaPublicKey (RSAKeyParameters
   (Types.SizedBase64Integer size n) (Types.Base64Integer e) _)
   = RSA.PublicKey size n e
 
 
 -- | Symmetric key parameters data.
 --
-data OctKeyParameters = OctKeyParameters
-  { octKty :: Oct
-  , octK :: Types.Base64Octets
+newtype OctKeyParameters = OctKeyParameters
+  { octK :: Types.Base64Octets
   }
   deriving (Eq, Show)
 
 instance FromJSON OctKeyParameters where
-  parseJSON = withObject "symmetric key" $ \o ->
-    OctKeyParameters <$> o .: "kty" <*> o .: "k"
+  parseJSON = withObject "symmetric key" $ \o -> do
+    o .: "kty" >>= guard . (== ("oct" :: T.Text))
+    OctKeyParameters <$> o .: "k"
 
 instance ToJSON OctKeyParameters where
-  toJSON OctKeyParameters {..} = object ["kty" .= octKty, "k" .= octK]
+  toJSON OctKeyParameters {..} = object
+    [ "kty" .= ("oct" :: T.Text)
+    , "k" .= octK
+    ]
 
 instance Arbitrary OctKeyParameters where
-  arbitrary = OctKeyParameters Oct <$> arbitrary
+  arbitrary = OctKeyParameters <$> arbitrary
 
 signOct
   :: forall h e m. (HashAlgorithm h, MonadError e m, AsError e)
@@ -428,7 +416,7 @@ signOct
   -> OctKeyParameters
   -> B.ByteString
   -> m B.ByteString
-signOct h (OctKeyParameters _ (Types.Base64Octets k)) m =
+signOct h (OctKeyParameters (Types.Base64Octets k)) m =
   if B.length k < hashDigestSize h
   then throwError (review _KeySizeTooSmall ())
   else pure $ B.pack $ BA.unpack (hmac k m :: HMAC h)
@@ -484,11 +472,11 @@ genKeyMaterial (ECGenParam crv) = do
   (ECDSA.PublicKey _ p, ECDSA.PrivateKey _ d) <- ECC.generate (curve crv)
   case p of
     ECC.Point x y -> return $ ECKeyMaterial $
-      ECKeyParameters EC crv (xyValue x) (xyValue y) (Just (dValue d))
+      ECKeyParameters crv (xyValue x) (xyValue y) (Just (dValue d))
     ECC.PointO -> genKeyMaterial (ECGenParam crv)  -- JWK cannot represent point at infinity; recurse
 genKeyMaterial (RSAGenParam size) = RSAKeyMaterial <$> genRSA size
 genKeyMaterial (OctGenParam n) =
-  OctKeyMaterial . OctKeyParameters Oct . Types.Base64Octets <$> getRandomBytes n
+  OctKeyMaterial . OctKeyParameters . Types.Base64Octets <$> getRandomBytes n
 
 sign
   :: (MonadRandom m, MonadError e m, AsError e)
