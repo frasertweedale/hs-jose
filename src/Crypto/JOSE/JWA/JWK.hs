@@ -13,6 +13,7 @@
 -- limitations under the License.
 
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -48,6 +49,9 @@ module Crypto.JOSE.JWA.JWK (
   -- * Parameters for Symmetric Keys
   , OctKeyParameters(..)
 
+  -- * Parameters for CFRG EC keys (RFC 8037)
+  , OKPKeyParameters(..)
+
   -- * Key generation
   , KeyMaterialGenParam(..)
   , KeyMaterial(..)
@@ -64,10 +68,12 @@ import Control.Applicative
 import Control.Monad (guard)
 import Control.Monad.Except (MonadError(throwError))
 import Data.Bifunctor
-import Data.Maybe
+import Data.Foldable (toList)
+import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>))
 
 import Control.Lens hiding ((.=), elements)
+import Crypto.Error (onCryptoFailure)
 import Crypto.Hash
 import Crypto.MAC.HMAC
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
@@ -76,12 +82,14 @@ import qualified Crypto.PubKey.RSA as RSA
 import qualified Crypto.PubKey.RSA.PKCS15 as PKCS15
 import qualified Crypto.PubKey.RSA.PSS as PSS
 import qualified Crypto.PubKey.ECC.Types as ECC
+import qualified Crypto.PubKey.Ed25519 as Ed25519
+import qualified Crypto.PubKey.Curve25519 as Curve25519
 import Crypto.Random
 import Data.Aeson
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
-import Data.List.NonEmpty
+import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Text as T
 import Test.QuickCheck (Arbitrary(..), arbitrarySizedNatural, elements, oneof)
 
@@ -215,7 +223,7 @@ instance ToJSON ECKeyParameters where
     , "crv" .= ecCrv
     , "x" .= ecX
     , "y" .= ecY
-    ] ++ fmap ("d" .=) (maybeToList ecD)
+    ] ++ fmap ("d" .=) (toList ecD)
 
 instance Arbitrary ECKeyParameters where
   arbitrary = do
@@ -421,29 +429,74 @@ signOct h (OctKeyParameters (Types.Base64Octets k)) m =
   else pure $ B.pack $ BA.unpack (hmac k m :: HMAC h)
 
 
+-- "OKP" (CFRG Octet Key Pair) keys (RFC 8037)
+--
+data OKPKeyParameters
+  = Ed25519Key Ed25519.PublicKey (Maybe Ed25519.SecretKey)
+  | X25519Key Curve25519.PublicKey (Maybe Curve25519.SecretKey)
+  deriving (Eq)
+
+instance Show OKPKeyParameters where
+  show = \case
+      Ed25519Key pk sk  -> "Ed25519 " <> showKeys pk sk
+      X25519Key pk sk   -> "X25519 " <> showKeys pk sk
+    where
+      showKeys pk sk = show pk <> " " <> show (("SECRET" :: String) <$ sk)
+
+instance FromJSON OKPKeyParameters where
+  parseJSON = withObject "OKP" $ \o -> do
+    o .: "kty" >>= guard . (== ("OKP" :: T.Text))
+    crv <- o .: "crv"
+    case (crv :: T.Text) of
+      "Ed25519" -> parseOKPKey Ed25519Key Ed25519.publicKey Ed25519.secretKey o
+      "X25519"  -> parseOKPKey X25519Key Curve25519.publicKey Curve25519.secretKey o
+      "Ed448"   -> fail "Ed448 keys not implemented"
+      "X448"    -> fail "X448 not implemented"
+      _         -> fail "unrecognised OKP key subtype"
+    where
+      bs (Types.Base64Octets k) = k
+      handleError = onCryptoFailure (fail . show) pure
+      parseOKPKey con mkPub mkSec o = con
+        <$> (o .: "x" >>= handleError . mkPub . bs)
+        <*> (o .:? "d" >>= traverse (handleError . mkSec . bs))
+
+instance ToJSON OKPKeyParameters where
+  toJSON x = object $
+    "kty" .= ("OKP" :: T.Text) : case x of
+      Ed25519Key pk sk -> "crv" .= ("Ed25519" :: T.Text) : params pk sk
+      X25519Key pk sk  -> "crv" .= ("X25519" :: T.Text) : params pk sk
+    where
+      b64 = Types.Base64Octets . BA.convert
+      params pk sk = "x" .= b64 pk : (("d" .=) . b64 <$> toList sk)
+
+
 -- | Key material sum type.
 --
 data KeyMaterial
   = ECKeyMaterial ECKeyParameters
   | RSAKeyMaterial RSAKeyParameters
   | OctKeyMaterial OctKeyParameters
+  | OKPKeyMaterial OKPKeyParameters
   deriving (Eq, Show)
 
 showKeyType :: KeyMaterial -> String
 showKeyType (ECKeyMaterial (ECKeyParameters { ecCrv = crv })) = "ECDSA (" ++ show crv ++ ")"
 showKeyType (RSAKeyMaterial _) = "RSA"
 showKeyType (OctKeyMaterial _) = "symmetric"
+showKeyType (OKPKeyMaterial _) = "OKP"
 
 instance FromJSON KeyMaterial where
   parseJSON = withObject "KeyMaterial" $ \o ->
     ECKeyMaterial      <$> parseJSON (Object o)
     <|> RSAKeyMaterial <$> parseJSON (Object o)
     <|> OctKeyMaterial <$> parseJSON (Object o)
+    <|> OKPKeyMaterial <$> parseJSON (Object o)
 
 instance ToJSON KeyMaterial where
   toJSON (ECKeyMaterial p)  = object $ Types.objectPairs (toJSON p)
   toJSON (RSAKeyMaterial p) = object $ Types.objectPairs (toJSON p)
   toJSON (OctKeyMaterial p) = object $ Types.objectPairs (toJSON p)
+  toJSON (OKPKeyMaterial p) = object $ Types.objectPairs (toJSON p)
 
 -- | Keygen parameters.
 --
@@ -496,6 +549,7 @@ sign JWA.JWS.PS512 (RSAKeyMaterial k) = signPSS SHA512 k
 sign JWA.JWS.HS256 (OctKeyMaterial k) = signOct SHA256 k
 sign JWA.JWS.HS384 (OctKeyMaterial k) = signOct SHA384 k
 sign JWA.JWS.HS512 (OctKeyMaterial k) = signOct SHA512 k
+-- TODO OKP
 sign h k = \_ -> throwError (review _AlgorithmMismatch
   (show h <> "cannot be used with " <> showKeyType k <> " key"))
 
@@ -519,6 +573,7 @@ verify JWA.JWS.PS512 (RSAKeyMaterial k) = fmap pure . verifyPSS SHA512 k
 verify JWA.JWS.HS256 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA256 k m
 verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA384 k m
 verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA512 k m
+-- TODO OKP
 verify h k = \_ _ -> throwError $ review _AlgorithmMismatch
   (show h <> "cannot be used with " <> showKeyType k <> " key")
 
@@ -543,9 +598,15 @@ instance AsPublicKey RSAKeyParameters where
 instance AsPublicKey ECKeyParameters where
   asPublicKey = to (\k -> Just k { ecD = Nothing })
 
+instance AsPublicKey OKPKeyParameters where
+  asPublicKey = to $ \case
+    Ed25519Key pk _ -> Just (Ed25519Key pk Nothing)
+    X25519Key pk _  -> Just (X25519Key pk Nothing)
+
 instance AsPublicKey KeyMaterial where
   asPublicKey = to (\x -> case x of
     OctKeyMaterial k  -> OctKeyMaterial  <$> view asPublicKey k
     RSAKeyMaterial k  -> RSAKeyMaterial  <$> view asPublicKey k
     ECKeyMaterial k   -> ECKeyMaterial   <$> view asPublicKey k
+    OKPKeyMaterial k  -> OKPKeyMaterial  <$> view asPublicKey k
     )

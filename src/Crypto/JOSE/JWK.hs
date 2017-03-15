@@ -208,3 +208,4 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
     | B.length k >= 384 `div` 8 -> pure JWA.JWS.HS384
     | B.length k >= 256 `div` 8 -> pure JWA.JWS.HS256
     | otherwise -> throwError (review _KeySizeTooSmall ())
+  OKPKeyMaterial _ -> throwError (review _AlgorithmNotImplemented ())
