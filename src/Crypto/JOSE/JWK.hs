@@ -173,7 +173,7 @@ fromRSA = fromKeyMaterial . RSAKeyMaterial . toRSAKeyParameters
 
 
 instance AsPublicKey JWK where
-  asPublicKey = prism' id (jwkMaterial (preview asPublicKey))
+  asPublicKey = to (jwkMaterial (view asPublicKey))
 
 
 -- | RFC 7517 §5.  JWK Set Format

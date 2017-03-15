@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016, 2017  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -531,21 +531,21 @@ instance Arbitrary KeyMaterial where
 
 
 class AsPublicKey k where
-  asPublicKey :: Prism' k k
+  asPublicKey :: Getter k (Maybe k)
 
 
 instance AsPublicKey OctKeyParameters where
-  asPublicKey = prism' id (const Nothing)
+  asPublicKey = to (const Nothing)
 
 instance AsPublicKey RSAKeyParameters where
-  asPublicKey = prism' id (Just . set rsaPrivateKeyParameters Nothing)
+  asPublicKey = to (Just . set rsaPrivateKeyParameters Nothing)
 
 instance AsPublicKey ECKeyParameters where
-  asPublicKey = prism' id (\k -> Just k { ecD = Nothing })
+  asPublicKey = to (\k -> Just k { ecD = Nothing })
 
 instance AsPublicKey KeyMaterial where
-  asPublicKey = prism' id (\x -> case x of
-    OctKeyMaterial k  -> OctKeyMaterial  <$> k ^? asPublicKey
-    RSAKeyMaterial k  -> RSAKeyMaterial  <$> k ^? asPublicKey
-    ECKeyMaterial k   -> ECKeyMaterial   <$> k ^? asPublicKey
+  asPublicKey = to (\x -> case x of
+    OctKeyMaterial k  -> OctKeyMaterial  <$> view asPublicKey k
+    RSAKeyMaterial k  -> RSAKeyMaterial  <$> view asPublicKey k
+    ECKeyMaterial k   -> ECKeyMaterial   <$> view asPublicKey k
     )
