@@ -252,8 +252,8 @@ verifyEC
   -> ECKeyParameters
   -> msg
   -> B.ByteString
-  -> Either Error Bool
-verifyEC h k m s = Right $ ECDSA.verify h pubkey sig m
+  -> Bool
+verifyEC h k m s = ECDSA.verify h pubkey sig m
   where
   pubkey = ECDSA.PublicKey (curve $ ecCrv k) (point k)
   sig = uncurry ECDSA.Signature
@@ -343,8 +343,8 @@ verifyPKCS15
   -> RSAKeyParameters
   -> B.ByteString
   -> B.ByteString
-  -> Either Error Bool
-verifyPKCS15 h k m = Right . PKCS15.verify (Just h) (rsaPublicKey k) m
+  -> Bool
+verifyPKCS15 h k = PKCS15.verify (Just h) (rsaPublicKey k)
 
 signPSS
   :: (HashAlgorithm h, MonadRandom m, MonadError e m, AsError e)
@@ -363,9 +363,8 @@ verifyPSS
   -> RSAKeyParameters
   -> B.ByteString
   -> B.ByteString
-  -> Either Error Bool
-verifyPSS h k m = Right .
-  PSS.verify (PSS.defaultPSSParams h) (rsaPublicKey k) m
+  -> Bool
+verifyPSS h k = PSS.verify (PSS.defaultPSSParams h) (rsaPublicKey k)
 
 rsaPrivateKey :: RSAKeyParameters -> Either Error RSA.PrivateKey
 rsaPrivateKey (RSAKeyParameters
@@ -501,26 +500,27 @@ sign h k = \_ -> throwError (review _AlgorithmMismatch
   (show h <> "cannot be used with " <> showKeyType k <> " key"))
 
 verify
-  :: JWA.JWS.Alg
+  :: (MonadError e m, AsError e)
+  => JWA.JWS.Alg
   -> KeyMaterial
   -> B.ByteString
   -> B.ByteString
-  -> Either Error Bool
-verify JWA.JWS.None _ = \_ s -> Right $ s == ""
-verify JWA.JWS.ES256 (ECKeyMaterial k) = verifyEC SHA256 k
-verify JWA.JWS.ES384 (ECKeyMaterial k) = verifyEC SHA384 k
-verify JWA.JWS.ES512 (ECKeyMaterial k) = verifyEC SHA512 k
-verify JWA.JWS.RS256 (RSAKeyMaterial k) = verifyPKCS15 SHA256 k
-verify JWA.JWS.RS384 (RSAKeyMaterial k) = verifyPKCS15 SHA384 k
-verify JWA.JWS.RS512 (RSAKeyMaterial k) = verifyPKCS15 SHA512 k
-verify JWA.JWS.PS256 (RSAKeyMaterial k) = verifyPSS SHA256 k
-verify JWA.JWS.PS384 (RSAKeyMaterial k) = verifyPSS SHA384 k
-verify JWA.JWS.PS512 (RSAKeyMaterial k) = verifyPSS SHA512 k
+  -> m Bool
+verify JWA.JWS.None _ = \_ s -> pure $ s == ""
+verify JWA.JWS.ES256 (ECKeyMaterial k) = fmap pure . verifyEC SHA256 k
+verify JWA.JWS.ES384 (ECKeyMaterial k) = fmap pure . verifyEC SHA384 k
+verify JWA.JWS.ES512 (ECKeyMaterial k) = fmap pure . verifyEC SHA512 k
+verify JWA.JWS.RS256 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA256 k
+verify JWA.JWS.RS384 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA384 k
+verify JWA.JWS.RS512 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA512 k
+verify JWA.JWS.PS256 (RSAKeyMaterial k) = fmap pure . verifyPSS SHA256 k
+verify JWA.JWS.PS384 (RSAKeyMaterial k) = fmap pure . verifyPSS SHA384 k
+verify JWA.JWS.PS512 (RSAKeyMaterial k) = fmap pure . verifyPSS SHA512 k
 verify JWA.JWS.HS256 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA256 k m
 verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA384 k m
 verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA512 k m
-verify h k = \_ -> return $ Left $ AlgorithmMismatch
-  $ show h ++ "cannot be used with " ++ showKeyType k ++ " key"
+verify h k = \_ _ -> throwError $ review _AlgorithmMismatch
+  (show h <> "cannot be used with " <> showKeyType k <> " key")
 
 instance Arbitrary KeyMaterial where
   arbitrary = oneof

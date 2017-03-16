@@ -208,7 +208,8 @@ appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-
       `shouldBe` (Right sig :: Either Error BS.ByteString)
 
   it "validates the signature correctly" $
-    verify JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput' sig `shouldBe` Right True
+    verify JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput' sig
+      `shouldBe` (Right True :: Either Error Bool)
 
   where
     signingInput' = "\
@@ -257,7 +258,8 @@ appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-
 appendixA3Spec :: Spec
 appendixA3Spec = describe "RFC 7515 A.3.  Example JWS using ECDSA P-256 SHA-256" $
   it "validates the signature correctly" $
-    verify JWA.JWS.ES256 (jwk ^. jwkMaterial) signingInput' sig `shouldBe` Right True
+    verify JWA.JWS.ES256 (jwk ^. jwkMaterial) signingInput' sig
+    `shouldBe` (Right True :: Either Error Bool)
   where
     signingInput' = "\
       \eyJhbGciOiJFUzI1NiJ9\
