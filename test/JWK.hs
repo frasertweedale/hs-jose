@@ -1,4 +1,4 @@
--- Copyright (C) 2013  Fraser Tweedale
+-- Copyright (C) 2013, 2017  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 module JWK where
 
-import Control.Lens (_Right)
+import Control.Lens (_Right, view)
 import Control.Lens.Extras (is)
 import Data.Aeson
 import qualified Data.ByteString as B
@@ -36,6 +36,7 @@ spec = do
   jwkAppendixBSpec
   jwkAppendixC1Spec
   jwsAppendixA1Spec
+  cfrgSpec
 
 jwsAppendixA1Spec :: Spec
 jwsAppendixA1Spec = describe "RFC 7515 A.1.1.  JWK" $ do
@@ -249,3 +250,24 @@ jwkAppendixC1Spec = describe "RFC 7517  C.1. Plaintext RSA Private Key" $
             \abu9V0-Py4dQ57_bapoKRu1R90bvuFnU63SHWEFglZQvJDMeAvmj4sm-Fp0o\
             \Yu_neotgQ0hzbI5gry7ajdYy9-2lNx_76aBZoOUu9HCJ-UsfSOI8\"\
       \}"
+
+cfrgSpec :: Spec
+cfrgSpec = describe "RFC 8037 test vectors" $ do
+  let
+    _A1_jwkJson = "\
+      \{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\
+      \\"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\",\
+      \\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
+    _A2_jwkJson = "\
+      \{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\
+      \\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
+    _A1_result = eitherDecode _A1_jwkJson :: Either String JWK
+    _A2_result = eitherDecode _A2_jwkJson
+  describe "A.1. Ed25519 Private Key" $
+    it "successfully decodes the example" $ _A1_result `shouldSatisfy` is _Right
+  describe "A.2. Ed25519 Public Key" $ do
+    it "successfully decodes the example" $ _A2_result `shouldSatisfy` is _Right
+    it "corresponds to A.1. private key" $ Right True == do
+      sk <- _A1_result
+      pk <- _A2_result
+      pure $ maybe False (== pk) (view asPublicKey sk)
