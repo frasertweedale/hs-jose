@@ -16,6 +16,8 @@
 
 module JWK where
 
+import Control.Lens (_Right)
+import Control.Lens.Extras (is)
 import Data.Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
@@ -64,7 +66,7 @@ jwsAppendixA1Spec = describe "RFC 7515 A.1.1.  JWK" $ do
 jwk3Spec :: Spec
 jwk3Spec = describe "RFC 7517 §3. Example JWK" $
   it "successfully decodes the examples" $
-    lr (eitherDecode exampleJWK :: Either String JWK) `shouldBe` R
+    (eitherDecode exampleJWK :: Either String JWK) `shouldSatisfy` is _Right
     where
     exampleJWK = "\
       \{\"kty\":\"EC\",\
@@ -77,7 +79,7 @@ jwk3Spec = describe "RFC 7517 §3. Example JWK" $
 jwkAppendixA1Spec :: Spec
 jwkAppendixA1Spec = describe "RFC 7517 A.1.  Example Public Keys" $
   it "successfully decodes the examples" $
-    lr (eitherDecode exampleJWKSet :: Either String JWKSet) `shouldBe` R
+    (eitherDecode exampleJWKSet :: Either String JWKSet) `shouldSatisfy` is _Right
     where
     exampleEC = "\
       \    {\"kty\":\"EC\",\
@@ -104,7 +106,7 @@ jwkAppendixA1Spec = describe "RFC 7517 A.1.  Example Public Keys" $
 jwkAppendixA2Spec :: Spec
 jwkAppendixA2Spec = describe "RFC 7517 A.2.  Example Private Keys" $
   it "successfully decodes the examples" $
-    lr (eitherDecode exampleJWKSet :: Either String JWKSet) `shouldBe` R
+    (eitherDecode exampleJWKSet :: Either String JWKSet) `shouldSatisfy` is _Right
     where
     exampleJWKSet = "\
       \{\"keys\":\
@@ -154,7 +156,7 @@ jwkAppendixA2Spec = describe "RFC 7517 A.2.  Example Private Keys" $
 jwkAppendixA3Spec :: Spec
 jwkAppendixA3Spec = describe "RFC 7517 A.3. Example Symmetric Keys" $
   it "successfully decodes the examples" $
-    lr (eitherDecode exampleJWKSet :: Either String JWKSet) `shouldBe` R
+    (eitherDecode exampleJWKSet :: Either String JWKSet) `shouldSatisfy` is _Right
     where
     exampleJWKSet = "\
       \{\"keys\":\
@@ -173,7 +175,7 @@ jwkAppendixA3Spec = describe "RFC 7517 A.3. Example Symmetric Keys" $
 jwkAppendixBSpec :: Spec
 jwkAppendixBSpec = describe "JWK B.  Example Use of \"x5c\" (X.509 Certificate Chain) Parameter" $
   it "successfully decodes the example" $
-    lr (eitherDecode exampleJWK :: Either String JWK) `shouldBe` R
+    (eitherDecode exampleJWK :: Either String JWK) `shouldSatisfy` is _Right
     where
     exampleJWK = "\
       \{\"kty\":\"RSA\",\
@@ -211,7 +213,7 @@ jwkAppendixBSpec = describe "JWK B.  Example Use of \"x5c\" (X.509 Certificate C
 jwkAppendixC1Spec :: Spec
 jwkAppendixC1Spec = describe "RFC 7517  C.1. Plaintext RSA Private Key" $
   it "successfully decodes the example" $
-    lr (eitherDecode exampleJWK :: Either String JWK) `shouldBe` R
+    (eitherDecode exampleJWK :: Either String JWK) `shouldSatisfy` is _Right
     where
     exampleJWK = "\
       \{\
@@ -247,9 +249,3 @@ jwkAppendixC1Spec = describe "RFC 7517  C.1. Plaintext RSA Private Key" $
             \abu9V0-Py4dQ57_bapoKRu1R90bvuFnU63SHWEFglZQvJDMeAvmj4sm-Fp0o\
             \Yu_neotgQ0hzbI5gry7ajdYy9-2lNx_76aBZoOUu9HCJ-UsfSOI8\"\
       \}"
-
-data LR = L | R deriving (Eq, Show)
-
-lr :: Either a b -> LR
-lr (Left _) = L
-lr _ = R
