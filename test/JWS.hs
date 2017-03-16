@@ -49,6 +49,7 @@ spec = do
   appendixA3Spec
   appendixA5Spec
   appendixA6Spec
+  cfrgSpec
 
 
 -- Extension of JWSHeader to test "crit" behaviour
@@ -386,3 +387,24 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
          \lSApmWQxfKTUJqPP3-Kg6NU1Q\",\
       \ \"signatures\":\"bogus\"\
       \}"
+
+cfrgSpec :: Spec
+cfrgSpec = describe "RFC 8037 signature/validation test vectors" $ do
+  let
+    jwk = fromJust $ decode "\
+      \{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\
+      \\"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\",\
+      \\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
+    sigOctets =
+      [0x86,0x0c,0x98,0xd2,0x29,0x7f,0x30,0x60,0xa3,0x3f,0x42,0x73,0x96,0x72,0xd6,0x1b
+      ,0x53,0xcf,0x3a,0xde,0xfe,0xd3,0xd3,0xc6,0x72,0xf3,0x20,0xdc,0x02,0x1b,0x41,0x1e
+      ,0x9d,0x59,0xb8,0x62,0x8d,0xc3,0x51,0xe2,0x48,0xb8,0x8b,0x29,0x46,0x8e,0x0e,0x41
+      ,0x85,0x5b,0x0f,0xb7,0xd8,0x3b,0xb1,0x5b,0xe9,0x02,0xbf,0xcc,0xb8,0xcd,0x0a,0x02]
+    sig = BS.pack sigOctets
+    signingInput = "eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc"
+  it "computes the correct signature" $
+    fst (withDRG drg $ runExceptT (sign JWA.JWS.EdDSA (view jwkMaterial jwk) signingInput))
+      `shouldBe` (Right sig :: Either Error BS.ByteString)
+  it "validates signatures correctly" $
+    verify JWA.JWS.EdDSA (view jwkMaterial jwk) signingInput sig
+      `shouldBe` (Right True :: Either Error Bool)

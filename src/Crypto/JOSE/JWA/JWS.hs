@@ -41,4 +41,5 @@ $(Crypto.JOSE.TH.deriveJOSEType "Alg" [
   , "PS384" -- RSASSA-PSS SHA ; OPTIONAL
   , "PS512" -- RSSSSA-PSS SHA ; OPTIONAL
   , "none"  -- "none" No signature or MAC ; Optional
+  , "EdDSA" -- EdDSA (RFC 8037)
   ])

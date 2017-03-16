@@ -350,6 +350,7 @@ defaultValidationSettings = ValidationSettings
     , JWA.JWS.RS256, JWA.JWS.RS384, JWA.JWS.RS512
     , JWA.JWS.ES256, JWA.JWS.ES384, JWA.JWS.ES512
     , JWA.JWS.PS256, JWA.JWS.PS384, JWA.JWS.PS512
+    , JWA.JWS.EdDSA
     ] )
   AllValidated
 

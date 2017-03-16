@@ -469,6 +469,25 @@ instance ToJSON OKPKeyParameters where
       b64 = Types.Base64Octets . BA.convert
       params pk sk = "x" .= b64 pk : (("d" .=) . b64 <$> toList sk)
 
+signEdDSA
+  :: (MonadError e m, AsError e)
+  => OKPKeyParameters
+  -> B.ByteString
+  -> m B.ByteString
+signEdDSA (Ed25519Key pk (Just sk)) m = pure . BA.convert $ Ed25519.sign sk pk m
+signEdDSA (Ed25519Key _ Nothing) _ = throwError (review _KeyMismatch "not a private key")
+signEdDSA _ _ = throwError (review _KeyMismatch "not an EdDSA key")
+
+verifyEdDSA
+  :: (BA.ByteArrayAccess msg, BA.ByteArrayAccess sig, MonadError e m, AsError e)
+  => OKPKeyParameters -> msg -> sig -> m Bool
+verifyEdDSA (Ed25519Key pk _) m s =
+  onCryptoFailure
+    (throwError . review _CryptoError)
+    (pure . Ed25519.verify pk m)
+    (Ed25519.signature s)
+verifyEdDSA _ _ _ = throwError (review _AlgorithmMismatch "not an EdDSA key")
+
 
 -- | Key material sum type.
 --
@@ -549,7 +568,7 @@ sign JWA.JWS.PS512 (RSAKeyMaterial k) = signPSS SHA512 k
 sign JWA.JWS.HS256 (OctKeyMaterial k) = signOct SHA256 k
 sign JWA.JWS.HS384 (OctKeyMaterial k) = signOct SHA384 k
 sign JWA.JWS.HS512 (OctKeyMaterial k) = signOct SHA512 k
--- TODO OKP
+sign JWA.JWS.EdDSA (OKPKeyMaterial k) = signEdDSA k
 sign h k = \_ -> throwError (review _AlgorithmMismatch
   (show h <> "cannot be used with " <> showKeyType k <> " key"))
 
@@ -573,7 +592,7 @@ verify JWA.JWS.PS512 (RSAKeyMaterial k) = fmap pure . verifyPSS SHA512 k
 verify JWA.JWS.HS256 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA256 k m
 verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA384 k m
 verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA512 k m
--- TODO OKP
+verify JWA.JWS.EdDSA (OKPKeyMaterial k) = verifyEdDSA k
 verify h k = \_ _ -> throwError $ review _AlgorithmMismatch
   (show h <> "cannot be used with " <> showKeyType k <> " key")
 
