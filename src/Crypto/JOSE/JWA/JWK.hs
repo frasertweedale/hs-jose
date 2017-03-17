@@ -98,7 +98,7 @@ import Crypto.JOSE.Types.Orphans ()
 $(Crypto.JOSE.TH.deriveJOSEType "Crv" ["P-256", "P-384", "P-521"])
 
 instance Arbitrary Crv where
-  arbitrary = oneof $ pure <$> [P_256, P_384, P_521]
+  arbitrary = elements [P_256, P_384, P_521]
 
 
 -- | \"oth\" (Other Primes Info) Parameter
