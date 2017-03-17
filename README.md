@@ -4,9 +4,12 @@ jose is a Haskell implementation of [Javascript Object Signing and
 Encryption](https://datatracker.ietf.org/wg/jose/) and [JSON Web
 Token](https://tools.ietf.org/html/rfc7519).
 
-Encryption (JWE) is not supported but signing is supported.  All key
-types and algorithms are supported, however, EC signing is currently
-vulnerable to timing attacks therefore its use is **strongly
-discouraged** (EC validation is safe).
+The JSON Web Signature (JWS; RFC 7515) implementation is complete.
+JSON Web Encryption (JWE; RFC 7516) is not yet implemented.
+
+**EdDSA** signatures (RFC 8037) are supported (Ed25519 only).
+
+The **ECDSA implementation is vulnerable to timing attacks** and
+should therefore only be used for verification.
 
 Contributions are welcome.
