@@ -27,7 +27,7 @@ import Test.Tasty.QuickCheck
 import Test.QuickCheck.Monadic
 import Test.QuickCheck.Instances ()
 
-import Crypto.JOSE.Error (Error)
+import Crypto.JOSE.Error (Error(..))
 import Crypto.JOSE.Types
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
@@ -68,7 +68,8 @@ prop_bestJWSAlg msg = monadicIO $ do
   genParam <- pick arbitrary
   k <- run $ genJWK genParam
   case bestJWSAlg k of
-    Left (_ :: Error) -> assert False
+    Left (KeyMismatch _) -> pre False  -- skip non-signing keys
+    Left _ -> assert False
     Right alg -> do
       monitor (collect alg)
       let

@@ -51,6 +51,7 @@ module Crypto.JOSE.JWA.JWK (
 
   -- * Parameters for CFRG EC keys (RFC 8037)
   , OKPKeyParameters(..)
+  , OKPCrv(..)
 
   -- * Key generation
   , KeyMaterialGenParam(..)
@@ -91,7 +92,7 @@ import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Text as T
-import Test.QuickCheck (Arbitrary(..), arbitrarySizedNatural, elements, oneof)
+import Test.QuickCheck (Arbitrary(..), arbitrarySizedNatural, elements, oneof, vectorOf)
 
 import Crypto.JOSE.Error
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
@@ -469,6 +470,35 @@ instance ToJSON OKPKeyParameters where
       b64 = Types.Base64Octets . BA.convert
       params pk sk = "x" .= b64 pk : (("d" .=) . b64 <$> toList sk)
 
+instance Arbitrary OKPKeyParameters where
+  arbitrary = oneof
+    [ Ed25519Key
+        <$> keyOfLen 32 Ed25519.publicKey
+        <*> oneof [pure Nothing, Just <$> keyOfLen 32 Ed25519.secretKey]
+    , X25519Key
+        <$> keyOfLen 32 Curve25519.publicKey
+        <*> oneof [pure Nothing, Just <$> keyOfLen 32 Curve25519.secretKey]
+    ]
+    where
+      bsOfLen n = B.pack <$> vectorOf n arbitrary
+      keyOfLen n con = onCryptoFailure (error . show) id . con <$> bsOfLen n
+
+data OKPCrv = Ed25519 | X25519
+  deriving (Eq, Show)
+
+instance Arbitrary OKPCrv where
+  arbitrary = elements [Ed25519, X25519]
+
+genOKP :: MonadRandom m => OKPCrv -> m OKPKeyParameters
+genOKP = \case
+  Ed25519 -> go 32 Ed25519Key Ed25519.secretKey Ed25519.toPublic
+  X25519 -> go 32 X25519Key Curve25519.secretKey Curve25519.toPublic
+  where
+    go len con skCon toPub = do
+      (bs :: B.ByteString) <- getRandomBytes len
+      let sk = onCryptoFailure (error . show) id (skCon bs)
+      pure $ con (toPub sk) (Just sk)
+
 signEdDSA
   :: (MonadError e m, AsError e)
   => OKPKeyParameters
@@ -526,6 +556,7 @@ data KeyMaterialGenParam
   -- ^ Generate an RSA key with specified size in /bytes/.
   | OctGenParam Int
   -- ^ Generate a symmetric key with specified size in /bytes/.
+  | OKPGenParam OKPCrv
   deriving (Eq, Show)
 
 instance Arbitrary KeyMaterialGenParam where
@@ -533,6 +564,7 @@ instance Arbitrary KeyMaterialGenParam where
     [ ECGenParam <$> arbitrary
     , RSAGenParam <$> elements ((`div` 8) <$> [2048, 3072, 4096])
     , OctGenParam <$> liftA2 (+) arbitrarySizedNatural (elements [32, 48, 64])
+    , OKPGenParam <$> arbitrary
     ]
 
 genKeyMaterial :: MonadRandom m => KeyMaterialGenParam -> m KeyMaterial
@@ -548,6 +580,7 @@ genKeyMaterial (ECGenParam crv) = do
 genKeyMaterial (RSAGenParam size) = RSAKeyMaterial <$> genRSA size
 genKeyMaterial (OctGenParam n) =
   OctKeyMaterial . OctKeyParameters . Types.Base64Octets <$> getRandomBytes n
+genKeyMaterial (OKPGenParam crv) = OKPKeyMaterial <$> genOKP crv
 
 sign
   :: (MonadRandom m, MonadError e m, AsError e)
@@ -601,6 +634,7 @@ instance Arbitrary KeyMaterial where
     [ ECKeyMaterial <$> arbitrary
     , RSAKeyMaterial <$> arbitrary
     , OctKeyMaterial <$> arbitrary
+    , OKPKeyMaterial <$> arbitrary
     ]
 
 
