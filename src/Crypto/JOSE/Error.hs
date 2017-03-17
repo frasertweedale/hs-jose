@@ -54,6 +54,7 @@ data Error
   -- ^ 'AllValidated' policy active, and invalid signature encountered
   | JWSNoSignatures
   -- ^ 'AllValidated' policy active, and there were no signatures on object
+  --   that matched the allowed algorithms
   deriving (Eq, Show)
 makeClassyPrisms ''Error
 
