@@ -12,4 +12,6 @@ JSON Web Encryption (JWE; RFC 7516) is not yet implemented.
 The **ECDSA implementation is vulnerable to timing attacks** and
 should therefore only be used for verification.
 
+JWK Thumbprint (RFC 7638) is supported (requires *aeson* >= 0.10).
+
 Contributions are welcome.

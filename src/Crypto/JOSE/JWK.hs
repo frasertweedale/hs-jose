@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016, 2017  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -12,6 +12,8 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -50,18 +52,30 @@ module Crypto.JOSE.JWK
 
   , bestJWSAlg
 
+#if MIN_VERSION_aeson(0,10,0)
+  , thumbprint
+  , thumbprintRepr
+  , module Crypto.Hash
+#endif
+
   , module Crypto.JOSE.JWA.JWK
   ) where
 
 import Control.Applicative
 import Data.Maybe (catMaybes)
+import Data.Monoid ((<>))
 
 import Control.Lens hiding ((.=))
 import Control.Monad.Except (MonadError(throwError))
+import Crypto.Hash
 import qualified Crypto.PubKey.RSA as RSA
 import Data.Aeson
+import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Lazy as L
+import qualified Data.ByteString.Builder as Builder
 import Data.List.NonEmpty
+import qualified Data.Text as T
 
 import Test.QuickCheck
 
@@ -210,3 +224,29 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
     | otherwise -> throwError (review _KeySizeTooSmall ())
   OKPKeyMaterial (Ed25519Key _ _) -> pure JWA.JWS.EdDSA
   OKPKeyMaterial _ -> throwError (review _KeyMismatch "Cannot sign with OKP ECDH key")
+
+
+#if MIN_VERSION_aeson(0,10,0)
+-- | Compute the JWK Thumbprint of a JWK
+--
+thumbprint :: HashAlgorithm a => JWK -> Digest a
+thumbprint = hash . L.toStrict . thumbprintRepr
+
+-- | JWK canonicalised for thumbprint computation
+--
+thumbprintRepr :: JWK -> L.ByteString
+thumbprintRepr k = Builder.toLazyByteString . fromEncoding . pairs $
+  case view jwkMaterial k of
+    ECKeyMaterial ECKeyParameters {..} ->
+      "crv" .= ecCrv <> "kty" .= ("EC" :: T.Text) <> "x" .= ecX  <> "y" .= ecY
+    RSAKeyMaterial k' ->
+      "e" .= view rsaE k' <> "kty" .= ("RSA" :: T.Text) <> "n" .= view rsaN k'
+    OctKeyMaterial (OctKeyParameters k') ->
+      "k" .= k' <> "kty" .= ("oct" :: T.Text)
+    OKPKeyMaterial (Ed25519Key pk _) -> okpSeries "Ed25519" pk
+    OKPKeyMaterial (X25519Key pk _) -> okpSeries "X25519" pk
+  where
+    b64 = Types.Base64Octets . BA.convert
+    okpSeries crv pk =
+      "crv" .= (crv :: T.Text) <> "kty" .= ("OKP" :: T.Text) <> "x" .= b64 pk
+#endif

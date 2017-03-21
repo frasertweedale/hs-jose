@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module JWK where
@@ -21,6 +22,7 @@ import Data.Monoid ((<>))
 import Control.Lens (_Right, view)
 import Control.Lens.Extras (is)
 import Data.Aeson
+import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Test.Hspec
@@ -39,6 +41,9 @@ spec = do
   jwkAppendixC1Spec
   jwsAppendixA1Spec
   cfrgSpec
+#if MIN_VERSION_aeson(0,10,0)
+  thumbprintSpec
+#endif
 
 jwsAppendixA1Spec :: Spec
 jwsAppendixA1Spec = describe "RFC 7515 A.1.1.  JWK" $ do
@@ -256,14 +261,10 @@ jwkAppendixC1Spec = describe "RFC 7517  C.1. Plaintext RSA Private Key" $
 cfrgSpec :: Spec
 cfrgSpec = describe "RFC 8037 test vectors" $ do
   let
-    _A1_jwkJson = ""
-      <> "{\"kty\":\"OKP\",\"crv\":\"Ed25519\","
-      <> "\"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\","
-      <> "\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
     _A2_jwkJson = ""
       <> "{\"kty\":\"OKP\",\"crv\":\"Ed25519\","
       <> "\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
-    _A1_result = eitherDecode _A1_jwkJson :: Either String JWK
+    _A1_result = eitherDecode rfc8037_A1_jwkJson :: Either String JWK
     _A2_result = eitherDecode _A2_jwkJson
   describe "A.1. Ed25519 Private Key" $
     it "successfully decodes the example" $ _A1_result `shouldSatisfy` is _Right
@@ -273,3 +274,45 @@ cfrgSpec = describe "RFC 8037 test vectors" $ do
       sk <- _A1_result
       pk <- _A2_result
       pure $ maybe False (== pk) (view asPublicKey sk)
+
+rfc8037_A1_jwkJson = ""
+  <> "{\"kty\":\"OKP\",\"crv\":\"Ed25519\","
+  <> "\"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\","
+  <> "\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
+
+
+#if MIN_VERSION_aeson(0,10,0)
+thumbprintSpec :: Spec
+thumbprintSpec = describe "JWK Thumbprint" $ do
+  describe "RFC 7638 §3.1.  Example JWK Thumbprint Computation" $ do
+    let
+      Just k = decode $ ""
+        <> "{"
+        <> "  \"kty\": \"RSA\","
+        <> "  \"n\": \"0vx7agoebGcQSuuPiLJXZptN9nndrQmbXEps2aiAFbWhM78LhWx4cbbfAAt"
+        <>            "VT86zwu1RK7aPFFxuhDR1L6tSoc_BJECPebWKRXjBZCiFV4n3oknjhMstn6"
+        <>            "4tZ_2W-5JsGY4Hc5n9yBXArwl93lqt7_RN5w6Cf0h4QyQ5v-65YGjQR0_FD"
+        <>            "W2QvzqY368QQMicAtaSqzs8KJZgnYb9c7d0zgdAZHzu6qMQvRL5hajrn1n9"
+        <>            "1CbOpbISD08qNLyrdkt-bFTWhAI4vMQFh6WeZu0fM4lFd2NcRwr3XPksINH"
+        <>            "aQ-G_xBniIqbw0Ls1jF44-csFCur-kEgU8awapJzKnqDKgw\","
+        <> "  \"e\": \"AQAB\","
+        <> "  \"alg\": \"RS256\","
+        <> "  \"kid\": \"2011-04-29\""
+        <> "}"
+      sha256 = B.pack
+        [55, 54, 203, 177, 120, 124, 184, 48, 156, 119, 238, 140, 55, 5, 197,
+        225, 111, 251, 158, 133, 151, 21, 144, 31, 30, 76, 89, 177, 17, 130,
+        245, 123]
+    it "correctly computes thumbprint of RSA key" $
+      BA.convert (thumbprint k :: Digest SHA256) `shouldBe` sha256
+  describe "RFC 8037 A.3.  JWK Thumbprint Canonicalization" $ do
+    let
+      Just k = decode rfc8037_A1_jwkJson
+      sha256 = B.pack
+        [ 0x90, 0xfa, 0xca, 0xfe, 0xa9, 0xb1, 0x55, 0x66
+        , 0x98, 0x54, 0x0f, 0x70, 0xc0, 0x11, 0x7a, 0x22
+        , 0xea, 0x37, 0xbd, 0x5c, 0xf3, 0xed, 0x3c, 0x47
+        , 0x09, 0x3c, 0x17, 0x07, 0x28, 0x2b, 0x4b, 0x89 ]
+    it "correctly computes thumbprint of Ed25519 key" $
+      BA.convert (thumbprint k :: Digest SHA256) `shouldBe` sha256
+#endif

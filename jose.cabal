@@ -8,12 +8,15 @@ description:
   (JOSE) and JSON Web Token (JWT; RFC 7519) formats.
   .
   The JSON Web Signature (JWS; RFC 7515) implementation is complete.
-  JSON Web Encryption (JWE; RFC 7516) is not yet implemented.
   .
   EdDSA signatures (RFC 8037) are supported (Ed25519 only).
   .
-  The ECDSA implementation is vulnerable to timing attacks and
-  should therefore only be used for verification.
+  JWK Thumbprint (RFC 7638) is supported (requires /aeson/ >= 0.10).
+  .
+  JSON Web Encryption (JWE; RFC 7516) is not yet implemented.
+  .
+  The __ECDSA implementation is vulnerable to timing attacks__ and
+  should only be used for verification.
 
 homepage:            https://github.com/frasertweedale/hs-jose
 bug-reports:         https://github.com/frasertweedale/hs-jose/issues
