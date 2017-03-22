@@ -1,15 +1,23 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
+{-# LANGUAGE CPP #-}
 
 import Data.Maybe (fromJust)
 import System.Environment (getArgs)
 import System.Exit (exitFailure, exitSuccess)
 
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.Aeson (decode, encode)
 
 import Control.Monad.Except (runExceptT)
-import Control.Lens (preview, set)
-import Crypto.JOSE.JWK (KeyMaterialGenParam(..), Crv(..), JWK, genJWK, bestJWSAlg)
+import Control.Lens (preview, review, set)
+import Crypto.JOSE.JWK
+  ( KeyMaterialGenParam(..), Crv(..), JWK, genJWK, bestJWSAlg
+#if MIN_VERSION_aeson(0,10,0)
+  , Digest, SHA256, thumbprint, convert
+#endif
+  )
+import Crypto.JOSE.Types (base64url)
 import Crypto.JWT
   ( JWTError
   , createJWSJWT
@@ -30,6 +38,9 @@ main = do
     "jwk-gen" -> doGen (tail args)
     "jwt-sign" -> doJwtSign (tail args)
     "jwt-verify" -> doJwtVerify (tail args)
+#if MIN_VERSION_aeson(0,10,0)
+    "jwk-thumbprint" -> doThumbprint (tail args)
+#endif
 
 doGen :: [String] -> IO ()
 doGen [kty] = do
@@ -83,3 +94,19 @@ doJwtVerify (jwkFilename : jwtFilename : aud : _) = do
   case result of
     Left e -> print (e :: JWTError) >> exitFailure
     Right _ -> exitSuccess
+
+
+#if MIN_VERSION_aeson(0,10,0)
+-- | Print a base64url-encoded SHA-256 JWK Thumbprint.  Args are:
+--
+-- 1. filename of JWK
+--
+doThumbprint :: [String] -> IO ()
+doThumbprint (jwkFilename : _) = do
+  Just jwk <- decode <$> L.readFile jwkFilename
+  let
+    h = thumbprint jwk :: Digest SHA256
+    bs = convert h :: B.ByteString
+    s = review base64url bs :: B.ByteString
+  print s
+#endif
