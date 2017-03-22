@@ -56,6 +56,7 @@ module Crypto.JOSE.JWK
   , thumbprint
   , thumbprintRepr
   , module Crypto.Hash
+  , BA.convert
 #endif
 
   , module Crypto.JOSE.JWA.JWK
