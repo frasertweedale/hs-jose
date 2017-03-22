@@ -24,6 +24,7 @@ module Crypto.JOSE
   , module Crypto.JOSE.JWK
   , module Crypto.JOSE.JWK.Store
   , module Crypto.JOSE.JWS
+  , base64url
   ) where
 
 import Crypto.JOSE.Compact
@@ -31,5 +32,6 @@ import Crypto.JOSE.Error
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWK.Store
 import Crypto.JOSE.JWS
+import Crypto.JOSE.Types (base64url)
 
 {-# ANN module ("HLint: ignore Use import/export shortcut" :: String) #-}

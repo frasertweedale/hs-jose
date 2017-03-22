@@ -32,6 +32,7 @@ module Crypto.JOSE.Types
   , Base64SHA256(..)
   , Base64X509(..)
   , URI
+  , base64url
   ) where
 
 import Control.Lens

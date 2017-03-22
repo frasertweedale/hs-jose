@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2017  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -12,6 +12,8 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 {-|
@@ -31,14 +33,17 @@ module Crypto.JOSE.Types.Internal
   , bsToInteger
   , integerToBS
   , sizedIntegerToBS
+  , base64url
   ) where
 
+import Data.Bifunctor (first)
 import Data.Char (ord)
 import Data.Monoid ((<>))
 import Data.Tuple (swap)
 import Data.Word (Word8)
 
 import Control.Lens
+import Control.Lens.Cons.Extras
 import Data.Aeson.Types
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
@@ -123,15 +128,35 @@ unpadL :: L.ByteString -> L.ByteString
 unpadL = L.reverse . L.dropWhile (== 61) . L.reverse
 {-# RULES "unpad/unpadL" unpad = unpadL #-}
 
+
+-- | Prism for encoding / decoding base64url.
+--
+-- To encode, @'review' base64url@.
+-- To decode, @'preview' base64url@.
+--
+-- Works with any combinations of strict/lazy @ByteString@.
+--
+base64url ::
+  ( AsEmpty s1, AsEmpty s2
+  , Cons s1 s1 Word8 Word8
+  , Cons s2 s2 Word8 Word8
+  ) => Prism' s1 s2
+base64url = reconsIso . padder . b64u . reconsIso
+  where
+    padder = iso pad unpad
+    b64u = prism B64U.encode (\s -> first (const s) (B64U.decode s))
+    reconsIso = iso (view recons) (view recons)
+
+
 -- | Produce a parser of base64url encoded text from a bytestring parser.
 --
 parseB64Url :: (B.ByteString -> Parser a) -> T.Text -> Parser a
-parseB64Url f = either fail f . B64U.decode . pad . E.encodeUtf8
+parseB64Url f = maybe (fail "Not valid base64url") f . preview base64url . E.encodeUtf8
 
 -- | Convert a bytestring to a base64url encoded JSON 'String'
 --
 encodeB64Url :: B.ByteString -> Value
-encodeB64Url = String . E.decodeUtf8 . unpad . B64U.encode
+encodeB64Url = String . E.decodeUtf8 . review base64url
 
 -- | Convert an unsigned big endian octet sequence to the integer
 -- it represents.
