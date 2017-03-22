@@ -38,9 +38,7 @@ module Crypto.JOSE.Types
 import Control.Lens
 import Data.Aeson
 import Data.Aeson.Types (Parser)
-import Data.Byteable
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Base64.URL as B64U
 import Data.X509
 import Network.URI (URI)
 import Test.QuickCheck
@@ -114,9 +112,6 @@ checkSize n a@(SizedBase64Integer m _) = if n == m
 --
 newtype Base64Octets = Base64Octets B.ByteString
   deriving (Eq, Show)
-
-instance Byteable Base64Octets where
-  toBytes (Base64Octets s) = unpad $ B64U.encode s
 
 instance FromJSON Base64Octets where
   parseJSON = withText "Base64Octets" $ parseB64Url (pure . Base64Octets)

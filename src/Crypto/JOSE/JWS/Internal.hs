@@ -29,7 +29,6 @@ import Data.Monoid ((<>))
 import Control.Lens hiding ((.=))
 import Control.Monad.Except (MonadError(throwError))
 import Data.Aeson
-import Data.Byteable
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
@@ -265,9 +264,9 @@ signingInput
   => Either T.Text a
   -> Types.Base64Octets
   -> BS.ByteString
-signingInput h p = BS.intercalate "."
+signingInput h (Types.Base64Octets p) = BS.intercalate "."
   [ either T.encodeUtf8 (BSL.toStrict . protectedParamsEncoded) h
-  , toBytes p
+  , review Types.base64url p
   ]
 
 -- Convert JWS to compact serialization.
@@ -276,11 +275,11 @@ signingInput h p = BS.intercalate "."
 -- signature and returns Nothing otherwise
 --
 instance HasParams a => ToCompact (JWS a) where
-  toCompact (JWS p [Signature raw h sig]) =
+  toCompact (JWS p [Signature raw h (Types.Base64Octets sig)]) =
     case unprotectedParams h of
       Nothing -> pure
         [ BSL.fromStrict $ signingInput (maybe (Right h) Left raw) p
-        , BSL.fromStrict $ toBytes sig
+        , BSL.fromStrict $ review Types.base64url sig
         ]
       Just _ -> throwError $ review _CompactEncodeError $
         "cannot encode a compact JWS with unprotected headers"

@@ -59,7 +59,6 @@ library
     base == 4.*
     , attoparsec
     , base64-bytestring == 1.0.*
-    , byteable == 0.1.*
     , concise >= 0.1
     , containers >= 0.5
     , cryptonite >= 0.7
@@ -110,7 +109,6 @@ test-suite tests
     base
     , attoparsec
     , base64-bytestring
-    , byteable
     , containers
     , cryptonite
     , lens
