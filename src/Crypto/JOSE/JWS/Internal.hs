@@ -367,7 +367,9 @@ defaultValidationSettings = ValidationSettings
 --
 verifyJWS'
   :: (AsError e, MonadError e m , HasJWSHeader h, HasParams h , JWKStore k)
-  => k -> JWS h -> m ()
+  => k      -- ^ key or key store
+  -> JWS h  -- ^ JWS
+  -> m ()
 verifyJWS' = verifyJWS defaultValidationSettings
 
 -- | Verify a JWS.
@@ -383,9 +385,9 @@ verifyJWS
       , HasJWSHeader h, HasParams h
       , JWKStore k
       )
-  => a
-  -> k
-  -> JWS h
+  => a      -- ^ validation settings
+  -> k      -- ^ key or key store
+  -> JWS h  -- ^ JWS
   -> m ()
 verifyJWS conf k (JWS p sigs) =
   let
