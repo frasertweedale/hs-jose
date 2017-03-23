@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -25,8 +26,10 @@ import Control.Applicative ((<|>))
 import Data.Foldable (toList)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
+import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))
+import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Except (MonadError(throwError))
 import Data.Aeson
 import qualified Data.ByteString as BS
@@ -251,8 +254,8 @@ instance HasParams a => ToJSON (JWS a) where
 
 -- | Construct a new (unsigned) JWS
 --
-newJWS :: BS.ByteString -> JWS a
-newJWS msg = JWS (Types.Base64Octets msg) []
+newJWS :: Cons s s Word8 Word8 => s -> JWS a
+newJWS msg = JWS (Types.Base64Octets (view recons msg)) []
 
 -- | Payload of a JWS, as a lazy bytestring.
 --
