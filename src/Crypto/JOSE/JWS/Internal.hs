@@ -159,7 +159,12 @@ data Signature a = Signature
   , _signature :: Types.Base64Octets  -- ^ Signature
   }
   deriving (Show)
-makeLenses ''Signature
+
+header :: Getter (Signature a) a
+header = to (\(Signature _ h _) -> h)
+
+signature :: (Cons s s Word8 Word8, AsEmpty s) => Getter (Signature a) s
+signature = to (\(Signature _ _ (Types.Base64Octets s)) -> s) . recons
 
 instance (Eq a, HasParams a) => Eq (Signature a) where
   Signature r h s == Signature r' h' s' =
@@ -239,6 +244,12 @@ instance HasParams JWSHeader where
 data JWS a = JWS Types.Base64Octets [Signature a]
   deriving (Eq, Show)
 
+payload :: (Cons s s Word8 Word8, AsEmpty s) => Getter (JWS a) s
+payload = to (\(JWS (Types.Base64Octets s) _) -> s) . recons
+
+signatures :: Fold (JWS a) (Signature a)
+signatures = folding (\(JWS _ sigs) -> sigs)
+
 instance HasParams a => FromJSON (JWS a) where
   parseJSON v =
     withObject "JWS JSON serialization" (\o -> JWS
@@ -257,10 +268,6 @@ instance HasParams a => ToJSON (JWS a) where
 newJWS :: Cons s s Word8 Word8 => s -> JWS a
 newJWS msg = JWS (Types.Base64Octets (view recons msg)) []
 
--- | Payload of a JWS, as a lazy bytestring.
---
-jwsPayload :: JWS a -> BSL.ByteString
-jwsPayload (JWS (Types.Base64Octets s) _) = BSL.fromStrict s
 
 signingInput
   :: HasParams a
@@ -282,7 +289,7 @@ instance HasParams a => ToCompact (JWS a) where
     case unprotectedParams h of
       Nothing -> pure
         [ BSL.fromStrict $ signingInput (maybe (Right h) Left raw) p
-        , BSL.fromStrict $ review Types.base64url sig
+        , review Types.base64url sig
         ]
       Just _ -> throwError $ review _CompactEncodeError $
         "cannot encode a compact JWS with unprotected headers"

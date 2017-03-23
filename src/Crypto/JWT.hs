@@ -82,7 +82,6 @@ import Control.Lens (
   Prism', prism', Cons, cons, uncons, iso, Iso')
 import Control.Monad.Except (MonadError(throwError))
 import Data.Aeson
-import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import Data.Time (NominalDiffTime, UTCTime, addUTCTime)
@@ -413,7 +412,7 @@ instance FromCompact JWT where
     toJWT (JWTJWS jws) = either
       (throwError . review _CompactDecodeError)
       (pure . JWT (JWTJWS jws))
-      (eitherDecode $ jwsPayload jws)
+      (eitherDecode $ view payload jws)
 
 instance ToCompact JWT where
   toCompact = toCompact . jwtCrypto
@@ -449,6 +448,4 @@ createJWSJWT
   -> ClaimsSet
   -> m JWT
 createJWSJWT k h c =
-  (\jws -> JWT (JWTJWS jws) c) <$> signJWS (JWS payload []) h k
-  where
-    payload = Base64Octets $ BSL.toStrict $ encode c
+  (\jws -> JWT (JWTJWS jws) c) <$> signJWS (newJWS (encode c)) h k

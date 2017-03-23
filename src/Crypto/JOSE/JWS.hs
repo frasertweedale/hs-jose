@@ -31,29 +31,35 @@ doJwsVerify jwk jws = runExceptT $ 'verifyJWS'' jwk jws
 -}
 module Crypto.JOSE.JWS
   (
-    Alg(..)
-
-  , HasJWSHeader(..)
-  , JWSHeader(..)
+  -- * JWS creation
+    newJWS
   , newJWSHeader
-
-  , Signature
-  , header
-
-  , JWS(..)
-  , newJWS
-  , jwsPayload
   , signJWS
 
+  -- * JWS verification
+  , verifyJWS
+  , verifyJWS'
+
+  -- * JWS validation settings
+  , defaultValidationSettings
+  , ValidationSettings
+  , ValidationPolicy(..)
   , HasValidationSettings(..)
   , HasAlgorithms(..)
   , HasValidationPolicy(..)
 
-  , ValidationPolicy(..)
-  , ValidationSettings
-  , defaultValidationSettings
-  , verifyJWS
-  , verifyJWS'
+  -- * JWS objects
+  , JWS
+  , payload
+  , signatures
+  , Signature
+  , header
+  , signature
+
+  -- * JWS headers
+  , Alg(..)
+  , HasJWSHeader(..)
+  , JWSHeader
 
   , module Crypto.JOSE.Error
   , module Crypto.JOSE.Header
