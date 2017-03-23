@@ -345,6 +345,11 @@ instance HasValidationSettings a => HasAlgorithms a where
 instance HasValidationSettings a => HasValidationPolicy a where
   validationPolicy = validationSettingsValidationPolicy
 
+-- | The default validation settings.
+--
+-- - All algorithms except "none" are acceptable.
+-- - All signatures must be valid (and there must be at least one signature.)
+--
 defaultValidationSettings :: ValidationSettings
 defaultValidationSettings = ValidationSettings
   ( S.fromList
