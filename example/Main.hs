@@ -31,11 +31,15 @@ import Crypto.JOSE.JWS (Protection(Protected), newJWSHeader)
 
 import Crypto.JOSE.Error (Error)
 
+import JWS (doJwsSign, doJwsVerify)
+
 main :: IO ()
 main = do
   args <- getArgs
   case head args of
     "jwk-gen" -> doGen (tail args)
+    "jws-sign" -> doJwsSign (tail args)
+    "jws-verify" -> doJwsVerify (tail args)
     "jwt-sign" -> doJwtSign (tail args)
     "jwt-verify" -> doJwtVerify (tail args)
 #if MIN_VERSION_aeson(0,10,0)
