@@ -18,6 +18,16 @@ JSON Web Signature (JWS) represents content secured with digital
 signatures or Message Authentication Codes (MACs) using JavaScript
 Object Notation (JSON) based data structures.
 
+@
+doJwsSign :: 'JWK' -> L.ByteString -> IO (Either 'Error' ('JWS' 'JWSHeader'))
+doJwsSign jwk payload = runExceptT $ do
+  alg \<- 'bestJWSAlg' jwk
+  'signJWS' ('newJWS' payload) ('newJWSHeader' ('Protected', alg)) jwk
+
+doJwsVerify :: 'JWK' -> 'JWS' 'JWSHeader' -> IO (Either 'Error' ())
+doJwsVerify jwk jws = runExceptT $ 'verifyJWS'' jwk jws
+@
+
 -}
 module Crypto.JOSE.JWS
   (
