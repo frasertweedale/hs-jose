@@ -361,6 +361,14 @@ defaultValidationSettings = ValidationSettings
     ] )
   AllValidated
 
+-- | Verify a JWS with the default validation settings.
+--
+-- See also 'defaultValidationSettings'.
+--
+verifyJWS'
+  :: (AsError e, MonadError e m , HasJWSHeader h, HasParams h , JWKStore k)
+  => k -> JWS h -> m ()
+verifyJWS' = verifyJWS defaultValidationSettings
 
 -- | Verify a JWS.
 --

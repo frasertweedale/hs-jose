@@ -43,6 +43,7 @@ module Crypto.JOSE.JWS
   , ValidationSettings
   , defaultValidationSettings
   , verifyJWS
+  , verifyJWS'
 
   , module Crypto.JOSE.Header
   ) where
