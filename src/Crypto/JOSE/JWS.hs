@@ -45,9 +45,13 @@ module Crypto.JOSE.JWS
   , verifyJWS
   , verifyJWS'
 
+  , module Crypto.JOSE.Error
   , module Crypto.JOSE.Header
+  , module Crypto.JOSE.JWK
   ) where
 
+import Crypto.JOSE.Error
 import Crypto.JOSE.JWA.JWS
+import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS.Internal
 import Crypto.JOSE.Header
