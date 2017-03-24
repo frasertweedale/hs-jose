@@ -55,10 +55,14 @@ doGen [kty] = do
       "ec" -> ECGenParam P_256
       "eddsa" -> OKPGenParam Ed25519
   jwk <- genJWK param
+#if MIN_VERSION_aeson(0,10,0)
   let
     h = view thumbprint jwk :: Digest SHA256
     kid = view (re (base64url . digest) . utf8) h
     jwk' = set jwkKid (Just kid) jwk
+#else
+  let jwk' = jwk
+#endif
   L.putStr (encode jwk')
 
 -- | Mint a JWT.  Args are:
