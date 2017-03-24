@@ -12,7 +12,8 @@ import Data.Aeson (decode, encode)
 import Control.Monad.Except (runExceptT)
 import Control.Lens (preview, review, set)
 import Crypto.JOSE.JWK
-  ( KeyMaterialGenParam(..), Crv(..), JWK, genJWK, bestJWSAlg
+  ( KeyMaterialGenParam(..) , Crv(P_256), OKPCrv(Ed25519)
+  , JWK, genJWK, bestJWSAlg
 #if MIN_VERSION_aeson(0,10,0)
   , Digest, SHA256, thumbprint, convert
 #endif
@@ -53,6 +54,7 @@ doGen [kty] = do
       "oct" -> OctGenParam 32
       "rsa" -> RSAGenParam 256
       "ec" -> ECGenParam P_256
+      "eddsa" -> OKPGenParam Ed25519
   jwk <- genJWK param
   L.putStr (encode jwk)
 
