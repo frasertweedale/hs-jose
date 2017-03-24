@@ -646,9 +646,6 @@ class AsPublicKey k where
   asPublicKey :: Getter k (Maybe k)
 
 
-instance AsPublicKey OctKeyParameters where
-  asPublicKey = to (const Nothing)
-
 instance AsPublicKey RSAKeyParameters where
   asPublicKey = to (Just . set rsaPrivateKeyParameters Nothing)
 
@@ -662,7 +659,7 @@ instance AsPublicKey OKPKeyParameters where
 
 instance AsPublicKey KeyMaterial where
   asPublicKey = to (\x -> case x of
-    OctKeyMaterial k  -> OctKeyMaterial  <$> view asPublicKey k
+    OctKeyMaterial _  -> Nothing
     RSAKeyMaterial k  -> RSAKeyMaterial  <$> view asPublicKey k
     ECKeyMaterial k   -> ECKeyMaterial   <$> view asPublicKey k
     OKPKeyMaterial k  -> OKPKeyMaterial  <$> view asPublicKey k
