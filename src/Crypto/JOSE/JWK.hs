@@ -140,7 +140,7 @@ data JWK = JWK
   , _jwkUse :: Maybe KeyUse
   , _jwkKeyOps :: Maybe [KeyOp]
   , _jwkAlg :: Maybe JWKAlg
-  , _jwkKid :: Maybe String
+  , _jwkKid :: Maybe T.Text
   , _jwkX5u :: Maybe Types.URI
   , _jwkX5c :: Maybe (NonEmpty Types.Base64X509)
   , _jwkX5t :: Maybe Types.Base64SHA1
