@@ -13,6 +13,7 @@
 -- limitations under the License.
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -52,6 +53,7 @@ module Crypto.JOSE.JWK
 
   -- * Converting from other key formats
   , fromRSA
+  , fromOctets
 
 #if MIN_VERSION_aeson(0,10,0)
   -- * JWK Thumbprint
@@ -73,8 +75,10 @@ module Crypto.JOSE.JWK
 import Control.Applicative
 import Data.Maybe (catMaybes)
 import Data.Monoid ((<>))
+import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))
+import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Except (MonadError(throwError))
 import Crypto.Hash
 import qualified Crypto.PubKey.RSA as RSA
@@ -195,6 +199,13 @@ fromKeyMaterial k = JWK k z z z z z z z z where z = Nothing
 --
 fromRSA :: RSA.PrivateKey -> JWK
 fromRSA = fromKeyMaterial . RSAKeyMaterial . toRSAKeyParameters
+
+-- | Convert octet string into a JWK
+--
+fromOctets :: Cons s s Word8 Word8 => s -> JWK
+fromOctets =
+  fromKeyMaterial . OctKeyMaterial . OctKeyParameters . Types.Base64Octets
+  . view recons
 
 
 instance AsPublicKey JWK where
