@@ -24,7 +24,6 @@ module Crypto.JOSE
   , module Crypto.JOSE.JWK
   , module Crypto.JOSE.JWK.Store
   , module Crypto.JOSE.JWS
-  , base64url
   ) where
 
 import Crypto.JOSE.Compact
