@@ -27,6 +27,19 @@ structure that represents a cryptographic key.  This module also
 defines a JSON Web Key Set (JWK Set) JSON data structure for
 representing a set of JWKs.
 
+@
+-- Generate RSA JWK and set "kid" param to
+-- base64url-encoded SHA-256 thumbprint of key.
+--
+doGen :: IO JWK
+doGen = do
+  jwk <- 'genJWK' (RSAGenParam (4096 \`div` 8))
+  let
+    h = view 'thumbprint' jwk :: Digest SHA256
+    kid = view (re ('base64url' . 'digest') . utf8) h
+  pure $ set 'jwkKid' (Just kid) jwk
+@
+
 -}
 module Crypto.JOSE.JWK
   (
