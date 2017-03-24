@@ -7,12 +7,13 @@ import System.Exit (exitFailure, exitSuccess)
 
 import qualified Data.ByteString.Lazy as L
 import Data.Aeson (decode, encode)
+import Data.Text.Strict.Lens (utf8)
 
 import Control.Monad.Except (runExceptT)
-import Control.Lens (preview, review, set, view)
+import Control.Lens (preview, re, review, set, view)
 import Crypto.JOSE.JWK
   ( KeyMaterialGenParam(..) , Crv(P_256), OKPCrv(Ed25519)
-  , JWK, genJWK, bestJWSAlg
+  , JWK, genJWK, jwkKid, bestJWSAlg
 #if MIN_VERSION_aeson(0,10,0)
   , Digest, SHA256, thumbprint, digest, base64url
 #endif
@@ -54,7 +55,11 @@ doGen [kty] = do
       "ec" -> ECGenParam P_256
       "eddsa" -> OKPGenParam Ed25519
   jwk <- genJWK param
-  L.putStr (encode jwk)
+  let
+    h = view thumbprint jwk :: Digest SHA256
+    kid = view (re (base64url . digest) . utf8) h
+    jwk' = set jwkKid (Just kid) jwk
+  L.putStr (encode jwk')
 
 -- | Mint a JWT.  Args are:
 --
