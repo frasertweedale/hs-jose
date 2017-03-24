@@ -557,6 +557,7 @@ data KeyMaterialGenParam
   | OctGenParam Int
   -- ^ Generate a symmetric key with specified size in /bytes/.
   | OKPGenParam OKPCrv
+  -- ^ Generate an EdDSA or Edwards ECDH key with specified curve.
   deriving (Eq, Show)
 
 instance Arbitrary KeyMaterialGenParam where
@@ -638,7 +639,10 @@ instance Arbitrary KeyMaterial where
     ]
 
 
+-- | Keys that may have have public material
+--
 class AsPublicKey k where
+  -- | Get the public key
   asPublicKey :: Getter k (Maybe k)
 
 

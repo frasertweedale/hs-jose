@@ -29,35 +29,43 @@ representing a set of JWKs.
 -}
 module Crypto.JOSE.JWK
   (
-    JWK(JWK)
+  -- * JWK generation
+    genJWK
+  , KeyMaterialGenParam(..)
+  , Crv(..)
+  , OKPCrv(..)
+  , JWK
+  , AsPublicKey(..)
+
+  -- * Parts of a JWK
   , jwkMaterial
   , jwkUse
   , jwkKeyOps
+  , KeyOp(..)
   , jwkAlg
+  , JWKAlg(..)
   , jwkKid
   , jwkX5u
   , jwkX5c
   , jwkX5t
   , jwkX5tS256
-  , fromKeyMaterial
-  , genJWK
 
+  -- * Converting from other key formats
   , fromRSA
 
-  , JWKAlg(..)
-
-  , JWKSet(..)
-
-  , KeyOp(..)
-
-  , bestJWSAlg
-
 #if MIN_VERSION_aeson(0,10,0)
+  -- * JWK Thumbprint
   , thumbprint
   , thumbprintRepr
-  , module Crypto.Hash
   , BA.convert
+  , module Crypto.Hash
 #endif
+
+  -- * JWK Set
+  , JWKSet(..)
+
+  -- Miscellaneous
+  , bestJWSAlg
 
   , module Crypto.JOSE.JWA.JWK
   ) where
@@ -162,6 +170,8 @@ instance ToJSON JWK where
     ]
     ++ Types.objectPairs (toJSON _jwkMaterial)
 
+-- | Generate a JWK.  Apart from key parameters, no other parameters are set.
+--
 genJWK :: MonadRandom m => KeyMaterialGenParam -> m JWK
 genJWK p = fromKeyMaterial <$> genKeyMaterial p
 
