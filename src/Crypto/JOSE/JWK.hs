@@ -58,8 +58,8 @@ module Crypto.JOSE.JWK
 #if MIN_VERSION_aeson(0,10,0)
   -- * JWK Thumbprint
   , thumbprint
-  , thumbprintRepr
-  , BA.convert
+  , digest
+  , Types.base64url
   , module Crypto.Hash
 #endif
 
@@ -251,8 +251,15 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
 #if MIN_VERSION_aeson(0,10,0)
 -- | Compute the JWK Thumbprint of a JWK
 --
-thumbprint :: HashAlgorithm a => JWK -> Digest a
-thumbprint = hash . L.toStrict . thumbprintRepr
+thumbprint :: HashAlgorithm a => Getter JWK (Digest a)
+thumbprint = to (hash . L.toStrict . thumbprintRepr)
+
+-- | Prism from ByteString to @HashAlgorithm a => Digest a@.
+--
+-- Use @'re' digest@ to view the bytes of a digest
+--
+digest :: HashAlgorithm a => Prism' B.ByteString (Digest a)
+digest = prism' BA.convert digestFromByteString
 
 -- | JWK canonicalised for thumbprint computation
 --

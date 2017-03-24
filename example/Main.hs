@@ -5,20 +5,18 @@ import Data.Maybe (fromJust)
 import System.Environment (getArgs)
 import System.Exit (exitFailure, exitSuccess)
 
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Data.Aeson (decode, encode)
 
 import Control.Monad.Except (runExceptT)
-import Control.Lens (preview, review, set)
+import Control.Lens (preview, review, set, view)
 import Crypto.JOSE.JWK
   ( KeyMaterialGenParam(..) , Crv(P_256), OKPCrv(Ed25519)
   , JWK, genJWK, bestJWSAlg
 #if MIN_VERSION_aeson(0,10,0)
-  , Digest, SHA256, thumbprint, convert
+  , Digest, SHA256, thumbprint, digest, base64url
 #endif
   )
-import Crypto.JOSE.Types (base64url)
 import Crypto.JWT
   ( JWTError
   , createJWSJWT
@@ -110,9 +108,6 @@ doJwtVerify (jwkFilename : jwtFilename : aud : _) = do
 doThumbprint :: [String] -> IO ()
 doThumbprint (jwkFilename : _) = do
   Just jwk <- decode <$> L.readFile jwkFilename
-  let
-    h = thumbprint jwk :: Digest SHA256
-    bs = convert h :: B.ByteString
-    s = review base64url bs :: B.ByteString
-  print s
+  let h = view thumbprint jwk :: Digest SHA256
+  L.putStr $ review (base64url . digest) h
 #endif

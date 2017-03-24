@@ -19,7 +19,7 @@ module JWK where
 
 import Data.Monoid ((<>))
 
-import Control.Lens (_Right, view)
+import Control.Lens (_Right, review, view)
 import Control.Lens.Extras (is)
 import Data.Aeson
 import qualified Data.ByteArray as BA
@@ -297,20 +297,12 @@ thumbprintSpec = describe "JWK Thumbprint" $ do
         <> "  \"alg\": \"RS256\","
         <> "  \"kid\": \"2011-04-29\""
         <> "}"
-      sha256 = B.pack
-        [55, 54, 203, 177, 120, 124, 184, 48, 156, 119, 238, 140, 55, 5, 197,
-        225, 111, 251, 158, 133, 151, 21, 144, 31, 30, 76, 89, 177, 17, 130,
-        245, 123]
     it "correctly computes thumbprint of RSA key" $
-      BA.convert (thumbprint k :: Digest SHA256) `shouldBe` sha256
+      review (base64url . digest) (view thumbprint k :: Digest SHA256)
+        `shouldBe` ("NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs" :: B.ByteString)
   describe "RFC 8037 A.3.  JWK Thumbprint Canonicalization" $ do
-    let
-      Just k = decode rfc8037_A1_jwkJson
-      sha256 = B.pack
-        [ 0x90, 0xfa, 0xca, 0xfe, 0xa9, 0xb1, 0x55, 0x66
-        , 0x98, 0x54, 0x0f, 0x70, 0xc0, 0x11, 0x7a, 0x22
-        , 0xea, 0x37, 0xbd, 0x5c, 0xf3, 0xed, 0x3c, 0x47
-        , 0x09, 0x3c, 0x17, 0x07, 0x28, 0x2b, 0x4b, 0x89 ]
+    let Just k = decode rfc8037_A1_jwkJson
     it "correctly computes thumbprint of Ed25519 key" $
-      BA.convert (thumbprint k :: Digest SHA256) `shouldBe` sha256
+      review (base64url . digest) (view thumbprint k :: Digest SHA256)
+        `shouldBe` ("kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k" :: B.ByteString)
 #endif
