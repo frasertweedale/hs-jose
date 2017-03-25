@@ -21,27 +21,31 @@
 
 {-|
 
-JSON Web Token implementation.
+JSON Web Token implementation (RFC 7519). A JWT is a JWS
+with a payload of /claims/ to be transferred between two
+parties.
+
+JWTs only use the JWS compact serialisation.
 
 -}
 module Crypto.JWT
   (
-    JWT(..)
+  -- * Creating a JWT
+    createJWSJWT
+  , JWT(..)
   , JWTCrypto(..)
-  , JWTError(..)
-  , AsJWTError(..)
 
-  , JWTValidationSettings
+  -- * Validating a JWT
   , defaultJWTValidationSettings
-  , HasJWTValidationSettings(..)
+  , validateJWSJWT
   , HasAllowedSkew(..)
   , HasAudiencePredicate(..)
   , HasIssuerPredicate(..)
   , HasCheckIssuedAt(..)
+  , JWTValidationSettings
+  , HasJWTValidationSettings(..)
 
-  , createJWSJWT
-  , validateJWSJWT
-
+  -- * Claims Set
   , ClaimsSet
   , claimAud
   , claimExp
@@ -55,6 +59,8 @@ module Crypto.JWT
   , emptyClaimsSet
   , validateClaimsSet
 
+
+  -- * Miscellaneous
   , Audience(..)
 
   , StringOrURI
@@ -63,6 +69,10 @@ module Crypto.JWT
   , uri
 
   , NumericDate(..)
+
+  -- * JWT errors
+  , JWTError(..)
+  , AsJWTError(..)
   ) where
 
 import Control.Applicative
@@ -167,6 +177,9 @@ instance ToJSON NumericDate where
 -- /aud/ value MAY be a single case-sensitive string containing a
 -- 'StringOrURI' value.
 --
+-- The 'ToJSON' instance formats an 'Audience' with one value as a
+-- string (some non-compliant implementations require this.)
+--
 newtype Audience = Audience [StringOrURI] deriving (Eq, Show)
 makePrisms ''Audience
 
@@ -179,7 +192,8 @@ instance ToJSON Audience where
 
 
 -- | The JWT Claims Set represents a JSON object whose members are
---   the claims conveyed by the JWT.
+-- the registered claims defined by RFC 7519.  Unrecognised
+-- claims are gathered into the 'unregisteredClaims' map.
 --
 data ClaimsSet = ClaimsSet
   { _claimIss :: Maybe StringOrURI
@@ -312,12 +326,19 @@ makeClassy ''JWTValidationSettings
 instance HasValidationSettings JWTValidationSettings where
   validationSettings = jwtValidationSettingsValidationSettings
 
+-- | Maximum allowed skew when validating the /nbf/, /exp/ and /iat/ claims.
 class HasAllowedSkew s where
   allowedSkew :: Lens' s NominalDiffTime
+
+-- | Predicate for checking values in the /aud/ claim.
 class HasAudiencePredicate s where
   audiencePredicate :: Lens' s (StringOrURI -> Bool)
+
+-- | Predicate for checking the /iss/ claim.
 class HasIssuerPredicate s where
   issuerPredicate :: Lens' s (StringOrURI -> Bool)
+
+-- | Whether to check that the /iat/ claim is not in the future.
 class HasCheckIssuedAt s where
   checkIssuedAt :: Lens' s Bool
 
@@ -334,7 +355,7 @@ instance HasJWTValidationSettings a => HasCheckIssuedAt a where
 --
 -- <https://tools.ietf.org/html/rfc7519#section-4.1.3 RFC 7519 §4.1.3.>
 -- states that applications MUST identify itself with a value in the
--- audience claim, therefore this value must be supplied.
+-- audience claim, therefore a predicate must be supplied.
 --
 -- The other defaults are:
 --
@@ -351,10 +372,11 @@ defaultJWTValidationSettings p = JWTValidationSettings
   p
   (const True)
 
--- | Validate the claims made by a ClaimsSet. Currently only inspects
--- the /exp/ and /nbf/ claims. N.B. These checks are also performed by
--- 'validateJWSJWT', which also validates any signatures, so you
--- shouldn’t need to use this directly in the normal course of things.
+-- | Validate the claims made by a ClaimsSet.
+--
+-- These checks are performed by 'validateJWSJWT', which also
+-- validates any signatures, so you shouldn’t need to use this
+-- function directly.
 --
 validateClaimsSet
   ::
