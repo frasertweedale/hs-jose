@@ -23,7 +23,6 @@ import Crypto.JWT
   , createJWSJWT
   , validateJWSJWT
   , defaultJWTValidationSettings
-  , audiencePredicate
   , stringOrUri
   )
 import Crypto.JOSE.Compact (decodeCompact, encodeCompact)

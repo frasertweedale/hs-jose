@@ -32,8 +32,7 @@ module Crypto.JWT
   (
   -- * Creating a JWT
     createJWSJWT
-  , JWT(..)
-  , JWTCrypto(..)
+  , JWT
 
   -- * Validating a JWT
   , defaultJWTValidationSettings
@@ -58,7 +57,6 @@ module Crypto.JWT
   , addClaim
   , emptyClaimsSet
   , validateClaimsSet
-
 
   -- * Miscellaneous
   , Audience(..)
@@ -104,6 +102,9 @@ import Crypto.JOSE.Types
 
 data JWTError
   = JWSError Error
+  -- ^ A JOSE error occurred while processing the JWT
+  | JWTClaimsSetDecodeError String
+  -- ^ The JWT payload is not a JWT Claims Set
   | JWTExpired
   | JWTNotYetValid
   | JWTNotInIssuer
@@ -387,7 +388,7 @@ validateClaimsSet
     )
   => a
   -> ClaimsSet
-  -> m ()
+  -> m ClaimsSet
 validateClaimsSet conf claims =
   traverse_ (($ claims) . ($ conf))
     [ validateExpClaim
@@ -396,6 +397,7 @@ validateClaimsSet conf claims =
     , validateIssClaim
     , validateAudClaim
     ]
+  *> pure claims
 
 validateExpClaim
   :: (MonadTime m, HasAllowedSkew a, AsJWTError e, MonadError e m)
@@ -456,37 +458,25 @@ validateIssClaim conf =
       throwError (review _JWTNotInIssuer ()))
   . preview (claimIss . _Just)
 
--- | Data representing the JOSE aspects of a JWT.
---
-data JWTCrypto = JWTJWS (JWS JWSHeader) deriving (Eq, Show)
-
-instance FromCompact JWTCrypto where
-  fromCompact = fmap JWTJWS . fromCompact
-
-instance ToCompact JWTCrypto where
-  toCompact (JWTJWS jws) = toCompact jws
-
 
 -- | JSON Web Token data.
 --
-data JWT = JWT
-  { jwtCrypto     :: JWTCrypto  -- ^ JOSE aspect of the JWT.
-  , jwtClaimsSet  :: ClaimsSet  -- ^ Claims of the JWT.
-  } deriving (Eq, Show)
+newtype JWT a = JWT a
+  deriving (Eq, Show)
 
-instance FromCompact JWT where
-  fromCompact = fromCompact >=> toJWT where
-    toJWT (JWTJWS jws) = either
-      (throwError . review _CompactDecodeError)
-      (pure . JWT (JWTJWS jws))
-      (eitherDecode $ view payload jws)
+instance FromCompact a => FromCompact (JWT a) where
+  fromCompact = fmap JWT . fromCompact
 
-instance ToCompact JWT where
-  toCompact = toCompact . jwtCrypto
+instance ToCompact a => ToCompact (JWT a) where
+  toCompact (JWT a) = toCompact a
 
 
--- | Validate a JWT as a JWS (JSON Web Signature), then as a Claims
--- Set.
+-- | Cryptographically verify a JWS JWT, then validate the
+-- Claims Set, returning it if valid.
+--
+-- This is the only way to get at the claims of a JWS JWT,
+-- enforcing that the claims are cryptographically and
+-- semantically valid before the application can use them.
 --
 validateJWSJWT
   ::
@@ -499,12 +489,15 @@ validateJWSJWT
     )
   => a
   -> k
-  -> JWT
-  -> m ()
-validateJWSJWT conf k (JWT (JWTJWS jws) c) = do
+  -> JWT (JWS JWSHeader)
+  -> m ClaimsSet
+validateJWSJWT conf k (JWT jws) =
   -- It is important, for security reasons, that the signature get
   -- verified before the claims.
-  verifyJWS conf k jws >> validateClaimsSet conf c
+  verifyJWS conf k jws
+  >> either (throwError . review _JWTClaimsSetDecodeError) pure
+    (eitherDecode $ view payload jws)
+  >>= validateClaimsSet conf
 
 -- | Create a JWT that is a JWS.
 --
@@ -513,6 +506,6 @@ createJWSJWT
   => JWK
   -> JWSHeader
   -> ClaimsSet
-  -> m JWT
+  -> m (JWT (JWS JWSHeader))
 createJWSJWT k h c =
-  (\jws -> JWT (JWTJWS jws) c) <$> signJWS (newJWS (encode c)) h k
+  JWT <$> signJWS (newJWS (encode c)) h k
