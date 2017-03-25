@@ -25,7 +25,28 @@ JSON Web Token implementation (RFC 7519). A JWT is a JWS
 with a payload of /claims/ to be transferred between two
 parties.
 
-JWTs only use the JWS compact serialisation.
+JWTs use the JWS /compact serialisation/.
+See "Crypto.JOSE.Compact" for details.
+
+@
+mkClaims :: IO 'ClaimsSet'
+mkClaims = do
+  t <- 'currentTime'
+  pure $ 'emptyClaimsSet'
+    & 'claimIss' .~ Just ("alice")
+    & 'claimAud' .~ Just ('Audience' ["bob"])
+    & 'claimIat' .~ Just ('NumericDate' t)
+
+doJwtSign :: 'JWK' -> 'ClaimsSet' -> IO (Either 'JWTError' ('JWT' ('JWS' 'JWSHeader')))
+doJwtSign jwk claims = runExceptT $ do
+  alg \<- 'bestJWSAlg' jwk
+  'signClaims' jwk ('newJWSHeader' ('Protected', alg)) claims
+
+doJwtVerify :: 'JWK' -> 'JWT' ('JWS' 'JWSHeader') -> IO (Either 'JWTError' 'ClaimsSet')
+doJwtVerify jwk jwt = runExceptT $ do
+  let config = 'defaultJWTValidationSettings' (== "bob")
+  'verifyClaims' config jwk jwt
+@
 
 -}
 module Crypto.JWT
@@ -121,8 +142,12 @@ instance AsError JWTError where
 -- RFC 7519 §2.  Terminology
 
 -- | A JSON string value, with the additional requirement that while
---   arbitrary string values MAY be used, any value containing a /:/
+--   arbitrary string values MAY be used, any value containing a @:@
 --   character MUST be a URI.
+--
+-- __Note__: the 'IsString' instance will fail if the string
+-- contains a @:@ but does not parse as a 'URI'.  Use 'stringOrUri'
+-- directly in this situation.
 --
 data StringOrURI = Arbitrary String | OrURI URI deriving (Eq, Show)
 
