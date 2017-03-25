@@ -3,7 +3,7 @@
 
 import Data.Maybe (fromJust)
 import System.Environment (getArgs)
-import System.Exit (exitFailure, exitSuccess)
+import System.Exit (exitFailure)
 
 import qualified Data.ByteString.Lazy as L
 import Data.Aeson (decode, encode)
@@ -92,10 +92,11 @@ doJwtSign [jwkFilename, claimsFilename] = do
 --
 -- Extraneous trailing args are ignored.
 --
--- Exit code indicates validity.
+-- If JWT is valid, output JSON claims and exit 0,
+-- otherwise exit nonzero.
 --
 doJwtVerify :: [String] -> IO ()
-doJwtVerify (jwkFilename : jwtFilename : aud : _) = do
+doJwtVerify [jwkFilename, jwtFilename, aud] = do
   let
     aud' = fromJust $ preview stringOrUri aud
     conf = defaultJWTValidationSettings (== aud')
@@ -105,7 +106,7 @@ doJwtVerify (jwkFilename : jwtFilename : aud : _) = do
     (decodeCompact jwtData >>= validateJWSJWT conf (jwk :: JWK))
   case result of
     Left e -> print (e :: JWTError) >> exitFailure
-    Right _ -> exitSuccess
+    Right claims -> L.putStr $ encode claims
 
 
 #if MIN_VERSION_aeson(0,10,0)
