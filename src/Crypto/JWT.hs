@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016, 2017  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -31,12 +31,12 @@ JWTs only use the JWS compact serialisation.
 module Crypto.JWT
   (
   -- * Creating a JWT
-    createJWSJWT
+    signClaims
   , JWT
 
-  -- * Validating a JWT
+  -- * Validating a JWT and extracting claims
   , defaultJWTValidationSettings
-  , validateJWSJWT
+  , verifyClaims
   , HasAllowedSkew(..)
   , HasAudiencePredicate(..)
   , HasIssuerPredicate(..)
@@ -375,8 +375,8 @@ defaultJWTValidationSettings p = JWTValidationSettings
 
 -- | Validate the claims made by a ClaimsSet.
 --
--- These checks are performed by 'validateJWSJWT', which also
--- validates any signatures, so you shouldn’t need to use this
+-- These checks are performed by 'verifyClaims', which also
+-- validates any signatures, so you shouldn't need to use this
 -- function directly.
 --
 validateClaimsSet
@@ -478,7 +478,7 @@ instance ToCompact a => ToCompact (JWT a) where
 -- enforcing that the claims are cryptographically and
 -- semantically valid before the application can use them.
 --
-validateJWSJWT
+verifyClaims
   ::
     ( MonadTime m, HasAllowedSkew a, HasAudiencePredicate a
     , HasIssuerPredicate a
@@ -491,7 +491,7 @@ validateJWSJWT
   -> k
   -> JWT (JWS JWSHeader)
   -> m ClaimsSet
-validateJWSJWT conf k (JWT jws) =
+verifyClaims conf k (JWT jws) =
   -- It is important, for security reasons, that the signature get
   -- verified before the claims.
   verifyJWS conf k jws
@@ -499,13 +499,13 @@ validateJWSJWT conf k (JWT jws) =
     (eitherDecode $ view payload jws)
   >>= validateClaimsSet conf
 
--- | Create a JWT that is a JWS.
+-- | Create a JWS JWT
 --
-createJWSJWT
+signClaims
   :: (MonadRandom m, MonadError e m, AsError e)
   => JWK
   -> JWSHeader
   -> ClaimsSet
   -> m (JWT (JWS JWSHeader))
-createJWSJWT k h c =
+signClaims k h c =
   JWT <$> signJWS (newJWS (encode c)) h k

@@ -19,12 +19,6 @@ import Crypto.JOSE.JWK
 #endif
   )
 import Crypto.JWT
-  ( JWTError
-  , createJWSJWT
-  , validateJWSJWT
-  , defaultJWTValidationSettings
-  , stringOrUri
-  )
 import Crypto.JOSE.Compact (decodeCompact, encodeCompact)
 import Crypto.JOSE.JWS (Protection(Protected), newJWSHeader)
 
@@ -78,7 +72,7 @@ doJwtSign [jwkFilename, claimsFilename] = do
   result <- runExceptT $ do
     alg <- bestJWSAlg jwk
     let header = newJWSHeader (Protected, alg)
-    createJWSJWT jwk header claims >>= encodeCompact
+    signClaims jwk header claims >>= encodeCompact
   case result of
     Left e -> print (e :: Error) >> exitFailure
     Right jwtData -> L.putStr jwtData
@@ -103,7 +97,7 @@ doJwtVerify [jwkFilename, jwtFilename, aud] = do
   Just jwk <- decode <$> L.readFile jwkFilename
   jwtData <- L.readFile jwtFilename
   result <- runExceptT
-    (decodeCompact jwtData >>= validateJWSJWT conf (jwk :: JWK))
+    (decodeCompact jwtData >>= verifyClaims conf (jwk :: JWK))
   case result of
     Left e -> print (e :: JWTError) >> exitFailure
     Right claims -> L.putStr $ encode claims
