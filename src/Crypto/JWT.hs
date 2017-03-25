@@ -330,12 +330,25 @@ instance HasJWTValidationSettings a => HasIssuerPredicate a where
 instance HasJWTValidationSettings a => HasCheckIssuedAt a where
   checkIssuedAt = jwtValidationSettingsCheckIssuedAt
 
-defaultJWTValidationSettings :: JWTValidationSettings
-defaultJWTValidationSettings = JWTValidationSettings
+-- | Acquire the default validation settings.
+--
+-- <https://tools.ietf.org/html/rfc7519#section-4.1.3 RFC 7519 §4.1.3.>
+-- states that applications MUST identify itself with a value in the
+-- audience claim, therefore this value must be supplied.
+--
+-- The other defaults are:
+--
+-- - 'defaultValidationSettings' for JWS verification
+-- - Zero clock skew tolerance when validating /nbf/, /exp/ and /iat/ claims
+-- - /iat/ claim is checked
+-- - /issuer/ claim is not checked
+--
+defaultJWTValidationSettings :: (StringOrURI -> Bool) -> JWTValidationSettings
+defaultJWTValidationSettings p = JWTValidationSettings
   defaultValidationSettings
   0
   True
-  (const False)
+  p
   (const True)
 
 -- | Validate the claims made by a ClaimsSet. Currently only inspects

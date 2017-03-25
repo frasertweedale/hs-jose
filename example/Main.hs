@@ -99,7 +99,7 @@ doJwtVerify :: [String] -> IO ()
 doJwtVerify (jwkFilename : jwtFilename : aud : _) = do
   let
     aud' = fromJust $ preview stringOrUri aud
-    conf = set audiencePredicate (== aud') defaultJWTValidationSettings
+    conf = defaultJWTValidationSettings (== aud')
   Just jwk <- decode <$> L.readFile jwkFilename
   jwtData <- L.readFile jwtFilename
   result <- runExceptT

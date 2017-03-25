@@ -57,7 +57,8 @@ instance Monad m => MonadTime (ReaderT UTCTime m) where
 
 spec :: Spec
 spec = do
-  let conf = set algorithms (S.singleton None) defaultJWTValidationSettings
+  let conf = set algorithms (S.singleton None)
+              (defaultJWTValidationSettings (const False))
 
   describe "JWT Claims Set" $ do
     it "parses from JSON correctly" $
