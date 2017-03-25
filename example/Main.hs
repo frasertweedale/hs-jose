@@ -11,18 +11,8 @@ import Data.Text.Strict.Lens (utf8)
 
 import Control.Monad.Except (runExceptT)
 import Control.Lens (preview, re, review, set, view)
-import Crypto.JOSE.JWK
-  ( KeyMaterialGenParam(..) , Crv(P_256), OKPCrv(Ed25519)
-  , JWK, genJWK, jwkKid, bestJWSAlg
-#if MIN_VERSION_aeson(0,10,0)
-  , Digest, SHA256, thumbprint, digest, base64url
-#endif
-  )
-import Crypto.JWT
-import Crypto.JOSE.Compact (decodeCompact, encodeCompact)
-import Crypto.JOSE.JWS (Protection(Protected), newJWSHeader)
 
-import Crypto.JOSE.Error (Error)
+import Crypto.JWT
 
 import JWS (doJwsSign, doJwsVerify)
 

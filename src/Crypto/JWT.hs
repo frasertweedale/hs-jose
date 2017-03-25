@@ -58,19 +58,20 @@ module Crypto.JWT
   , emptyClaimsSet
   , validateClaimsSet
 
+  -- * JWT errors
+  , JWTError(..)
+  , AsJWTError(..)
+
   -- * Miscellaneous
   , Audience(..)
-
   , StringOrURI
   , stringOrUri
   , string
   , uri
-
   , NumericDate(..)
 
-  -- * JWT errors
-  , JWTError(..)
-  , AsJWTError(..)
+  , module Crypto.JOSE
+
   ) where
 
 import Control.Applicative

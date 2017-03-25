@@ -35,7 +35,6 @@ import Network.URI (parseURI)
 import Safe (headMay)
 import Test.Hspec
 
-import Crypto.JOSE
 import Crypto.JWT
 
 
