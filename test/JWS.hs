@@ -19,7 +19,7 @@ module JWS where
 import Data.Maybe
 import Data.Monoid ((<>))
 
-import Control.Lens
+import Control.Lens hiding ((.=))
 import Control.Lens.Extras (is)
 import Control.Monad.Except (runExceptT)
 import Data.Aeson
@@ -64,6 +64,29 @@ instance HasParams JWSHeader' where
   parseParamsFor proxy hp hu = JWSHeader' <$> parseParamsFor proxy hp hu
   params (JWSHeader' h) = params h
   extensions = const ["foo"]
+
+-- More elaborate extension of JWSHeader to test parsing behaviour
+--
+data ACMEHeader = ACMEHeader
+  { _acmeJwsHeader :: JWSHeader
+  , _acmeNonce :: Types.Base64Octets
+  } deriving (Show)
+acmeJwsHeader :: Lens' ACMEHeader JWSHeader
+acmeJwsHeader f s@(ACMEHeader { _acmeJwsHeader = a}) =
+  fmap (\a' -> s { _acmeJwsHeader = a'}) (f a)
+acmeNonce :: Lens' ACMEHeader Types.Base64Octets
+acmeNonce f s@(ACMEHeader { _acmeNonce = a}) =
+  fmap (\a' -> s { _acmeNonce = a'}) (f a)
+instance HasJWSHeader ACMEHeader where
+  jWSHeader = acmeJwsHeader
+instance HasParams ACMEHeader where
+  parseParamsFor proxy hp hu = ACMEHeader
+    <$> parseParamsFor proxy hp hu
+    <*> headerRequiredProtected "nonce" hp hu
+  params h =
+    (Protected, "nonce" .= view acmeNonce h)
+    : params (view acmeJwsHeader h)
+  extensions = const ["nonce"]
 
 
 headerSpec :: Spec
@@ -141,6 +164,22 @@ headerSpec = describe "JWS Header" $ do
       s = "{\"protected\":\"eyJjcml0IjpbXX0\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
       (eitherDecode s :: Either String (Signature JWSHeader'))
+        `shouldSatisfy` is _Left
+
+  it "parses required protected header when present in protected header" $
+    let
+      -- protected header: {"crit":["nonce"],"nonce":"bm9uY2U"}
+      s = "{\"protected\":\"eyJjcml0IjpbIm5vbmNlIl0sIm5vbmNlIjoiYm05dVkyVSJ9\""
+          <>",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String (Signature ACMEHeader))
+        `shouldSatisfy` is _Right
+
+  it "rejects required protected header when present in unprotected header" $
+    let
+      s = "{\"header\":{\"alg\":\"none\"},\"nonce\":\"bm9uY2U\",\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String (Signature ACMEHeader))
         `shouldSatisfy` is _Left
 
 

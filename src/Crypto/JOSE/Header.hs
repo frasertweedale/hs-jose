@@ -33,6 +33,7 @@ module Crypto.JOSE.Header
   , protection
   , param
   , headerRequired
+  , headerRequiredProtected
   , headerOptional
   , headerOptionalProtected
 
@@ -52,6 +53,7 @@ module Crypto.JOSE.Header
 
 
 import Data.List.NonEmpty (NonEmpty)
+import Data.Monoid ((<>))
 import Data.Proxy (Proxy(..))
 
 import Control.Lens (Lens')
@@ -173,6 +175,20 @@ headerRequired k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
   (Just v, Nothing)   -> HeaderParam Protected <$> parseJSON v
   (Nothing, Just v)   -> HeaderParam Unprotected <$> parseJSON v
   (Nothing, Nothing)  -> fail $ "missing required header " ++ show k
+
+-- | Parse a required parameter that MUST be carried
+-- in the protected header.
+--
+headerRequiredProtected
+  :: FromJSON a
+  => T.Text
+  -> Maybe Object
+  -> Maybe Object
+  -> Parser a
+headerRequiredProtected k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
+  (_, Just _) -> fail $ "header must be protected: " <> show k
+  (Just v, _) -> parseJSON v
+  _           -> fail $ "missing required protected header: " <> show k
 
 
 critObjectParser
