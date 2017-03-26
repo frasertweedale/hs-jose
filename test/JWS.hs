@@ -183,11 +183,14 @@ headerSpec = describe "JWS Header" $ do
         `shouldSatisfy` is _Left
 
 
-examplePayload :: Types.Base64Octets
-examplePayload = Types.Base64Octets "\
+examplePayloadBytes :: BS.ByteString
+examplePayloadBytes = "\
   \{\"iss\":\"joe\",\r\n\
   \ \"exp\":1300819380,\r\n\
   \ \"http://example.com/is_root\":true}"
+
+examplePayload :: Types.Base64Octets
+examplePayload = Types.Base64Octets examplePayloadBytes
 
 
 appendixA1Spec :: Spec
@@ -212,7 +215,7 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
   it "validates the JWS correctly" $
     ( (decodeCompact compactJWS :: Either Error (JWS JWSHeader))
       >>= verifyJWS defaultValidationSettings jwk
-    ) `shouldSatisfy` is _Right
+    ) `shouldBe` Right examplePayloadBytes
 
   where
     signingInput' = "\

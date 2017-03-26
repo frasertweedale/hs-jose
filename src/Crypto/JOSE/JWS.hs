@@ -54,7 +54,6 @@ module Crypto.JOSE.JWS
 
   -- * JWS objects
   , JWS
-  , payload
   , signatures
   , Signature
   , header

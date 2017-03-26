@@ -27,7 +27,7 @@ doJwsSign [jwkFilename, payloadFilename] = do
     Right jws -> L.putStr (encode jws)
 
 
--- | Verify a JWS.  Args are:
+-- | Verify a JWS and output the payload if valid.  Args are:
 --
 -- 1. filename of JWK
 -- 2. filename of JWS
@@ -41,4 +41,4 @@ doJwsVerify [jwkFilename, jwsFilename] = do
   result <- runExceptT $ verifyJWS' (jwk :: JWK) (jws :: JWS JWSHeader)
   case result of
     Left e -> print (e :: Error) >> exitFailure
-    Right _ -> pure ()
+    Right s -> L.putStr s

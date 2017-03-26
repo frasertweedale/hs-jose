@@ -61,7 +61,7 @@ prop_rsaSignAndVerify msg = monadicIO $ do
   alg <- pick $ elements [RS256, RS384, RS512, PS256, PS384, PS512]
   monitor (collect alg)
   wp (runExceptT (signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
-    >>= verifyJWS defaultValidationSettings k)) checkSignVerifyResult
+    >>= verifyJWS defaultValidationSettings k)) (checkSignVerifyResult msg)
 
 prop_bestJWSAlg :: B.ByteString -> Property
 prop_bestJWSAlg msg = monadicIO $ do
@@ -76,7 +76,7 @@ prop_bestJWSAlg msg = monadicIO $ do
         go = do
           jws <- signJWS (newJWS msg) (newJWSHeader (Protected, alg)) k
           verifyJWS defaultValidationSettings k jws
-      wp (runExceptT go) checkSignVerifyResult
+      wp (runExceptT go) (checkSignVerifyResult msg)
 
-checkSignVerifyResult :: Monad m => Either Error a -> PropertyM m ()
-checkSignVerifyResult = assert . either (const False) (const True)
+checkSignVerifyResult :: Monad m => B.ByteString -> Either Error B.ByteString -> PropertyM m ()
+checkSignVerifyResult msg = assert . either (const False) (== msg)

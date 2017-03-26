@@ -236,16 +236,13 @@ instance HasParams JWSHeader where
       ]
 
 
--- | JSON Web Signature data type.  Consists of a payload and a
--- (possibly empty) list of signatures.
+-- | JSON Web Signature data type.  The payload can only be
+-- accessed by verifying the JWS.
 --
 -- Parameterised by the header type.
 --
 data JWS a = JWS Types.Base64Octets [Signature a]
   deriving (Eq, Show)
-
-payload :: (Cons s s Word8 Word8, AsEmpty s) => Getter (JWS a) s
-payload = to (\(JWS (Types.Base64Octets s) _) -> s) . recons
 
 signatures :: Fold (JWS a) (Signature a)
 signatures = folding (\(JWS _ sigs) -> sigs)
@@ -373,10 +370,12 @@ defaultValidationSettings = ValidationSettings
 -- See also 'defaultValidationSettings'.
 --
 verifyJWS'
-  :: (AsError e, MonadError e m , HasJWSHeader h, HasParams h , JWKStore k)
+  ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h , JWKStore k
+      , Cons s s Word8 Word8, AsEmpty s
+      )
   => k      -- ^ key or key store
   -> JWS h  -- ^ JWS
-  -> m ()
+  -> m s
 verifyJWS' = verifyJWS defaultValidationSettings
 
 -- | Verify a JWS.
@@ -387,27 +386,31 @@ verifyJWS' = verifyJWS defaultValidationSettings
 -- 'AllValidated' then all remaining signatures (there must be at least one)
 -- must be valid.
 --
+-- Returns the payload if successfully verified.
+--
 verifyJWS
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
       , JWKStore k
+      , Cons s s Word8 Word8, AsEmpty s
       )
   => a      -- ^ validation settings
   -> k      -- ^ key or key store
   -> JWS h  -- ^ JWS
-  -> m ()
-verifyJWS conf k (JWS p sigs) =
+  -> m s
+verifyJWS conf k (JWS p@(Types.Base64Octets p') sigs) =
   let
     algs :: S.Set JWA.JWS.Alg
     algs = conf ^. algorithms
     policy :: ValidationPolicy
     policy = conf ^. validationPolicy
     shouldValidateSig = (`elem` algs) . view (header . alg . param)
+    out = view recons p'
     applyPolicy AnyValidated xs =
-      if or xs then pure () else throwError (review _JWSNoValidSignatures ())
+      if or xs then pure out else throwError (review _JWSNoValidSignatures ())
     applyPolicy AllValidated [] = throwError (review _JWSNoSignatures ())
     applyPolicy AllValidated xs =
-      if and xs then pure () else throwError (review _JWSInvalidSignature ())
+      if and xs then pure out else throwError (review _JWSInvalidSignature ())
     validate s =
       let h = view header s
       in anyOf (keysFor Verify h) ((== Right True) . verifySig p s) k

@@ -521,8 +521,7 @@ verifyClaims conf k (JWT jws) =
   -- It is important, for security reasons, that the signature get
   -- verified before the claims.
   verifyJWS conf k jws
-  >> either (throwError . review _JWTClaimsSetDecodeError) pure
-    (eitherDecode $ view payload jws)
+  >>= either (throwError . review _JWTClaimsSetDecodeError) pure . eitherDecode
   >>= validateClaimsSet conf
 
 -- | Create a JWS JWT
