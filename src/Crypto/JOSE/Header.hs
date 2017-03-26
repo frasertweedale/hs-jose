@@ -167,6 +167,7 @@ headerOptionalProtected
   -> Maybe Object
   -> Parser (Maybe a)
 headerOptionalProtected k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
+  (Just _, Just _)    -> fail $ "duplicate header " ++ show k
   (_, Just _) -> fail $ "header must be protected: " ++ show k
   (Just v, _) -> Just <$> parseJSON v
   _           -> pure Nothing
@@ -196,6 +197,7 @@ headerRequiredProtected
   -> Maybe Object
   -> Parser a
 headerRequiredProtected k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
+  (Just _, Just _)    -> fail $ "duplicate header " ++ show k
   (_, Just _) -> fail $ "header must be protected: " <> show k
   (Just v, _) -> parseJSON v
   _           -> fail $ "missing required protected header: " <> show k
