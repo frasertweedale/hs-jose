@@ -1,4 +1,4 @@
--- Copyright (C) 2016  Fraser Tweedale
+-- Copyright (C) 2016, 2017  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -21,21 +21,27 @@ Types and functions for working with JOSE header parameters.
 -}
 module Crypto.JOSE.Header
   (
-    HasParams(..)
-  , parseParams
-  , protectedParamsEncoded
-  , unprotectedParams
-
-  , parseCrit
-
+  -- * Defining header data types
+    HeaderParam(..)
   , Protection(..)
-  , HeaderParam(..)
   , protection
   , param
+
+  -- * Defining header parsers
+  , HasParams(..)
   , headerRequired
   , headerRequiredProtected
   , headerOptional
   , headerOptionalProtected
+
+  -- * Parsing headers
+  , parseParams
+  , parseCrit
+
+  -- * Encoding headers
+  , protectedParamsEncoded
+  , unprotectedParams
+
 
   -- * Header fields shared by JWS and JWE
   , HasAlg(..)
@@ -84,6 +90,10 @@ class HasParams a where
   parseParamsFor :: HasParams b => Proxy b -> Maybe Object -> Maybe Object -> Parser a
 
 -- | Parse a pair of objects (protected and unprotected header)
+--
+-- This internally invokes 'parseParamsFor' applied to a proxy for
+-- the target type.  (This allows the parsing of the "crit" parameter
+-- to access "known extensions" understood by the target type.)
 --
 parseParams
   :: forall a. HasParams a

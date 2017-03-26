@@ -16,7 +16,8 @@
 
 JSON Web Signature (JWS) represents content secured with digital
 signatures or Message Authentication Codes (MACs) using JavaScript
-Object Notation (JSON) based data structures.
+Object Notation (JSON) based data structures.  It is defined in
+<https://tools.ietf.org/html/rfc7515 RFC 7515>.
 
 @
 doJwsSign :: 'JWK' -> L.ByteString -> IO (Either 'Error' ('JWS' 'JWSHeader'))
@@ -31,6 +32,9 @@ doJwsVerify jwk jws = runExceptT $ 'verifyJWS'' jwk jws
 -}
 module Crypto.JOSE.JWS
   (
+  -- ** Defining additional header parameters
+  -- $extending
+
   -- * JWS creation
     newJWS
   , newJWSHeader
@@ -40,7 +44,7 @@ module Crypto.JOSE.JWS
   , verifyJWS
   , verifyJWS'
 
-  -- * JWS validation settings
+  -- ** JWS validation settings
   , defaultValidationSettings
   , ValidationSettings
   , ValidationPolicy(..)
@@ -71,3 +75,50 @@ import Crypto.JOSE.JWA.JWS
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS.Internal
 import Crypto.JOSE.Header
+
+
+{- $extending
+
+Several specifications extend JWS with additional header parameters.
+The 'JWS' type is parameterised over the header type; this library
+provides the 'JWSHeader' type which encompasses all the JWS header
+parameters defined in RFC 7515.  To define an extended header type
+declare the data type, and instances for 'HasJWSHeader' and
+'HasParams'.  For example:
+
+@
+data ACMEHeader = ACMEHeader
+  { _acmeJwsHeader :: 'JWSHeader'
+  , _acmeNonce :: 'Types.Base64Octets'
+  }
+
+acmeJwsHeader :: Lens' ACMEHeader JWSHeader
+acmeJwsHeader f s@(ACMEHeader { _acmeJwsHeader = a}) =
+  fmap (\a' -> s { _acmeJwsHeader = a'}) (f a)
+
+acmeNonce :: Lens' ACMEHeader Types.Base64Octets
+acmeNonce f s@(ACMEHeader { _acmeNonce = a}) =
+  fmap (\a' -> s { _acmeNonce = a'}) (f a)
+
+instance HasJWSHeader ACMEHeader where
+  jWSHeader = acmeJwsHeader
+
+instance HasParams ACMEHeader where
+  'parseParamsFor' proxy hp hu = ACMEHeader
+    \<$> 'parseParamsFor' proxy hp hu
+    \<*> 'headerRequiredProtected' "nonce" hp hu
+  params h =
+    (Protected, "nonce" .= view acmeNonce h)
+    : 'params' (view acmeJwsHeader h)
+  'extensions' = const ["nonce"]
+@
+
+See also:
+
+- 'HasParams'
+- 'headerRequired'
+- 'headerRequiredProtected'
+- 'headerOptional'
+- 'headerOptionalProtected'
+
+-}
