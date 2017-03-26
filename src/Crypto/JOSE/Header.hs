@@ -28,6 +28,7 @@ module Crypto.JOSE.Header
   , param
 
   -- * Defining header parsers
+  -- $parsing
   , HasParams(..)
   , headerRequired
   , headerRequiredProtected
@@ -141,6 +142,44 @@ protection f (HeaderParam p v) = fmap (\p' -> HeaderParam p' v) (f p)
 param :: Lens' (HeaderParam a) a
 param f (HeaderParam p v) = fmap (\v' -> HeaderParam p v') (f v)
 
+
+{- $parsing
+
+The 'parseParamsFor' function defines the parser for a header type.
+
+@
+'parseParamsFor'
+  :: ('HasParams' a, HasParams b)
+  => Proxy b -> Maybe Object -> Maybe Object -> 'Parser' a
+@
+
+It is defined over two objects: the /protected header/ and the
+/unprotected header/.  The following functions are provided for
+parsing header parameters:
+
+['headerOptional']
+  An optional parameter that may be protected or unprotected.
+['headerRequired']
+  A required parameter that may be protected or unprotected.
+['headerOptionalProtected']
+  An optional parameter that, if present, MUST be carried in the protected header.
+['headerRequiredProtected']
+  A required parameter that, if present, MUST be carried in the protected header.
+
+Duplicate headers are forbidden.  The above functions all perform
+duplicate header detection.  If you do not use them, be sure to
+perform this detection yourself!
+
+An example parser:
+
+@
+instance HasParams ACMEHeader where
+  'parseParamsFor' proxy hp hu = ACMEHeader
+    \<$> 'parseParamsFor' proxy hp hu
+    \<*> 'headerRequiredProtected' "nonce" hp hu
+@
+
+-}
 
 -- | Parse an optional parameter that may be carried in either
 -- the protected or the unprotected header.
