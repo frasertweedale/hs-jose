@@ -153,27 +153,32 @@ newJWSHeader a = JWSHeader (uncurry HeaderParam a) z z z z z z z z z z
   where z = Nothing
 
 
+-- | Signature object containing header, and signature bytes.
+--
+-- If it was decoded from a serialised JWS, it "remembers" how the
+-- protected header was encoded; the remembered value is used when
+-- computing the signing input and when serialising the object.
+--
+-- The remembered value is not used in equality checks, i.e. two
+-- decoded signatures with differently serialised by otherwise equal
+-- protected headers, and equal signature bytes, are equal.
+--
 data Signature a = Signature
-  { _protectedRaw :: (Maybe T.Text)      -- ^ Encoded protected header, if available
-  , _header :: a                      -- ^ Header
-  , _signature :: Types.Base64Octets  -- ^ Signature
-  }
+  (Maybe T.Text)      -- ^ Encoded protected header, if available
+  a                   -- ^ Header
+  Types.Base64Octets  -- ^ Signature
   deriving (Show)
 
+-- | Getter for header of a signature
 header :: Getter (Signature a) a
 header = to (\(Signature _ h _) -> h)
 
+-- | Getter for signature bytes
 signature :: (Cons s s Word8 Word8, AsEmpty s) => Getter (Signature a) s
 signature = to (\(Signature _ _ (Types.Base64Octets s)) -> s) . recons
 
-instance (Eq a, HasParams a) => Eq (Signature a) where
-  Signature r h s == Signature r' h' s' =
-    h == h' && s == s' && f r r'
-    where
-    f Nothing Nothing = True
-    f (Just t) (Just t') = t == t'
-    f Nothing (Just t') = BSL.toStrict (protectedParamsEncoded h) == T.encodeUtf8 t'
-    f (Just t) Nothing = T.encodeUtf8 t == BSL.toStrict (protectedParamsEncoded h')
+instance (Eq a) => Eq (Signature a) where
+  Signature _ h s == Signature _ h' s' = h == h' && s == s'
 
 instance HasParams a => FromJSON (Signature a) where
   parseJSON = withObject "signature" (\o -> Signature
