@@ -126,6 +126,7 @@ test-suite tests
     , vector
     , x509
 
+    , concise
     , jose
 
     , tasty

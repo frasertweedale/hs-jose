@@ -21,6 +21,7 @@ import Data.Monoid ((<>))
 
 import Control.Lens hiding ((.=))
 import Control.Lens.Extras (is)
+import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Except (runExceptT)
 import Data.Aeson
 import qualified Data.ByteString as BS
@@ -33,7 +34,6 @@ import Crypto.JOSE.Error (Error)
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
-import Crypto.JOSE.JWS.Internal (Signature(..), JWS(..))
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.Types as Types
 
@@ -91,7 +91,7 @@ instance HasParams ACMEHeader where
 
 headerSpec :: Spec
 headerSpec = describe "JWS Header" $ do
-  it "parses signature correctly" $
+  it "parses signature correctly" $ do
     let
       sigJSON =
         "{\"protected\":\"eyJhbGciOiJSUzI1NiJ9\",\
@@ -99,9 +99,9 @@ headerSpec = describe "JWS Header" $ do
         \ \"signature\":\"\"}"
       h = newJWSHeader (Protected, JWA.JWS.RS256)
         & kid .~ Just (HeaderParam Unprotected "2010-12-29")
-      sig = Signature (Just "eyJhbGciOiJSUzI1NiJ9") h (Types.Base64Octets "")
-    in
-      eitherDecode sigJSON `shouldBe` Right sig
+      sig = eitherDecode sigJSON
+    sig ^? _Right . header `shouldBe` Just h
+    sig ^? _Right . signature `shouldBe` Just ("" :: BS.ByteString)
 
   it "rejects duplicate headers" $
     let
@@ -199,23 +199,21 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
   -- IETF doc, be we can go in reverse and then ensure that the
   -- round-trip checks out
   --
-  it "decodes the example to the correct value" $
-    decodeCompact compactJWS
-      `shouldBe` (Right jws :: Either Error (JWS JWSHeader))
+  it "decodes the example to the correct value" $ do
+    jws ^? _Right . signatures . signature `shouldBe` Just mac
+    jws ^? _Right . signatures . header `shouldBe` Just h
 
-  it "round-trips correctly" $
-    (encodeCompact jws >>= decodeCompact)
-      `shouldBe` (Right jws :: Either Error (JWS JWSHeader))
+  it "serialises the decoded JWS back to the original data" $
+    (jws >>= encodeCompact) `shouldBe` Right compactJWS
 
   it "computes the HMAC correctly" $
     fst (withDRG drg $
-      runExceptT (sign alg (jwk ^. jwkMaterial) (L.toStrict signingInput')))
-      `shouldBe` (Right (BS.pack macOctets) :: Either Error BS.ByteString)
+      runExceptT (sign alg (jwk ^. jwkMaterial) (signingInput' ^. recons)))
+      `shouldBe` (Right mac :: Either Error BS.ByteString)
 
   it "validates the JWS correctly" $
-    ( (decodeCompact compactJWS :: Either Error (JWS JWSHeader))
-      >>= verifyJWS defaultValidationSettings jwk
-    ) `shouldBe` Right examplePayloadBytes
+    (jws >>= verifyJWS defaultValidationSettings jwk)
+    `shouldBe` Right examplePayloadBytes
 
   where
     signingInput' = "\
@@ -224,14 +222,11 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
     compactJWS = signingInput' <> ".dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
-    jws = JWS examplePayload [signature]
-    signature = Signature encodedProtectedHeader h (Types.Base64Octets mac)
-    encodedProtectedHeader = Just "eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9"
+    jws = decodeCompact compactJWS :: Either Error (JWS JWSHeader)
     alg = JWA.JWS.HS256
     h = newJWSHeader (Protected, alg)
         & typ .~ Just (HeaderParam Protected "JWT")
-    mac = foldr BS.cons BS.empty macOctets
-    macOctets =
+    mac = view recons
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
       187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
       132, 141, 121]
@@ -332,7 +327,7 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
 
   where
     jws = fst $ withDRG drg $ runExceptT $
-      signJWS (JWS examplePayload []) (newJWSHeader (Protected, JWA.JWS.None)) undefined
+      signJWS (newJWS examplePayloadBytes) (newJWSHeader (Protected, JWA.JWS.None)) undefined
     exampleJWS = "eyJhbGciOiJub25lIn0\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
@@ -341,20 +336,29 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
 
 
 appendixA6Spec :: Spec
-appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Serialization" $
-  it "decodes the correct JWS" $ do
-    eitherDecode exampleJWS `shouldBe` Right jws
-    eitherDecode exampleJWS' `shouldBe` Right jws'
+appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Serialization" $ do
+  it "decodes JWS with multiple signatures correctly" $ do
+    let jws = eitherDecode exampleJWS :: Either String (JWS JWSHeader)
+    lengthOf (_Right . signatures) jws `shouldBe` 2
+    jws ^? _Right . signatures . header `shouldBe` Just h1'
+    jws ^? _Right . signatures . signature `shouldBe` Just mac1
+    jws ^? _Right . dropping 1 signatures . header `shouldBe` Just h2'
+    jws ^? _Right . dropping 1 signatures . signature `shouldBe` Just mac2
+
+  it "decodes flattened JWS correctly" $ do
+    let jws = eitherDecode exampleJWS' :: Either String (JWS JWSHeader)
+    lengthOf (_Right . signatures) jws `shouldBe` 1
+    jws ^? _Right . signatures . header `shouldBe` Just h2'
+    jws ^? _Right . signatures . signature `shouldBe` Just mac2
+
+  it "fails to decode flattened JWS when \"signatures\" key is present" $
     (eitherDecode exampleFlatJWSWithSignatures :: Either String (JWS JWSHeader))
       `shouldSatisfy` is _Left
 
   where
-    jws = JWS examplePayload [sig1, sig2]
-    jws' = JWS examplePayload [sig2]
-    sig1 = Signature Nothing h1' (Types.Base64Octets mac1)
     h1 = newJWSHeader (Protected, JWA.JWS.RS256)
     h1' = h1 & kid .~ Just (HeaderParam Unprotected "2010-12-29")
-    mac1 = foldr BS.cons BS.empty
+    mac1 = view recons
       [112, 46, 33, 137, 67, 232, 143, 209, 30, 181, 216, 45, 191, 120, 69,
       243, 65, 6, 174, 27, 129, 255, 247, 115, 17, 22, 173, 209, 113, 125,
       131, 101, 109, 66, 10, 253, 60, 150, 238, 221, 115, 162, 102, 62, 81,
@@ -372,8 +376,7 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
       34, 165, 68, 200, 242, 122, 122, 45, 184, 6, 99, 209, 108, 247, 202,
       234, 86, 222, 64, 92, 178, 33, 90, 69, 178, 194, 85, 102, 181, 90,
       193, 167, 72, 160, 112, 223, 200, 163, 42, 70, 149, 67, 208, 25, 238,
-      251, 71]
-    sig2 = Signature Nothing h2' (Types.Base64Octets mac2)
+      251, 71] :: BS.ByteString
     h2 = newJWSHeader (Protected, JWA.JWS.ES256)
     h2' = h2 & kid .~ Just (HeaderParam Unprotected "e9bc097a-ce51-4036-9562-d2ade882db0d")
     mac2 = B64U.decodeLenient
