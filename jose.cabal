@@ -45,7 +45,6 @@ library
     Crypto.JWT
     Crypto.JOSE.AESKW
     Crypto.JOSE.JWA.JWK
-    Crypto.JOSE.JWS.Internal
     Crypto.JOSE.JWA.JWS
     Crypto.JOSE.JWA.JWE
     Crypto.JOSE.JWA.JWE.Alg
