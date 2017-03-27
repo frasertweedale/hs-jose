@@ -346,6 +346,9 @@ instance HasParams JWSHeader where
 --
 -- Parameterised by the header type.
 --
+-- When serialising a JWS with exactly one signature, the
+-- /flattened JWS JSON serialisation/ syntax is used.
+--
 data JWS a = JWS Types.Base64Octets [Signature a]
   deriving (Eq, Show)
 
@@ -363,6 +366,7 @@ instance HasParams a => FromJSON (JWS a) where
       else (\p s -> JWS p [s]) <$> o .: "payload" <*> parseJSON v) v
 
 instance HasParams a => ToJSON (JWS a) where
+  toJSON (JWS p [s]) = object $ "payload" .= p : Types.objectPairs (toJSON s)
   toJSON (JWS p ss) = object ["payload" .= p, "signatures" .= ss]
 
 -- | Construct a new (unsigned) JWS
