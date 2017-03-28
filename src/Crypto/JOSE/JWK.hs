@@ -65,6 +65,7 @@ module Crypto.JOSE.JWK
   , jwkX5tS256
 
   -- * Converting from other key formats
+  , fromKeyMaterial
   , fromRSA
   , fromOctets
 
