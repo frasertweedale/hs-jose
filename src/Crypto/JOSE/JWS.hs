@@ -119,12 +119,12 @@ data ACMEHeader = ACMEHeader
   }
 
 acmeJwsHeader :: Lens' ACMEHeader JWSHeader
-acmeJwsHeader f s@(ACMEHeader { _acmeJwsHeader = a}) =
-  fmap (\a' -> s { _acmeJwsHeader = a'}) (f a)
+acmeJwsHeader f s\@(ACMEHeader { _acmeJwsHeader = a}) =
+  fmap (\\a' -> s { _acmeJwsHeader = a'}) (f a)
 
 acmeNonce :: Lens' ACMEHeader Types.Base64Octets
-acmeNonce f s@(ACMEHeader { _acmeNonce = a}) =
-  fmap (\a' -> s { _acmeNonce = a'}) (f a)
+acmeNonce f s\@(ACMEHeader { _acmeNonce = a}) =
+  fmap (\\a' -> s { _acmeNonce = a'}) (f a)
 
 instance HasJWSHeader ACMEHeader where
   jWSHeader = acmeJwsHeader
