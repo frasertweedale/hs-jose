@@ -54,12 +54,12 @@ spec = do
 
 -- Extension of JWSHeader to test "crit" behaviour
 --
-newtype JWSHeader' = JWSHeader' { unJWSHeader' :: JWSHeader }
+newtype JWSHeader' p = JWSHeader' { unJWSHeader' :: JWSHeader p }
   deriving (Eq, Show)
-_JWSHeader' :: Iso' JWSHeader' JWSHeader
+_JWSHeader' :: Iso' (JWSHeader' p) (JWSHeader p)
 _JWSHeader' = iso unJWSHeader' JWSHeader'
 instance HasJWSHeader JWSHeader' where
-  jWSHeader = _JWSHeader'
+  jwsHeader = _JWSHeader'
 instance HasParams JWSHeader' where
   parseParamsFor proxy hp hu = JWSHeader' <$> parseParamsFor proxy hp hu
   params (JWSHeader' h) = params h
@@ -67,24 +67,24 @@ instance HasParams JWSHeader' where
 
 -- More elaborate extension of JWSHeader to test parsing behaviour
 --
-data ACMEHeader = ACMEHeader
-  { _acmeJwsHeader :: JWSHeader
+data ACMEHeader p = ACMEHeader
+  { _acmeJwsHeader :: JWSHeader p
   , _acmeNonce :: Types.Base64Octets
   } deriving (Show)
-acmeJwsHeader :: Lens' ACMEHeader JWSHeader
+acmeJwsHeader :: Lens' (ACMEHeader p) (JWSHeader p)
 acmeJwsHeader f s@(ACMEHeader { _acmeJwsHeader = a}) =
   fmap (\a' -> s { _acmeJwsHeader = a'}) (f a)
-acmeNonce :: Lens' ACMEHeader Types.Base64Octets
+acmeNonce :: Lens' (ACMEHeader p) Types.Base64Octets
 acmeNonce f s@(ACMEHeader { _acmeNonce = a}) =
   fmap (\a' -> s { _acmeNonce = a'}) (f a)
 instance HasJWSHeader ACMEHeader where
-  jWSHeader = acmeJwsHeader
+  jwsHeader = acmeJwsHeader
 instance HasParams ACMEHeader where
   parseParamsFor proxy hp hu = ACMEHeader
     <$> parseParamsFor proxy hp hu
     <*> headerRequiredProtected "nonce" hp hu
   params h =
-    (Protected, "nonce" .= view acmeNonce h)
+    (True, "nonce" .= view acmeNonce h)
     : params (view acmeJwsHeader h)
   extensions = const ["nonce"]
 
@@ -108,7 +108,7 @@ headerSpec = describe "JWS Header" $ do
       -- protected header: {"kid":""}
       s = "{\"protected\":\"eyJraWQiOiIifQ\",\"header\":{\"alg\":\"none\",\"kid\":\"\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature JWSHeader))
+      (eitherDecode s :: Either String (Signature Protection JWSHeader))
         `shouldSatisfy` is _Left
 
   it "rejects reserved crit parameters" $
@@ -116,7 +116,7 @@ headerSpec = describe "JWS Header" $ do
       -- protected header: {"crit":["kid"],"kid":""}
       s = "{\"protected\":\"eyJjcml0IjpbImtpZCJdLCJraWQiOiIifQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature JWSHeader))
+      (eitherDecode s :: Either String (Signature Protection JWSHeader))
         `shouldSatisfy` is _Left
 
   it "rejects unknown crit parameters" $
@@ -124,7 +124,7 @@ headerSpec = describe "JWS Header" $ do
       -- protected header: {"crit":["foo"],"foo":""}
       s = "{\"protected\":\"eyJjcml0IjpbImZvbyJdLCJmb28iOiIifQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature JWSHeader))
+      (eitherDecode s :: Either String (Signature Protection JWSHeader))
         `shouldSatisfy` is _Left
 
   it "accepts known crit parameter in protected header" $
@@ -132,7 +132,7 @@ headerSpec = describe "JWS Header" $ do
       -- protected header: {"crit":["foo"],"foo":""}
       s = "{\"protected\":\"eyJjcml0IjpbImZvbyJdLCJmb28iOiIifQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature JWSHeader'))
+      (eitherDecode s :: Either String (Signature Protection JWSHeader'))
         `shouldSatisfy` is _Right
 
   it "accepts known crit parameter in unprotected header" $
@@ -140,7 +140,7 @@ headerSpec = describe "JWS Header" $ do
       -- protected header: {"crit":["foo"]}
       s = "{\"protected\":\"eyJjcml0IjpbImZvbyJdfQ\",\"header\":{\"alg\":\"none\",\"foo\":\"\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature JWSHeader'))
+      (eitherDecode s :: Either String (Signature Protection JWSHeader'))
         `shouldSatisfy` is _Right
 
   it "rejects known crit parameter that does not appear in JOSE header" $
@@ -148,14 +148,14 @@ headerSpec = describe "JWS Header" $ do
       -- protected header: {"crit":["foo"]}
       s = "{\"protected\":\"eyJjcml0IjpbImZvbyJdfQ\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature JWSHeader'))
+      (eitherDecode s :: Either String (Signature Protection JWSHeader'))
         `shouldSatisfy` is _Left
 
   it "rejects unprotected crit parameters" $
     let
       s = "{\"header\":{\"alg\":\"none\",\"crit\":[\"foo\"],\"foo\":\"\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature JWSHeader'))
+      (eitherDecode s :: Either String (Signature Protection JWSHeader'))
         `shouldSatisfy` is _Left
 
   it "rejects empty crit parameters" $
@@ -163,7 +163,7 @@ headerSpec = describe "JWS Header" $ do
       -- protected header: {"crit":[]}
       s = "{\"protected\":\"eyJjcml0IjpbXX0\",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature JWSHeader'))
+      (eitherDecode s :: Either String (Signature Protection JWSHeader'))
         `shouldSatisfy` is _Left
 
   it "parses required protected header when present in protected header" $
@@ -172,14 +172,28 @@ headerSpec = describe "JWS Header" $ do
       s = "{\"protected\":\"eyJjcml0IjpbIm5vbmNlIl0sIm5vbmNlIjoiYm05dVkyVSJ9\""
           <>",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature ACMEHeader))
+      (eitherDecode s :: Either String (Signature Protection ACMEHeader))
         `shouldSatisfy` is _Right
 
   it "rejects required protected header when present in unprotected header" $
     let
       s = "{\"header\":{\"alg\":\"none\"},\"nonce\":\"bm9uY2U\",\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature ACMEHeader))
+      (eitherDecode s :: Either String (Signature Protection ACMEHeader))
+        `shouldSatisfy` is _Left
+
+  it "accepts unprotected \"alg\" param with 'Protection' protection indicator" $
+    let
+      s = "{\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String (Signature Protection JWSHeader))
+        `shouldSatisfy` is _Right
+
+  it "rejects unprotected \"alg\" param with '()' protection indicator" $
+    let
+      s = "{\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
+    in
+      (eitherDecode s :: Either String (Signature () JWSHeader))
         `shouldSatisfy` is _Left
 
 
@@ -204,7 +218,7 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
     jws ^? _Right . signatures . header `shouldBe` Just h
 
   it "serialises the decoded JWS back to the original data" $
-    (jws >>= encodeCompact) `shouldBe` Right compactJWS
+    fmap encodeCompact jws `shouldBe` Right compactJWS
 
   it "computes the HMAC correctly" $
     fst (withDRG drg $
@@ -222,10 +236,10 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
     compactJWS = signingInput' <> ".dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
-    jws = decodeCompact compactJWS :: Either Error (JWS Identity JWSHeader)
+    jws = decodeCompact compactJWS :: Either Error (CompactJWS JWSHeader)
     alg = JWA.JWS.HS256
-    h = newJWSHeader (Protected, alg)
-        & typ .~ Just (HeaderParam Protected "JWT")
+    h = newJWSHeader ((), alg)
+        & typ .~ Just (HeaderParam () "JWT")
     mac = view recons
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
       187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
@@ -320,14 +334,15 @@ appendixA3Spec = describe "RFC 7515 A.3.  Example JWS using ECDSA P-256 SHA-256"
 appendixA5Spec :: Spec
 appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
   it "encodes the correct JWS" $
-    (jws >>= encodeCompact) `shouldBe` (Right exampleJWS :: Either Error L.ByteString)
+    fmap encodeCompact jws `shouldBe` Right exampleJWS
 
   it "decodes the correct JWS" $
     decodeCompact exampleJWS `shouldBe` jws
 
   where
     jws = fst $ withDRG drg $ runExceptT $
-      signJWS examplePayloadBytes (Identity (newJWSHeader (Protected, JWA.JWS.None), undefined))
+      signJWS examplePayloadBytes (Identity (newJWSHeader ((), JWA.JWS.None), undefined))
+      :: Either Error (CompactJWS JWSHeader)
     exampleJWS = "eyJhbGciOiJub25lIn0\
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
@@ -338,7 +353,7 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
 appendixA6Spec :: Spec
 appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Serialization" $ do
   it "decodes JWS with multiple signatures correctly" $ do
-    let jws = eitherDecode exampleJWSTwoSigs :: Either String (JWS [] JWSHeader)
+    let jws = eitherDecode exampleJWSTwoSigs :: Either String (GeneralJWS JWSHeader)
     lengthOf (_Right . signatures) jws `shouldBe` 2
     jws ^? _Right . signatures . header `shouldBe` Just h1'
     jws ^? _Right . signatures . signature `shouldBe` Just mac1
@@ -346,31 +361,31 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
     jws ^? _Right . dropping 1 signatures . signature `shouldBe` Just mac2
 
   it "decodes single-sig Generalised JWS correctly" $ do
-    let jws = eitherDecode exampleJWSOneSig :: Either String (JWS [] JWSHeader)
+    let jws = eitherDecode exampleJWSOneSig :: Either String (GeneralJWS JWSHeader)
     lengthOf (_Right . signatures) jws `shouldBe` 1
     jws ^? _Right . signatures . header `shouldBe` Just h2'
     jws ^? _Right . signatures . signature `shouldBe` Just mac2
 
   it "fails to decode single-sig Generalised JWS to 'JWS Identity'" $ do
-    (eitherDecode exampleJWSOneSig :: Either String (JWS Identity JWSHeader))
+    (eitherDecode exampleJWSOneSig :: Either String (FlattenedJWS JWSHeader))
       `shouldSatisfy` is _Left
 
   it "decodes flattened JWS to 'JWS []' correctly" $ do
-    let jws = eitherDecode exampleJWSFlat :: Either String (JWS [] JWSHeader)
+    let jws = eitherDecode exampleJWSFlat :: Either String (GeneralJWS JWSHeader)
     lengthOf (_Right . signatures) jws `shouldBe` 1
     jws ^? _Right . signatures . header `shouldBe` Just h2'
     jws ^? _Right . signatures . signature `shouldBe` Just mac2
 
   it "decodes flattened JWS to 'JWS Identity' correctly" $ do
-    let jws = eitherDecode exampleJWSFlat :: Either String (JWS Identity JWSHeader)
+    let jws = eitherDecode exampleJWSFlat :: Either String (FlattenedJWS JWSHeader)
     lengthOf (_Right . signatures) jws `shouldBe` 1
     jws ^? _Right . signatures . header `shouldBe` Just h2'
     jws ^? _Right . signatures . signature `shouldBe` Just mac2
 
   it "fails to decode flattened JWS when \"signatures\" key is present" $ do
-    (eitherDecode exampleFlatJWSWithSignatures :: Either String (JWS [] JWSHeader))
+    (eitherDecode exampleFlatJWSWithSignatures :: Either String (GeneralJWS JWSHeader))
       `shouldSatisfy` is _Left
-    (eitherDecode exampleFlatJWSWithSignatures :: Either String (JWS Identity JWSHeader))
+    (eitherDecode exampleFlatJWSWithSignatures :: Either String (FlattenedJWS JWSHeader))
       `shouldSatisfy` is _Left
 
   where

@@ -40,7 +40,7 @@ class JWKStore a where
         , HasX5u h, HasX5c h, HasX5t h, HasX5tS256 h
         , HasTyp h, HasCty h )
     => KeyOp
-    -> h
+    -> h p
     -> Fold a JWK
   keysFor _ _ = keys
 

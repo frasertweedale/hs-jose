@@ -61,11 +61,10 @@ doJwtSign [jwkFilename, claimsFilename] = do
   Just claims <- decode <$> L.readFile claimsFilename
   result <- runExceptT $ do
     alg <- bestJWSAlg jwk
-    let header = newJWSHeader (Protected, alg)
-    signClaims jwk header claims >>= encodeCompact
+    signClaims jwk (newJWSHeader ((), alg)) claims
   case result of
     Left e -> print (e :: Error) >> exitFailure
-    Right jwtData -> L.putStr jwtData
+    Right jwt -> L.putStr (encodeCompact jwt)
 
 
 -- | Validate a JWT.  Args are:

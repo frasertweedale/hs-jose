@@ -37,12 +37,12 @@ mkClaims = do
     & 'claimAud' .~ Just ('Audience' ["bob"])
     & 'claimIat' .~ Just ('NumericDate' t)
 
-doJwtSign :: 'JWK' -> 'ClaimsSet' -> IO (Either 'JWTError' ('JWT' ('JWS' 'Identity' 'JWSHeader')))
+doJwtSign :: 'JWK' -> 'ClaimsSet' -> IO (Either 'JWTError' 'SignedJWT')
 doJwtSign jwk claims = runExceptT $ do
   alg \<- 'bestJWSAlg' jwk
   'signClaims' jwk ('newJWSHeader' ('Protected', alg)) claims
 
-doJwtVerify :: 'JWK' -> 'JWT' ('JWS' 'Identity' 'JWSHeader') -> IO (Either 'JWTError' 'ClaimsSet')
+doJwtVerify :: 'JWK' -> 'SignedJWT' -> IO (Either 'JWTError' 'ClaimsSet')
 doJwtVerify jwk jwt = runExceptT $ do
   let config = 'defaultJWTValidationSettings' (== "bob")
   'verifyClaims' config jwk jwt
@@ -54,6 +54,7 @@ module Crypto.JWT
   -- * Creating a JWT
     signClaims
   , JWT
+  , SignedJWT
 
   -- * Validating a JWT and extracting claims
   , defaultJWTValidationSettings
@@ -491,6 +492,10 @@ validateIssClaim conf =
 newtype JWT a = JWT a
   deriving (Eq, Show)
 
+-- | A digitally signed or MACed JWT
+--
+type SignedJWT = JWT (CompactJWS JWSHeader)
+
 instance FromCompact a => FromCompact (JWT a) where
   fromCompact = fmap JWT . fromCompact
 
@@ -516,7 +521,7 @@ verifyClaims
     )
   => a
   -> k
-  -> JWT (JWS Identity JWSHeader)
+  -> SignedJWT
   -> m ClaimsSet
 verifyClaims conf k (JWT jws) =
   -- It is important, for security reasons, that the signature get
@@ -530,8 +535,8 @@ verifyClaims conf k (JWT jws) =
 signClaims
   :: (MonadRandom m, MonadError e m, AsError e)
   => JWK
-  -> JWSHeader
+  -> JWSHeader ()
   -> ClaimsSet
-  -> m (JWT (JWS Identity JWSHeader))
+  -> m SignedJWT
 signClaims k h c =
   JWT <$> signJWS (encode c) (Identity (h, k))

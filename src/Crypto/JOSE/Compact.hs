@@ -43,9 +43,9 @@ decodeCompact = fromCompact . L.split 46
 -- | Data that can be converted to a compact representation.
 --
 class ToCompact a where
-  toCompact :: (AsError e, MonadError e m) => a -> m [L.ByteString]
+  toCompact :: a -> [L.ByteString]
 
 -- | Encode data to a compact representation.
 --
-encodeCompact :: (ToCompact a, AsError e, MonadError e m) => a -> m L.ByteString
-encodeCompact = fmap (L.intercalate ".") . toCompact
+encodeCompact :: (ToCompact a) => a -> L.ByteString
+encodeCompact = (L.intercalate ".") . toCompact

@@ -65,26 +65,26 @@ newtype CritParameters = CritParameters (NonEmpty (T.Text, Value))
   deriving (Eq, Show)
 
 
-data JWEHeader = JWEHeader
+data JWEHeader p = JWEHeader
   { _jweAlg :: Maybe AlgWithParams
-  , _jweEnc :: HeaderParam Enc
+  , _jweEnc :: HeaderParam p Enc
   , _jweZip :: Maybe String  -- protected header only  "DEF" (DEFLATE) defined
-  , _jweJku :: Maybe (HeaderParam Types.URI)
-  , _jweJwk :: Maybe (HeaderParam JWK)
-  , _jweKid :: Maybe (HeaderParam String)
-  , _jweX5u :: Maybe (HeaderParam Types.URI)
-  , _jweX5c :: Maybe (HeaderParam (NonEmpty Types.Base64X509))
-  , _jweX5t :: Maybe (HeaderParam Types.Base64SHA1)
-  , _jweX5tS256 :: Maybe (HeaderParam Types.Base64SHA256)
-  , _jweTyp :: Maybe (HeaderParam String)  -- ^ Content Type (of object)
-  , _jweCty :: Maybe (HeaderParam String)  -- ^ Content Type (of payload)
+  , _jweJku :: Maybe (HeaderParam p Types.URI)
+  , _jweJwk :: Maybe (HeaderParam p JWK)
+  , _jweKid :: Maybe (HeaderParam p String)
+  , _jweX5u :: Maybe (HeaderParam p Types.URI)
+  , _jweX5c :: Maybe (HeaderParam p (NonEmpty Types.Base64X509))
+  , _jweX5t :: Maybe (HeaderParam p Types.Base64SHA1)
+  , _jweX5tS256 :: Maybe (HeaderParam p Types.Base64SHA256)
+  , _jweTyp :: Maybe (HeaderParam p String)  -- ^ Content Type (of object)
+  , _jweCty :: Maybe (HeaderParam p String)  -- ^ Content Type (of payload)
   , _jweCrit :: Maybe (NonEmpty T.Text)
   }
   deriving (Eq, Show)
 
-newJWEHeader :: AlgWithParams -> Enc -> JWEHeader
+newJWEHeader :: ProtectionIndicator p => AlgWithParams -> Enc -> JWEHeader p
 newJWEHeader alg enc =
-  JWEHeader (Just alg) (HeaderParam Unprotected enc) z z z z z z z z z z z
+  JWEHeader (Just alg) (HeaderParam getProtected enc) z z z z z z z z z z z
   where z = Nothing
 
 instance HasParams JWEHeader where
@@ -107,32 +107,34 @@ instance HasParams JWEHeader where
   params (JWEHeader alg enc zip' jku jwk kid x5u x5c x5t x5tS256 typ cty crit) =
     catMaybes
       [ undefined -- TODO
-      , Just (view protection enc,      "enc" .= view param enc)
-      , fmap (\p -> (Protected,    "zip" .= p)) zip'
-      , fmap (\p -> (view protection p, "jku" .= view param p)) jku
-      , fmap (\p -> (view protection p, "jwk" .= view param p)) jwk
-      , fmap (\p -> (view protection p, "kid" .= view param p)) kid
-      , fmap (\p -> (view protection p, "x5u" .= view param p)) x5u
-      , fmap (\p -> (view protection p, "x5c" .= view param p)) x5c
-      , fmap (\p -> (view protection p, "x5t" .= view param p)) x5t
-      , fmap (\p -> (view protection p, "x5t#S256" .= view param p)) x5tS256
-      , fmap (\p -> (view protection p, "typ" .= view param p)) typ
-      , fmap (\p -> (view protection p, "cty" .= view param p)) cty
-      , fmap (\p -> (Protected,    "crit" .= p)) crit
+      , Just (view isProtected enc,      "enc" .= view param enc)
+      , fmap (\p -> (True, "zip" .= p)) zip'
+      , fmap (\p -> (view isProtected p, "jku" .= view param p)) jku
+      , fmap (\p -> (view isProtected p, "jwk" .= view param p)) jwk
+      , fmap (\p -> (view isProtected p, "kid" .= view param p)) kid
+      , fmap (\p -> (view isProtected p, "x5u" .= view param p)) x5u
+      , fmap (\p -> (view isProtected p, "x5c" .= view param p)) x5c
+      , fmap (\p -> (view isProtected p, "x5t" .= view param p)) x5t
+      , fmap (\p -> (view isProtected p, "x5t#S256" .= view param p)) x5tS256
+      , fmap (\p -> (view isProtected p, "typ" .= view param p)) typ
+      , fmap (\p -> (view isProtected p, "cty" .= view param p)) cty
+      , fmap (\p -> (True, "crit" .= p)) crit
       ]
 
 
-data JWERecipient a = JWERecipient
-  { _jweHeader :: a
+data JWERecipient a p = JWERecipient
+  { _jweHeader :: a p
   , _jweEncryptedKey :: Maybe Types.Base64Octets  -- ^ JWE Encrypted Key
   }
 
-instance FromJSON (JWERecipient a) where
+instance FromJSON (JWERecipient a p) where
   parseJSON = withObject "JWE Recipient" $ \o -> JWERecipient
     <$> undefined -- o .:? "header"
     <*> o .:? "encrypted_key"
 
-parseRecipient :: HasParams a => Maybe Object -> Maybe Object -> Value -> Parser (JWERecipient a)
+parseRecipient
+  :: (HasParams a, ProtectionIndicator p)
+  => Maybe Object -> Maybe Object -> Value -> Parser (JWERecipient a p)
 parseRecipient hp hu = withObject "JWE Recipient" $ \o -> do
   hr <- o .:? "header"
   JWERecipient
@@ -141,16 +143,16 @@ parseRecipient hp hu = withObject "JWE Recipient" $ \o -> do
 
 -- parseParamsFor :: HasParams b => Proxy b -> Maybe Object -> Maybe Object -> Parser a
 
-data JWE a = JWE
+data JWE a p = JWE
   { _protectedRaw :: (Maybe T.Text)      -- ^ Encoded protected header, if available
   , _jweIv :: Maybe Types.Base64Octets  -- ^ JWE Initialization Vector
   , _jweAad :: Maybe Types.Base64Octets -- ^ JWE AAD
   , _jweCiphertext :: Types.Base64Octets  -- ^ JWE Ciphertext
   , _jweTag :: Maybe Types.Base64Octets  -- ^ JWE Authentication Tag
-  , _jweRecipients :: [JWERecipient a]
+  , _jweRecipients :: [JWERecipient a p]
   }
 
-instance HasParams a => FromJSON (JWE a) where
+instance (HasParams a, ProtectionIndicator p) => FromJSON (JWE a p) where
   parseJSON = withObject "JWE JSON Serialization" $ \o -> do
     hpB64 <- o .:? "protected"
     hp <- maybe
