@@ -30,6 +30,7 @@ module Crypto.JOSE.JWK
     JWK(JWK)
   , jwkMaterial
   , jwkUse
+  , KeyUse(..)
   , jwkKeyOps
   , jwkAlg
   , jwkKid
