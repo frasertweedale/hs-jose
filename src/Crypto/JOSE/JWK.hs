@@ -54,6 +54,7 @@ module Crypto.JOSE.JWK
   -- * Parts of a JWK
   , jwkMaterial
   , jwkUse
+  , KeyUse(..)
   , jwkKeyOps
   , KeyOp(..)
   , jwkAlg
