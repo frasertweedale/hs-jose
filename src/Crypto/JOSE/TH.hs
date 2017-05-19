@@ -102,8 +102,10 @@ deriveJOSEType s vs = sequenceQ [
   in
 #if ! MIN_VERSION_template_haskell(2,11,0)
     dataD (cxt []) (mkName s) [] (map conQ vs) derive
-#else
+#elif ! MIN_VERSION_template_haskell(2,12,0)
     dataD (cxt []) (mkName s) [] Nothing (map conQ vs) (mapM conT derive)
+#else
+    dataD (cxt []) (mkName s) [] Nothing (map conQ vs) [return (DerivClause Nothing (map ConT derive))]
 #endif
   , instanceD (cxt []) (aesonInstance s ''FromJSON) [parseJSONFun vs]
   , instanceD (cxt []) (aesonInstance s ''ToJSON) [toJSONFun vs]
