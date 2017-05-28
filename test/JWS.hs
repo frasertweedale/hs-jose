@@ -251,6 +251,27 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
        192,205,154,245,103,208,128,163]
 
 
+jwkRSA1024 :: JWK
+jwkRSA1024 = fromJust $ decode $
+  "{\"qi\":\"qYMpiKTOyFktv0Z3pQbig1RNA1xH35HMtjwISviC_bGo2zvzrYztBC_RzWsw"
+  <> "3Nwsc32n65HIdpNbau1UhB3EwQ\","
+  <> "\"p\":\"3ovj_M4MMJamOtjhtjswZhhwSYBiK6f2TjIEWiji-XV9SRcoyJsnp5flpeX"
+  <> "VTEXS_PgLmjtUi2MLGAvXLlTtyQ\","
+  <> "\"n\":\"yy1luWS19u8F-9eAdJ2iwCvuFrjOKuj1YBeNegPZpMJ9mhi8YISQLg-FTFR"
+  <> "J68FzMeZM0liJq9mm-tNfPsNFxU7VM_sha2jWuJI32u3W5m7myTb8vNjHAd8acvuIRJ"
+  <> "3hoJpJtSc1XBHHHIUK6lXNepHwQMjSCWtTY2wjRMKvYBU\","
+  <> "\"q\":\"6bgjSNOcMzZMh64q66kIU68_U6wHwdbSFyLLtwVORsEYPhQUjWEoO7thY9j"
+  <> "7m5NLRWgumoPIdDlLhOOnEf_V7Q\","
+  <> "\"d\":\"Mordhkv-VCpLs8V9KAVayjFjbfWVG-mNuNTDFfpFNw5GzoGewufXMg4cW8u"
+  <> "QA_zAmkYvEBiETuK6_iR8yhErlqMwFA4mdS4Yq0OqOPd9rCalUOoJf8cV1W5scsWXmL"
+  <> "-xX_TmnGnIpjYcDJw6Zw0KP7hvHKPTPUriY2Zb--LLhaE\","
+  <> "\"dp\":\"EgxgUglX3bzqAE3EiGXmd_E1chCSZZ36kL7nsXQtbDPGFF5ndVV38tST0E"
+  <> "-Ca-whv1hSgJCdO6ytoqabLeu_WQ\","
+  <> "\"e\":\"AQAB\","
+  <> "\"dq\":\"3gLqkY1hvUwBGomZf85LeKLp9uNdYwZa_1swRCSoHJHkI2QTudDm1QbEFo"
+  <> "LRTxF12PKEAobYbX7Xe958n550aQ\","
+  <> "\"kty\":\"RSA\"}"
+
 appendixA2Spec :: Spec
 appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
@@ -260,6 +281,11 @@ appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-
   it "validates the signature correctly" $
     verify JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput' sig
       `shouldBe` (Right True :: Either Error Bool)
+
+  it "prohibits signing with 1024-bit key" $
+    fst (withDRG drg (runExceptT $
+      signJWS signingInput' (Identity (newJWSHeader ((), JWA.JWS.RS256), jwkRSA1024))))
+        `shouldBe` (Left KeySizeTooSmall :: Either Error (CompactJWS JWSHeader))
 
   where
     signingInput' = "\
