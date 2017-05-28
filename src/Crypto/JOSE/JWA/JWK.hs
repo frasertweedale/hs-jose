@@ -323,7 +323,7 @@ genRSA :: MonadRandom m => Int -> m RSAKeyParameters
 genRSA size = toRSAKeyParameters . snd <$> RSA.generate size 65537
 
 toRSAKeyParameters :: RSA.PrivateKey -> RSAKeyParameters
-toRSAKeyParameters (RSA.PrivateKey (RSA.PublicKey s n e) d p q dp dq qi) =
+toRSAKeyParameters (RSA.PrivateKey (RSA.PublicKey _ n e) d p q dp dq qi) =
   let i = Types.Base64Integer
   in RSAKeyParameters
     ( i n )
