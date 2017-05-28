@@ -50,15 +50,36 @@ import Crypto.JOSE.Types.Orphans ()
 
 -- | A base64url encoded octet sequence interpreted as an integer.
 --
+-- The value is encoded in the minimum number of octets (no leading
+-- zeros) with the exception of @0@ which is encoded as @AA@.
+-- A leading zero when decoding is an error.
+--
 newtype Base64Integer = Base64Integer Integer
   deriving (Eq, Show)
 makePrisms ''Base64Integer
 
 instance FromJSON Base64Integer where
-  parseJSON = withText "base64url integer" $ parseB64Url $
-    pure . Base64Integer . bsToInteger
+  parseJSON = withText "base64url integer" $ parseB64Url
+    (fmap Base64Integer . parseOctets)
+
+-- | Parse an octet sequence into an integer.
+--
+-- This function deals with ugly special cases from
+-- <https://tools.ietf.org/html/rfc7518#section-2>, specifically
+--
+-- * The empty sequence is invalid
+-- * Leading null byte is invalid (unless it is the only byte)
+--
+parseOctets :: B.ByteString -> Parser Integer
+parseOctets s
+  | B.null s      = fail "empty octet sequence"
+  | s == "\NUL"   = pure 0
+  | B.head s == 0 = fail "leading null byte"
+  | otherwise     = pure (bsToInteger s)
 
 instance ToJSON Base64Integer where
+  -- Urgh, special case: https://tools.ietf.org/html/rfc7518#section-2
+  toJSON (Base64Integer 0) = "AA"
   toJSON (Base64Integer x) = encodeB64Url $ integerToBS x
 
 instance Arbitrary Base64Integer where

@@ -61,6 +61,18 @@ base64IntegerSpec = describe "Base64Integer" $ do
   it "formats to JSON correctly" $
     toJSON (Base64Integer 65538) `shouldBe` "AQAC"
 
+  it "rejects empty string" $
+    decode "[\"\"]" `shouldBe` (Nothing :: Maybe [Base64Integer])
+
+  it "rejects leading zero" $
+    decode "[\"AD8\"]" `shouldBe` (Nothing :: Maybe [Base64Integer])
+
+  it "decodes AA as zero" $
+    decode "[\"AA\"]" `shouldBe` Just [Base64Integer 0]
+
+  it "encodes zero as AA" $
+    toJSON (Base64Integer 0) `shouldBe` "AA"
+
 sizedBase64IntegerSpec :: Spec
 sizedBase64IntegerSpec = describe "SizedBase64Integer" $ do
   it "parses from JSON correctly" $ do
