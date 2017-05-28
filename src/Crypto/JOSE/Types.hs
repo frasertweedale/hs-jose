@@ -35,6 +35,8 @@ module Crypto.JOSE.Types
   , base64url
   ) where
 
+import Data.Word (Word8)
+
 import Control.Lens
 import Data.Aeson
 import Data.Aeson.Types (Parser)
@@ -44,6 +46,7 @@ import Network.URI (URI)
 import Test.QuickCheck
 import Test.QuickCheck.Instances ()
 
+import Crypto.Number.Basic (log2)
 import Crypto.JOSE.Types.Internal
 import Crypto.JOSE.Types.Orphans ()
 
@@ -82,8 +85,21 @@ instance ToJSON Base64Integer where
   toJSON (Base64Integer 0) = "AA"
   toJSON (Base64Integer x) = encodeB64Url $ integerToBS x
 
+
+arbitraryBigInteger :: Gen Integer
+arbitraryBigInteger = do
+  size <- arbitrarySizedNatural  -- number of octets
+  go (size + 1) 0
+  where
+    go :: Integer -> Integer -> Gen Integer
+    go 0 n = pure n
+    go k n =
+      (n * 256 +) . fromIntegral <$> (arbitraryBoundedIntegral :: Gen Word8)
+      >>= go (k - 1)
+
+
 instance Arbitrary Base64Integer where
-  arbitrary = Base64Integer <$> arbitrarySizedNatural
+  arbitrary = Base64Integer <$> arbitraryBigInteger
 
 
 -- | A base64url encoded octet sequence interpreted as an integer
@@ -98,11 +114,9 @@ instance Eq SizedBase64Integer where
 
 instance Arbitrary SizedBase64Integer where
   arbitrary = do
-    x <- arbitrarySizedNatural
-    l <- arbitrarySizedNatural  -- arbitrary number of leading zero-bytes
-    return $ SizedBase64Integer
-      ((+ l) $ ceiling $ logBase 2 (fromInteger x :: Double))
-      x
+    x <- arbitraryBigInteger
+    l <- Test.QuickCheck.elements [0,1,2]  -- number of leading zero-bytes
+    pure $ SizedBase64Integer ((log2 x `div` 8) + 1 + l) x
 
 genByteStringOf :: Int -> Gen B.ByteString
 genByteStringOf n = B.pack <$> vectorOf n arbitrary
