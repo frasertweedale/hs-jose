@@ -170,8 +170,8 @@ bsToInteger = B.foldl (\acc x -> acc * 256 + toInteger x) 0
 integerToBS :: Integer -> B.ByteString
 integerToBS = B.reverse . B.unfoldr (fmap swap . f)
   where
-    f x = if x == 0 then Nothing else Just (toWord8 $ quotRem x 256)
-    toWord8 (seed, x) = (seed, fromIntegral x)
+    f 0 = Nothing
+    f x = Just (fromIntegral <$> quotRem x 256)
 
 sizedIntegerToBS :: Int -> Integer -> B.ByteString
 sizedIntegerToBS w = zeroPad . integerToBS
