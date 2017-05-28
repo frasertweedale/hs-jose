@@ -249,9 +249,9 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
     P_521 -> JWA.JWS.ES512
   RSAKeyMaterial k ->
     let
-      Types.SizedBase64Integer size _ = view rsaN k
+      Types.SizedBase64Integer _ n = view rsaN k
     in
-      if size >= 2048 `div` 8
+      if n >= 2 ^ (2040 :: Integer)
       then pure JWA.JWS.PS512
       else throwError (review _KeySizeTooSmall ())
   OctKeyMaterial (OctKeyParameters { octK = Types.Base64Octets k })
