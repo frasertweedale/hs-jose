@@ -32,6 +32,7 @@ module Crypto.JOSE.Types.Internal
   , unpad
   , bsToInteger
   , integerToBS
+  , intBytes
   , sizedIntegerToBS
   , base64url
   ) where
@@ -44,6 +45,7 @@ import Data.Word (Word8)
 
 import Control.Lens
 import Control.Lens.Cons.Extras
+import Crypto.Number.Basic (log2)
 import Data.Aeson.Types
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
@@ -176,3 +178,6 @@ integerToBS = B.reverse . B.unfoldr (fmap swap . f)
 sizedIntegerToBS :: Int -> Integer -> B.ByteString
 sizedIntegerToBS w = zeroPad . integerToBS
   where zeroPad xs = B.replicate (w - B.length xs) 0 `B.append` xs
+
+intBytes :: Integer -> Int
+intBytes n = (log2 n `div` 8) + 1

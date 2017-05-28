@@ -292,7 +292,7 @@ ecDBytes crv = ceiling (logBase 2 (fromIntegral order) / 8 :: Double) where
 -- | Parameters for RSA Keys
 --
 data RSAKeyParameters = RSAKeyParameters
-  { _rsaN :: Types.SizedBase64Integer
+  { _rsaN :: Types.Base64Integer
   , _rsaE :: Types.Base64Integer
   , _rsaPrivateKeyParameters :: Maybe RSAPrivateKeyParameters
   }
@@ -329,7 +329,7 @@ toRSAKeyParameters :: RSA.PrivateKey -> RSAKeyParameters
 toRSAKeyParameters (RSA.PrivateKey (RSA.PublicKey s n e) d p q dp dq qi) =
   let i = Types.Base64Integer
   in RSAKeyParameters
-    ( Types.SizedBase64Integer s n )
+    ( i n )
     ( i e )
     ( Just (RSAPrivateKeyParameters (i d)
       (Just (RSAPrivateKeyOptionalParameters
@@ -377,13 +377,13 @@ verifyPSS h k = PSS.verify (PSS.defaultPSSParams h) (rsaPublicKey k)
 
 rsaPrivateKey :: RSAKeyParameters -> Either Error RSA.PrivateKey
 rsaPrivateKey (RSAKeyParameters
-  (Types.SizedBase64Integer size n)
+  (Types.Base64Integer n)
   (Types.Base64Integer e)
   (Just (RSAPrivateKeyParameters (Types.Base64Integer d) opt)))
   | isJust (opt >>= rsaOth) = Left OtherPrimesNotSupported
   | n < 2 ^ (2040 :: Integer) = Left KeySizeTooSmall
   | otherwise = Right $
-    RSA.PrivateKey (RSA.PublicKey size n e) d
+    RSA.PrivateKey (RSA.PublicKey (Types.intBytes n) n e) d
       (opt' rsaP) (opt' rsaQ) (opt' rsaDp) (opt' rsaDq) (opt' rsaQi)
     where
       opt' f = fromMaybe 0 (unB64I . f <$> opt)
@@ -392,9 +392,8 @@ rsaPrivateKey (RSAKeyParameters
 rsaPrivateKey _ = Left $ KeyMismatch "not an RSA private key"
 
 rsaPublicKey :: RSAKeyParameters -> RSA.PublicKey
-rsaPublicKey (RSAKeyParameters
-  (Types.SizedBase64Integer size n) (Types.Base64Integer e) _)
-  = RSA.PublicKey size n e
+rsaPublicKey (RSAKeyParameters (Types.Base64Integer n) (Types.Base64Integer e) _)
+  = RSA.PublicKey (Types.intBytes n) n e
 
 
 -- | Symmetric key parameters data.

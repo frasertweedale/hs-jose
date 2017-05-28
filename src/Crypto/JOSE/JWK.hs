@@ -249,7 +249,7 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
     P_521 -> JWA.JWS.ES512
   RSAKeyMaterial k ->
     let
-      Types.SizedBase64Integer _ n = view rsaN k
+      Types.Base64Integer n = view rsaN k
     in
       if n >= 2 ^ (2040 :: Integer)
       then pure JWA.JWS.PS512
