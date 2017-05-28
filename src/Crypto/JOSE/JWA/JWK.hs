@@ -381,7 +381,7 @@ rsaPrivateKey (RSAKeyParameters
   (Types.Base64Integer e)
   (Just (RSAPrivateKeyParameters (Types.Base64Integer d) opt)))
   | isJust (opt >>= rsaOth) = Left OtherPrimesNotSupported
-  | size < 2048 `div` 8 = Left KeySizeTooSmall
+  | n < 2 ^ (2040 :: Integer) = Left KeySizeTooSmall
   | otherwise = Right $
     RSA.PrivateKey (RSA.PublicKey size n e) d
       (opt' rsaP) (opt' rsaQ) (opt' rsaDp) (opt' rsaDq) (opt' rsaQi)
