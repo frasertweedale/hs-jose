@@ -210,13 +210,14 @@ instance FromJSON ECKeyParameters where
   parseJSON = withObject "EC" $ \o -> do
     o .: "kty" >>= guard . (== ("EC" :: T.Text))
     crv <- o .: "crv"
+    let w = ecCoordBytes crv
     ECKeyParameters
       <$> pure crv
-      <*> (o .: "x" >>= Types.checkSize (ecCoordBytes crv))
-      <*> (o .: "y" >>= Types.checkSize (ecCoordBytes crv))
+      <*> (o .: "x" >>= Types.checkSize w)
+      <*> (o .: "y" >>= Types.checkSize w)
       <*> (o .:? "d" >>= \case
         Nothing -> return Nothing
-        Just v -> Just <$> Types.checkSize (ecDBytes crv) v)
+        Just v -> Just <$> Types.checkSize w v)
 
 instance ToJSON ECKeyParameters where
   toJSON (ECKeyParameters {..}) = object $
@@ -235,7 +236,7 @@ instance Arbitrary ECKeyParameters where
       <*> Types.genSizedBase64IntegerOf w
       <*> oneof
         [ pure Nothing
-        , Just <$> Types.genSizedBase64IntegerOf (ecDBytes crv)
+        , Just <$> Types.genSizedBase64IntegerOf w
         ]
 
 signEC
@@ -283,10 +284,6 @@ ecCoordBytes :: Integral a => Crv -> a
 ecCoordBytes P_256 = 32
 ecCoordBytes P_384 = 48
 ecCoordBytes P_521 = 66
-
-ecDBytes :: Integral a => Crv -> a
-ecDBytes crv = ceiling (logBase 2 (fromIntegral order) / 8 :: Double) where
-  order = ECC.ecc_n $ ECC.common_curve $ curve crv
 
 
 -- | Parameters for RSA Keys
@@ -569,13 +566,11 @@ instance Arbitrary KeyMaterialGenParam where
 
 genKeyMaterial :: MonadRandom m => KeyMaterialGenParam -> m KeyMaterial
 genKeyMaterial (ECGenParam crv) = do
-  let
-    xyValue = Types.SizedBase64Integer (ecCoordBytes crv)
-    dValue = Types.SizedBase64Integer (ecDBytes crv)
+  let i = Types.SizedBase64Integer (ecCoordBytes crv)
   (ECDSA.PublicKey _ p, ECDSA.PrivateKey _ d) <- ECC.generate (curve crv)
   case p of
     ECC.Point x y -> return $ ECKeyMaterial $
-      ECKeyParameters crv (xyValue x) (xyValue y) (Just (dValue d))
+      ECKeyParameters crv (i x) (i y) (Just (i d))
     ECC.PointO -> genKeyMaterial (ECGenParam crv)  -- JWK cannot represent point at infinity; recurse
 genKeyMaterial (RSAGenParam size) = RSAKeyMaterial <$> genRSA size
 genKeyMaterial (OctGenParam n) =
