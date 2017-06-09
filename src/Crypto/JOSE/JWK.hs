@@ -234,6 +234,9 @@ newtype JWKSet = JWKSet [JWK] deriving (Eq, Show)
 instance FromJSON JWKSet where
   parseJSON = withObject "JWKSet" (\o -> JWKSet <$> o .: "keys")
 
+instance ToJSON JWKSet where
+  toJSON (JWKSet ks) = object ["keys" .= toJSON ks]
+
 
 -- | Choose the cryptographically strongest JWS algorithm for a
 -- given key.  The JWK "alg" algorithm parameter is ignored.
