@@ -18,6 +18,7 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE ViewPatterns #-}
 
 {-|
 
@@ -81,6 +82,7 @@ module Crypto.JOSE.JWK
   , JWKSet(..)
 
   -- Miscellaneous
+  , checkJWK
   , bestJWSAlg
 
   , module Crypto.JOSE.JWA.JWK
@@ -293,6 +295,23 @@ instance FromJSON JWKSet where
 
 instance ToJSON JWKSet where
   toJSON (JWKSet ks) = object ["keys" .= toJSON ks]
+
+
+-- | Sanity-check a JWK.
+--
+-- Return an appropriate error if the key is size is too small to be
+-- used with any JOSE algorithm, or for other problems that mean the
+-- key cannot be used.
+--
+checkJWK :: (MonadError e m, AsError e) => JWK -> m ()
+checkJWK jwk = case view jwkMaterial jwk of
+  RSAKeyMaterial (view rsaN -> Types.Base64Integer n)
+    | n >= 2 ^ (2040 :: Integer) -> pure ()
+    | otherwise -> throwing _KeySizeTooSmall ()
+  OctKeyMaterial (view octK -> Types.Base64Octets k)
+    | B.length k >= 256 `div` 8 -> pure ()
+    | otherwise -> throwing _KeySizeTooSmall ()
+  _ -> pure ()
 
 
 -- | Choose the cryptographically strongest JWS algorithm for a
