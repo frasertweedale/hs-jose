@@ -48,6 +48,7 @@ module Crypto.JOSE.JWA.JWK (
 
   -- * Parameters for Symmetric Keys
   , OctKeyParameters(..)
+  , octK
 
   -- * Parameters for CFRG EC keys (RFC 8037)
   , OKPKeyParameters(..)
@@ -395,10 +396,11 @@ rsaPublicKey (RSAKeyParameters (Types.Base64Integer n) (Types.Base64Integer e) _
 
 -- | Symmetric key parameters data.
 --
-newtype OctKeyParameters = OctKeyParameters
-  { octK :: Types.Base64Octets
-  }
+newtype OctKeyParameters = OctKeyParameters Types.Base64Octets
   deriving (Eq, Show)
+
+octK :: Iso' OctKeyParameters Types.Base64Octets
+octK = iso (\(OctKeyParameters k) -> k) OctKeyParameters
 
 instance FromJSON OctKeyParameters where
   parseJSON = withObject "symmetric key" $ \o -> do
@@ -406,9 +408,9 @@ instance FromJSON OctKeyParameters where
     OctKeyParameters <$> o .: "k"
 
 instance ToJSON OctKeyParameters where
-  toJSON OctKeyParameters {..} = object
+  toJSON k = object
     [ "kty" .= ("oct" :: T.Text)
-    , "k" .= octK
+    , "k" .= (view octK k :: Types.Base64Octets)
     ]
 
 instance Arbitrary OctKeyParameters where
