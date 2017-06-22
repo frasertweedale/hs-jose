@@ -41,6 +41,7 @@ data Error
   | AlgorithmMismatch String  -- ^ A requested algorithm cannot be used
   | KeyMismatch String        -- ^ Wrong type of key was given
   | KeySizeTooSmall           -- ^ Key size is too small
+  | KeySizeInvalid            -- ^ Key size is invalid for algorithm
   | OtherPrimesNotSupported   -- ^ RSA private key with >2 primes not supported
   | RSAError RSA.Error        -- ^ RSA encryption, decryption or signing error
   | CryptoError CryptoError   -- ^ Various cryptonite library error cases
@@ -54,6 +55,8 @@ data Error
   | JWSNoSignatures
   -- ^ 'AllValidated' policy active, and there were no signatures on object
   --   that matched the allowed algorithms
+  | InvalidTag
+  -- ^ The authenticated tag of an authenticated encryption is not valid
   deriving (Eq, Show)
 makeClassyPrisms ''Error
 

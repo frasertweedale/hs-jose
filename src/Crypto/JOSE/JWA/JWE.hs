@@ -24,8 +24,6 @@ module Crypto.JOSE.JWA.JWE where
 
 import Data.Maybe (catMaybes)
 
-import qualified Data.HashMap.Strict as M
-
 import Crypto.JOSE.JWK
 import Crypto.JOSE.TH
 import Crypto.JOSE.Types
@@ -33,6 +31,7 @@ import Crypto.JOSE.Types.Internal (objectPairs)
 
 import Data.Aeson
 
+{-
 
 -- | RFC 7518 §4.  Cryptographic Algorithms for Key Management
 --
@@ -80,11 +79,15 @@ instance FromJSON AlgWithParams where
       _ -> fail $ "unrecognised value; expected: "
          ++ "[\"RSA1_5\",\"RSA-OAEP\",\"RSA-OAEP-256\",\"A128KW\",\"A192KW\",\"A256KW\",\"dir\",\"ECDH-ES\",\"ECDH-ES+A128KW\",\"ECDH-ES+A192KW\",\"ECDH-ES+A256KW\",\"A128GCMKW\",\"A192GCMKW\",\"A256GCMKW\",\"PBES2-HS256+A128KW\",\"PBES2-HS384+A128KW\",\"PBES2-HS512+A128KW\"]"
 
+-}
+
 algObject :: Value -> Value
 algObject s = object [("alg", s)]
 
 algWithParamsObject :: ToJSON a => a -> Value -> Value
 algWithParamsObject a s = object $ ("alg", s) : objectPairs (toJSON a)
+
+{-
 
 instance ToJSON AlgWithParams where
   toJSON RSA1_5       = algObject "RSA1_5"
@@ -105,6 +108,7 @@ instance ToJSON AlgWithParams where
   toJSON (PBES2_HS384_A192KW params)  = algWithParamsObject params "PBES2-HS384+A192KW"
   toJSON (PBES2_HS512_A256KW params)  = algWithParamsObject params "PBES2-HS512+A256KW"
 
+-}
 
 -- | RFC 7518 §4.6.1.  Header Parameters Used for ECDH Key Agreement
 --

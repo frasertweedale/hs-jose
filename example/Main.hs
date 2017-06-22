@@ -1,18 +1,20 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE TupleSections #-}
 
 import Data.Maybe (fromJust)
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 
 import qualified Data.ByteString.Lazy as L
-import Data.Aeson (decode, encode)
+import Data.Aeson (decode, eitherDecode, encode)
 import Data.Text.Strict.Lens (utf8)
 
 import Control.Monad.Except (runExceptT)
 import Control.Lens (preview, re, review, set, view)
 
 import Crypto.JWT
+import Crypto.JOSE.JWE
 
 import JWS (doJwsSign, doJwsVerify)
 
@@ -25,6 +27,8 @@ main = do
     "jws-verify" -> doJwsVerify (tail args)
     "jwt-sign" -> doJwtSign (tail args)
     "jwt-verify" -> doJwtVerify (tail args)
+    "jwe-encrypt" -> doJweEncrypt (tail args)
+    "jwe-decrypt" -> doJweDecrypt (tail args)
 #if MIN_VERSION_aeson(0,10,0)
     "jwk-thumbprint" -> doThumbprint (tail args)
 #endif
@@ -45,6 +49,29 @@ doGen [kty] = do
   let k' = k
 #endif
   L.putStr (encode k')
+
+
+doJweEncrypt :: [String] -> IO ()
+doJweEncrypt (payloadFilename : recipients) = do
+  ks <- fmap (either error id . eitherDecode) <$> traverse L.readFile recipients
+  payload <- L.readFile payloadFilename
+  result <- runExceptT $
+    traverse bestJWEAlg ks >>=
+      encryptJWE bestJWEEnc payload (mempty :: L.ByteString)
+  case result of
+    Left e -> print (e :: Error) >> exitFailure
+    Right jwe -> L.putStr (encode (jwe :: GeneralJWE))
+
+doJweDecrypt :: [String] -> IO ()
+doJweDecrypt [jwkFilename, jweFilename] = do
+  k <- either error id . eitherDecode <$> L.readFile jwkFilename
+  jwe <- either error id . eitherDecode <$> L.readFile jweFilename
+  result <- runExceptT $
+    decryptJWE k (jwe :: GeneralJWE)
+  case result of
+    Left e -> print (e :: Error) >> exitFailure
+    Right s -> L.putStr s
+
 
 -- | Mint a JWT.  Args are:
 --
