@@ -31,22 +31,20 @@ main = do
 
 doGen :: [String] -> IO ()
 doGen [kty] = do
-  let
-    param = case kty of
-      "oct" -> OctGenParam 32
-      "rsa" -> RSAGenParam 256
-      "ec" -> ECGenParam P_256
-      "eddsa" -> OKPGenParam Ed25519
-  jwk <- genJWK param
+  k <- genJWK $ case kty of
+                  "oct" -> OctGenParam 32
+                  "rsa" -> RSAGenParam 256
+                  "ec" -> ECGenParam P_256
+                  "eddsa" -> OKPGenParam Ed25519
 #if MIN_VERSION_aeson(0,10,0)
   let
-    h = view thumbprint jwk :: Digest SHA256
-    kid = view (re (base64url . digest) . utf8) h
-    jwk' = set jwkKid (Just kid) jwk
+    h = view thumbprint k :: Digest SHA256
+    kid' = view (re (base64url . digest) . utf8) h
+    k' = set jwkKid (Just kid') k
 #else
-  let jwk' = jwk
+  let k' = k
 #endif
-  L.putStr (encode jwk')
+  L.putStr (encode k')
 
 -- | Mint a JWT.  Args are:
 --
