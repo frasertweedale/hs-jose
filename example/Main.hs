@@ -55,11 +55,11 @@ doGen [kty] = do
 --
 doJwtSign :: [String] -> IO ()
 doJwtSign [jwkFilename, claimsFilename] = do
-  Just jwk <- decode <$> L.readFile jwkFilename
+  Just k <- decode <$> L.readFile jwkFilename
   Just claims <- decode <$> L.readFile claimsFilename
   result <- runExceptT $ do
-    alg <- bestJWSAlg jwk
-    signClaims jwk (newJWSHeader ((), alg)) claims
+    alg' <- bestJWSAlg k
+    signClaims k (newJWSHeader ((), alg')) claims
   case result of
     Left e -> print (e :: Error) >> exitFailure
     Right jwt -> L.putStr (encodeCompact jwt)
@@ -81,10 +81,10 @@ doJwtVerify [jwkFilename, jwtFilename, aud] = do
   let
     aud' = fromJust $ preview stringOrUri aud
     conf = defaultJWTValidationSettings (== aud')
-  Just jwk <- decode <$> L.readFile jwkFilename
+  Just k <- decode <$> L.readFile jwkFilename
   jwtData <- L.readFile jwtFilename
   result <- runExceptT
-    (decodeCompact jwtData >>= verifyClaims conf (jwk :: JWK))
+    (decodeCompact jwtData >>= verifyClaims conf (k :: JWK))
   case result of
     Left e -> print (e :: JWTError) >> exitFailure
     Right claims -> L.putStr $ encode claims
@@ -97,7 +97,7 @@ doJwtVerify [jwkFilename, jwtFilename, aud] = do
 --
 doThumbprint :: [String] -> IO ()
 doThumbprint (jwkFilename : _) = do
-  Just jwk <- decode <$> L.readFile jwkFilename
-  let h = view thumbprint jwk :: Digest SHA256
+  Just k <- decode <$> L.readFile jwkFilename
+  let h = view thumbprint k :: Digest SHA256
   L.putStr $ review (base64url . digest) h
 #endif
