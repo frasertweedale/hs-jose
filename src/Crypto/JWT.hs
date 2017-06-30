@@ -40,7 +40,7 @@ mkClaims = do
 doJwtSign :: 'JWK' -> 'ClaimsSet' -> IO (Either 'JWTError' 'SignedJWT')
 doJwtSign jwk claims = runExceptT $ do
   alg \<- 'bestJWSAlg' jwk
-  'signClaims' jwk ('newJWSHeader' ('Protected', alg)) claims
+  'signClaims' jwk ('newJWSHeader' ((), alg)) claims
 
 doJwtVerify :: 'JWK' -> 'SignedJWT' -> IO (Either 'JWTError' 'ClaimsSet')
 doJwtVerify jwk jwt = runExceptT $ do
