@@ -33,6 +33,9 @@ module Crypto.JOSE.JWA.JWK (
   -- * Parameters for Elliptic Curve Keys
   , Crv(..)
   , ECKeyParameters(..)
+  , curve
+  , point
+  , ecPrivateKey
 
   -- * Parameters for RSA Keys
   , RSAPrivateKeyOthElem(..)
@@ -285,6 +288,10 @@ ecCoordBytes :: Integral a => Crv -> a
 ecCoordBytes P_256 = 32
 ecCoordBytes P_384 = 48
 ecCoordBytes P_521 = 66
+
+ecPrivateKey :: (MonadError e m, AsError e) => ECKeyParameters -> m Integer
+ecPrivateKey (ECKeyParameters _ _ _ (Just (Types.SizedBase64Integer _ d))) = pure d
+ecPrivateKey _ = throwError (review _KeyMismatch "Not an EC private key")
 
 
 -- | Parameters for RSA Keys
