@@ -346,9 +346,9 @@ signPKCS15
   -> RSAKeyParameters
   -> B.ByteString
   -> m B.ByteString
-signPKCS15 h k m = case rsaPrivateKey k of
-  Left e -> throwError (review _Error e)
-  Right k' -> PKCS15.signSafer (Just h) k' m
+signPKCS15 h k m = do
+  k' <- rsaPrivateKey k
+  PKCS15.signSafer (Just h) k' m
     >>= either (throwError . review _RSAError) pure
 
 verifyPKCS15
@@ -366,9 +366,9 @@ signPSS
   -> RSAKeyParameters
   -> B.ByteString
   -> m B.ByteString
-signPSS h k m = case rsaPrivateKey k of
-  Left e -> throwError (review _Error e)
-  Right k' -> PSS.signSafer (PSS.defaultPSSParams h) k' m
+signPSS h k m = do
+  k' <- rsaPrivateKey k
+  PSS.signSafer (PSS.defaultPSSParams h) k' m
     >>= either (throwError . review _RSAError) pure
 
 verifyPSS
@@ -380,21 +380,22 @@ verifyPSS
   -> Bool
 verifyPSS h k = PSS.verify (PSS.defaultPSSParams h) (rsaPublicKey k)
 
-rsaPrivateKey :: RSAKeyParameters -> Either Error RSA.PrivateKey
+rsaPrivateKey
+  :: (MonadError e m, AsError e)
+  => RSAKeyParameters -> m RSA.PrivateKey
 rsaPrivateKey (RSAKeyParameters
   (Types.Base64Integer n)
   (Types.Base64Integer e)
   (Just (RSAPrivateKeyParameters (Types.Base64Integer d) opt)))
-  | isJust (opt >>= rsaOth) = Left OtherPrimesNotSupported
-  | n < 2 ^ (2040 :: Integer) = Left KeySizeTooSmall
-  | otherwise = Right $
+  | isJust (opt >>= rsaOth) = throwError $ review _OtherPrimesNotSupported ()
+  | n < 2 ^ (2040 :: Integer) = throwError $ review _KeySizeTooSmall ()
+  | otherwise = pure $
     RSA.PrivateKey (RSA.PublicKey (Types.intBytes n) n e) d
       (opt' rsaP) (opt' rsaQ) (opt' rsaDp) (opt' rsaDq) (opt' rsaQi)
     where
       opt' f = fromMaybe 0 (unB64I . f <$> opt)
       unB64I (Types.Base64Integer x) = x
-
-rsaPrivateKey _ = Left $ KeyMismatch "not an RSA private key"
+rsaPrivateKey _ = throwError $ review _KeyMismatch "not an RSA private key"
 
 rsaPublicKey :: RSAKeyParameters -> RSA.PublicKey
 rsaPublicKey (RSAKeyParameters (Types.Base64Integer n) (Types.Base64Integer e) _)
