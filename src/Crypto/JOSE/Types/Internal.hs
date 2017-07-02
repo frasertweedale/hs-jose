@@ -169,13 +169,13 @@ bsToInteger = B.foldl (\acc x -> acc * 256 + toInteger x) 0
 -- | Convert an integer to its unsigned big endian representation as
 -- an octet sequence.
 --
-integerToBS :: Integer -> B.ByteString
+integerToBS :: Integral a => a -> B.ByteString
 integerToBS = B.reverse . B.unfoldr (fmap swap . f)
   where
     f 0 = Nothing
     f x = Just (fromIntegral <$> quotRem x 256)
 
-sizedIntegerToBS :: Int -> Integer -> B.ByteString
+sizedIntegerToBS :: Integral a => Int -> a -> B.ByteString
 sizedIntegerToBS w = zeroPad . integerToBS
   where zeroPad xs = B.replicate (w - B.length xs) 0 `B.append` xs
 
