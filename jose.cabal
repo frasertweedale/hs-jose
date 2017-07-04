@@ -62,7 +62,7 @@ library
     , base64-bytestring == 1.0.*
     , concise >= 0.1
     , containers >= 0.5
-    , cryptonite >= 0.7
+    , cryptonite >= 0.14
     , lens >= 4.3
     , memory >= 0.7
     , monad-time >= 0.1
