@@ -88,7 +88,7 @@ library
     build-depends:
         semigroups >= 0.15
 
-  ghc-options:    -Wall -O2
+  ghc-options:    -Wall
   hs-source-dirs: src
 
 source-repository head
