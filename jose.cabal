@@ -65,6 +65,7 @@ library
     , memory >= 0.7
     , monad-time >= 0.1
     , mtl >= 2
+    , semigroups >= 0.15
     , template-haskell >= 2.4
     , safe >= 0.3
     , aeson >= 0.8.0.1
@@ -77,13 +78,6 @@ library
     , quickcheck-instances
     , x509 >= 1.4
     , vector
-
-  if impl(ghc < 7.10)
-    build-depends:
-        bifunctors >= 4.0
-  if impl(ghc < 8)
-    build-depends:
-        semigroups >= 0.15
 
   ghc-options:    -Wall
   hs-source-dirs: src
@@ -114,6 +108,7 @@ test-suite tests
     , memory
     , monad-time
     , mtl
+    , semigroups
     , template-haskell
     , safe
     , aeson
@@ -134,13 +129,6 @@ test-suite tests
     , hspec
     , QuickCheck
     , quickcheck-instances
-
-  if impl(ghc < 7.10)
-    build-depends:
-        bifunctors >= 4.0
-  if impl(ghc < 8)
-    build-depends:
-        semigroups >= 0.15
 
 executable example
   hs-source-dirs: example
