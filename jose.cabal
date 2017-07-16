@@ -55,7 +55,7 @@ library
     Crypto.JOSE.Types.Orphans
 
   build-depends:
-    base == 4.*
+    base >= 4.8 && < 5
     , attoparsec
     , base64-bytestring == 1.0.*
     , concise >= 0.1
