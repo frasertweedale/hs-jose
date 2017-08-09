@@ -19,23 +19,27 @@ before_cache:
 matrix:
   include:
   - env: STACK_ARGS="--resolver lts-4"
-    compiler: ": #stack 7.10.3"
+    compiler: ": #stackage lts-4 (ghc-7.10.3)"
     addons: {apt: {packages: [libgmp-dev]}}
 
   - env: STACK_ARGS="--resolver lts-5"
-    compiler: ": #stack 7.10.3"
+    compiler: ": #stackage lts-5 (ghc-7.10.3)"
     addons: {apt: {packages: [libgmp-dev]}}
 
   - env: STACK_ARGS="--resolver lts-6"
-    compiler: ": #stack 7.10.3"
+    compiler: ": #stackage lts-6 (ghc-7.10.3)"
     addons: {apt: {packages: [libgmp-dev]}}
 
   - env: STACK_ARGS="--resolver lts-7"
-    compiler: ": #stack 8.0.1"
+    compiler: ": #stackage lts-7 (ghc-8.0.1)"
     addons: {apt: {packages: [libgmp-dev]}}
 
   - env: STACK_ARGS="--resolver lts-8"
     compiler: ": #stackage lts-8 (ghc-8.0.2)"
+    addons: {apt: {packages: [libgmp-dev]}}
+
+  - env: STACK_ARGS="--resolver lts-9"
+    compiler: ": #stackage lts-9 (ghc-8.0.2)"
     addons: {apt: {packages: [libgmp-dev]}}
 
   - env: STACK_ARGS="--resolver nightly"
