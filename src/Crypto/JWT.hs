@@ -59,6 +59,7 @@ module Crypto.JWT
   -- * Validating a JWT and extracting claims
   , defaultJWTValidationSettings
   , verifyClaims
+  , verifyClaimsAt
   , HasAllowedSkew(..)
   , HasAudiencePredicate(..)
   , HasIssuerPredicate(..)
@@ -113,6 +114,7 @@ import Control.Lens (
   Lens', _Just, over, preview, review, view,
   Prism', prism', Cons, cons, uncons, iso, Iso')
 import Control.Monad.Except (MonadError(throwError))
+import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Data.Aeson
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
@@ -503,12 +505,21 @@ instance ToCompact a => ToCompact (JWT a) where
   toCompact (JWT a) = toCompact a
 
 
+newtype WrappedUTCTime = WrappedUTCTime { getUTCTime :: UTCTime }
+
+instance Monad m => MonadTime (ReaderT WrappedUTCTime m) where
+  currentTime = getUTCTime <$> ask
+
+
 -- | Cryptographically verify a JWS JWT, then validate the
 -- Claims Set, returning it if valid.
 --
 -- This is the only way to get at the claims of a JWS JWT,
 -- enforcing that the claims are cryptographically and
 -- semantically valid before the application can use them.
+--
+-- See also 'verifyClaimsAt' which allows you to explicitly specify
+-- the time.
 --
 verifyClaims
   ::
@@ -529,6 +540,30 @@ verifyClaims conf k (JWT jws) =
   verifyJWS conf k jws
   >>= either (throwError . review _JWTClaimsSetDecodeError) pure . eitherDecode
   >>= validateClaimsSet conf
+
+
+-- | Cryptographically verify a JWS JWT, then validate the
+-- Claims Set, returning it if valid.
+--
+-- This is the same as 'verifyClaims' except that the time is
+-- explicitly provided.  If you process many requests per second
+-- this will allow you to avoid unnecessary repeat system calls.
+--
+verifyClaimsAt
+  ::
+    ( HasAllowedSkew a, HasAudiencePredicate a
+    , HasIssuerPredicate a
+    , HasCheckIssuedAt a
+    , HasValidationSettings a
+    , AsError e, AsJWTError e, MonadError e m
+    , JWKStore k
+    )
+  => a
+  -> k
+  -> UTCTime
+  -> SignedJWT
+  -> m ClaimsSet
+verifyClaimsAt a k t jwt = runReaderT (verifyClaims a k jwt) (WrappedUTCTime t)
 
 -- | Create a JWS JWT
 --
