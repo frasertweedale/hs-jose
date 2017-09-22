@@ -27,7 +27,6 @@ import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64.URL as B64U
-import qualified Data.ByteString.Base64 as B64
 
 import Test.Hspec
 
@@ -273,23 +272,15 @@ jwtDotIOExample = describe "JWT from jwt.io using HMAC SHA-256" $ do
     `shouldBe` Right payloadBytes
 
   where
-    signingInput' = "\
-      \eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\
-      \.\
-      \eyJzdWIiOiJ0ZXN0In0"
-    compactJWS = signingInput' <> ".MxjnE-OH5q0w7tAy1MbUiDMdkozNGqN9W2rtdEUOeTw"
+    signingInput' = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0"
+    encSig = "MxjnE-OH5q0w7tAy1MbUiDMdkozNGqN9W2rtdEUOeTw" :: L.ByteString
+    payloadBytes = "{\"sub\":\"test\"}" :: BS.ByteString
+    compactJWS = signingInput' <> "." <> encSig
+    jwk = fromOctets ("8aca3682-0f10-411d-815a-da4ea08c8531" :: BS.ByteString)
     jws = decodeCompact compactJWS :: Either Error (CompactJWS JWSHeader)
     alg = JWA.JWS.HS256
-    h = newJWSHeader ((), alg)
-        & typ .~ Just (HeaderParam () "JWT")
-
-    payloadBytes :: BS.ByteString
-    payloadBytes = "{\"sub\":\"test\"}"
-
-    mac = view recons $ B64U.decodeLenient $
-      "MxjnE-OH5q0w7tAy1MbUiDMdkozNGqN9W2rtdEUOeTw"
-    jwk = fromOctets $ B64.decodeLenient $
-      "OGFjYTM2ODItMGYxMC00MTFkLTgxNWEtZGE0ZWEwOGM4NTMx"
+    h = newJWSHeader ((), alg) & typ .~ Just (HeaderParam () "JWT")
+    mac = view recons . B64U.decodeLenient . L.toStrict $ encSig
 
 shortKey :: Spec
 shortKey = describe "JWS using HMAC SHA-256 with a short key" $ do
@@ -310,22 +301,15 @@ shortKey = describe "JWS using HMAC SHA-256 with a short key" $ do
     `shouldBe` Right payloadBytes
 
   where
-    signingInput' = "\
-      \eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\
-      \.\
-      \eyJzdWIiOiJ0ZXN0In0"
-    compactJWS = signingInput' <> ".jb7CKu_fbAfqDx1Cg0PNHd2QPp4frdtjR6tLkP8pKNg"
+    signingInput' = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0"
+    encSig = "jb7CKu_fbAfqDx1Cg0PNHd2QPp4frdtjR6tLkP8pKNg" :: L.ByteString
+    payloadBytes = "{\"sub\":\"test\"}" :: BS.ByteString
+    compactJWS = signingInput' <> "." <> encSig
+    jwk = fromOctets ("secret" :: BS.ByteString)
     jws = decodeCompact compactJWS :: Either Error (CompactJWS JWSHeader)
     alg = JWA.JWS.HS256
-    h = newJWSHeader ((), alg)
-        & typ .~ Just (HeaderParam () "JWT")
-
-    payloadBytes :: BS.ByteString
-    payloadBytes = "{\"sub\":\"test\"}"
-
-    mac = view recons $ B64U.decodeLenient $
-      "jb7CKu_fbAfqDx1Cg0PNHd2QPp4frdtjR6tLkP8pKNg"
-    jwk = fromOctets $ B64.decodeLenient $ "c2VjcmV0"
+    h = newJWSHeader ((), alg) & typ .~ Just (HeaderParam () "JWT")
+    mac = view recons . B64U.decodeLenient . L.toStrict $ encSig
 
 
 jwkRSA1024 :: JWK
