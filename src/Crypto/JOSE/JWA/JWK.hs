@@ -431,9 +431,7 @@ signOct
   -> B.ByteString
   -> m B.ByteString
 signOct h (OctKeyParameters (Types.Base64Octets k)) m =
-  if B.length k < hashDigestSize h
-  then throwError (review _KeySizeTooSmall ())
-  else pure $ B.pack $ BA.unpack (hmac k m :: HMAC h)
+  pure $ B.pack $ BA.unpack (hmac k m :: HMAC h)
 
 
 -- "OKP" (CFRG Octet Key Pair) keys (RFC 8037)
