@@ -430,8 +430,19 @@ signOct
   -> OctKeyParameters
   -> B.ByteString
   -> m B.ByteString
-signOct h (OctKeyParameters (Types.Base64Octets k)) m =
-  pure $ B.pack $ BA.unpack (hmac k m :: HMAC h)
+signOct h okp@(OctKeyParameters (Types.Base64Octets k)) m =
+  if B.length k < hashDigestSize h
+  then throwError (review _KeySizeTooSmall ())
+  else pure $ signOct' h okp m
+
+signOct'
+  :: forall h. HashAlgorithm h
+  => h
+  -> OctKeyParameters
+  -> B.ByteString
+  -> B.ByteString
+signOct' _ (OctKeyParameters (Types.Base64Octets k)) m =
+  B.pack $ BA.unpack (hmac k m :: HMAC h)
 
 
 -- "OKP" (CFRG Octet Key Pair) keys (RFC 8037)
@@ -625,9 +636,12 @@ verify JWA.JWS.RS512 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA512 k
 verify JWA.JWS.PS256 (RSAKeyMaterial k) = fmap pure . verifyPSS SHA256 k
 verify JWA.JWS.PS384 (RSAKeyMaterial k) = fmap pure . verifyPSS SHA384 k
 verify JWA.JWS.PS512 (RSAKeyMaterial k) = fmap pure . verifyPSS SHA512 k
-verify JWA.JWS.HS256 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA256 k m
-verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA384 k m
-verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA512 k m
+verify JWA.JWS.HS256 (OctKeyMaterial k) = \m s ->
+  pure $ BA.constEq s $ signOct' SHA256 k m
+verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s ->
+  pure $ BA.constEq s $ signOct' SHA384 k m
+verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s ->
+  pure $ BA.constEq s $ signOct' SHA512 k m
 verify JWA.JWS.EdDSA (OKPKeyMaterial k) = verifyEdDSA k
 verify h k = \_ _ -> throwError $ review _AlgorithmMismatch
   (show h <> "cannot be used with " <> showKeyType k <> " key")

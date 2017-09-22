@@ -285,16 +285,17 @@ jwtDotIOExample = describe "JWT from jwt.io using HMAC SHA-256" $ do
 shortKey :: Spec
 shortKey = describe "JWS using HMAC SHA-256 with a short key" $ do
   it "decodes the example to the correct value" $ do
-    jws ^? _Right . signatures . signature `shouldBe` Just mac
+    jws ^? _Right . signatures . signature
+      `shouldBe` (Just mac :: Maybe BS.ByteString)
     jws ^? _Right . signatures . header `shouldBe` Just h
 
   it "serialises the decoded JWS back to the original data" $
     fmap encodeCompact jws `shouldBe` Right compactJWS
 
-  it "computes the HMAC correctly" $
+  it "complains when signing" $
     fst (withDRG drg $
       runExceptT (sign alg (jwk ^. jwkMaterial) (signingInput' ^. recons)))
-      `shouldBe` (Right mac :: Either Error BS.ByteString)
+      `shouldBe` (Left KeySizeTooSmall)
 
   it "validates the JWS correctly" $
     (jws >>= verifyJWS defaultValidationSettings jwk)
