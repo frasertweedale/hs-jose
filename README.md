@@ -14,4 +14,6 @@ should therefore only be used for verification.
 
 JWK Thumbprint (RFC 7638) is supported (requires *aeson* >= 0.10).
 
+This library is vulnerable to the invalid curve attack as [published by Adobe](http://blogs.adobe.com/security/2017/03/critical-vulnerability-uncovered-in-json-encryption.html)
+
 Contributions are welcome.
