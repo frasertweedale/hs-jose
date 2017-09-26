@@ -27,6 +27,7 @@ import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64.URL as B64U
+
 import Test.Hspec
 
 import Crypto.JOSE.Compact
@@ -50,6 +51,8 @@ spec = do
   appendixA5Spec
   appendixA6Spec
   cfrgSpec
+  jwtDotIOExample
+  shortKey
 
 
 -- Extension of JWSHeader to test "crit" behaviour
@@ -249,6 +252,65 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
        230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
        210,6,71,239,150,138,180,195,119,98,61,34,61,46,33,114,5,46,79,8,
        192,205,154,245,103,208,128,163]
+
+jwtDotIOExample :: Spec
+jwtDotIOExample = describe "JWT from jwt.io using HMAC SHA-256" $ do
+  it "decodes the example to the correct value" $ do
+    jws ^? _Right . signatures . signature `shouldBe` Just mac
+    jws ^? _Right . signatures . header `shouldBe` Just h
+
+  it "serialises the decoded JWS back to the original data" $
+    fmap encodeCompact jws `shouldBe` Right compactJWS
+
+  it "computes the HMAC correctly" $
+    fst (withDRG drg $
+      runExceptT (sign alg (jwk ^. jwkMaterial) (signingInput' ^. recons)))
+      `shouldBe` (Right mac :: Either Error BS.ByteString)
+
+  it "validates the JWS correctly" $
+    (jws >>= verifyJWS defaultValidationSettings jwk)
+    `shouldBe` Right payloadBytes
+
+  where
+    signingInput' = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0"
+    encSig = "MxjnE-OH5q0w7tAy1MbUiDMdkozNGqN9W2rtdEUOeTw" :: L.ByteString
+    payloadBytes = "{\"sub\":\"test\"}" :: BS.ByteString
+    compactJWS = signingInput' <> "." <> encSig
+    jwk = fromOctets ("8aca3682-0f10-411d-815a-da4ea08c8531" :: BS.ByteString)
+    jws = decodeCompact compactJWS :: Either Error (CompactJWS JWSHeader)
+    alg = JWA.JWS.HS256
+    h = newJWSHeader ((), alg) & typ .~ Just (HeaderParam () "JWT")
+    mac = view recons . B64U.decodeLenient . L.toStrict $ encSig
+
+shortKey :: Spec
+shortKey = describe "JWS using HMAC SHA-256 with a short key" $ do
+  it "decodes the example to the correct value" $ do
+    jws ^? _Right . signatures . signature
+      `shouldBe` (Just mac :: Maybe BS.ByteString)
+    jws ^? _Right . signatures . header `shouldBe` Just h
+
+  it "serialises the decoded JWS back to the original data" $
+    fmap encodeCompact jws `shouldBe` Right compactJWS
+
+  it "complains when signing" $
+    fst (withDRG drg $
+      runExceptT (sign alg (jwk ^. jwkMaterial) (signingInput' ^. recons)))
+      `shouldBe` (Left KeySizeTooSmall)
+
+  it "validates the JWS correctly" $
+    (jws >>= verifyJWS defaultValidationSettings jwk)
+    `shouldBe` Right payloadBytes
+
+  where
+    signingInput' = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0ZXN0In0"
+    encSig = "jb7CKu_fbAfqDx1Cg0PNHd2QPp4frdtjR6tLkP8pKNg" :: L.ByteString
+    payloadBytes = "{\"sub\":\"test\"}" :: BS.ByteString
+    compactJWS = signingInput' <> "." <> encSig
+    jwk = fromOctets ("secret" :: BS.ByteString)
+    jws = decodeCompact compactJWS :: Either Error (CompactJWS JWSHeader)
+    alg = JWA.JWS.HS256
+    h = newJWSHeader ((), alg) & typ .~ Just (HeaderParam () "JWT")
+    mac = view recons . B64U.decodeLenient . L.toStrict $ encSig
 
 
 jwkRSA1024 :: JWK
