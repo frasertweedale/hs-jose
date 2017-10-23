@@ -19,7 +19,7 @@ If you discover a security issue in this library, please email me
 the details, ideally with a proof of concept (`frase @ frase.id.au`
 ; [PGP key](https://pgp.mit.edu/pks/lookup?op=get&search=0x4B5390524111E1E2)).
 
-Before reporting an issue, please not the following known
+Before reporting an issue, please note the following known
 vulnerabilities:
 
 - The **ECDSA** implementation is vulnerable to **timing attacks** and
