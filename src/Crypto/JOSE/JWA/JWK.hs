@@ -83,6 +83,7 @@ import Crypto.Hash
 import Crypto.MAC.HMAC
 import qualified Crypto.PubKey.ECC.ECDSA as ECDSA
 import qualified Crypto.PubKey.ECC.Generate as ECC
+import qualified Crypto.PubKey.ECC.Prim as ECC
 import qualified Crypto.PubKey.RSA as RSA
 import qualified Crypto.PubKey.RSA.PKCS15 as PKCS15
 import qualified Crypto.PubKey.RSA.PSS as PSS
@@ -215,13 +216,13 @@ instance FromJSON ECKeyParameters where
     o .: "kty" >>= guard . (== ("EC" :: T.Text))
     crv <- o .: "crv"
     let w = ecCoordBytes crv
-    ECKeyParameters
-      <$> pure crv
-      <*> (o .: "x" >>= Types.checkSize w)
-      <*> (o .: "y" >>= Types.checkSize w)
-      <*> (o .:? "d" >>= \case
-        Nothing -> return Nothing
-        Just v -> Just <$> Types.checkSize w v)
+    x <- o .: "x" >>= Types.checkSize w
+    y <- o .: "y" >>= Types.checkSize w
+    let int (Types.SizedBase64Integer _ n) = n
+    if ECC.isPointValid (curve crv) (ECC.Point (int x) (int y))
+      then ECKeyParameters crv x y
+        <$> (o .:? "d" >>= traverse (Types.checkSize w))
+      else fail "point is not on specified curve"
 
 instance ToJSON ECKeyParameters where
   toJSON (ECKeyParameters {..}) = object $
@@ -233,15 +234,21 @@ instance ToJSON ECKeyParameters where
 
 instance Arbitrary ECKeyParameters where
   arbitrary = do
+    drg <- drgNewTest <$> arbitrary
     crv <- arbitrary
-    let w = ecCoordBytes crv
-    ECKeyParameters crv
-      <$> Types.genSizedBase64IntegerOf w
-      <*> Types.genSizedBase64IntegerOf w
-      <*> oneof
-        [ pure Nothing
-        , Just <$> Types.genSizedBase64IntegerOf w
-        ]
+    let (params, _) = withDRG drg (genEC crv)
+    includePrivate <- arbitrary
+    if includePrivate
+      then pure params
+      else pure params { ecD = Nothing }
+
+genEC :: MonadRandom m => Crv -> m ECKeyParameters
+genEC crv = do
+  let i = Types.SizedBase64Integer (ecCoordBytes crv)
+  (ECDSA.PublicKey _ p, ECDSA.PrivateKey _ d) <- ECC.generate (curve crv)
+  case p of
+    ECC.Point x y -> pure $ ECKeyParameters crv (i x) (i y) (Just (i d))
+    ECC.PointO -> genEC crv  -- JWK cannot represent point at infinity; recurse
 
 signEC
   :: (BA.ByteArrayAccess msg, HashAlgorithm h,
@@ -575,13 +582,7 @@ instance Arbitrary KeyMaterialGenParam where
     ]
 
 genKeyMaterial :: MonadRandom m => KeyMaterialGenParam -> m KeyMaterial
-genKeyMaterial (ECGenParam crv) = do
-  let i = Types.SizedBase64Integer (ecCoordBytes crv)
-  (ECDSA.PublicKey _ p, ECDSA.PrivateKey _ d) <- ECC.generate (curve crv)
-  case p of
-    ECC.Point x y -> return $ ECKeyMaterial $
-      ECKeyParameters crv (i x) (i y) (Just (i d))
-    ECC.PointO -> genKeyMaterial (ECGenParam crv)  -- JWK cannot represent point at infinity; recurse
+genKeyMaterial (ECGenParam crv) = ECKeyMaterial <$> genEC crv
 genKeyMaterial (RSAGenParam size) = RSAKeyMaterial <$> genRSA size
 genKeyMaterial (OctGenParam n) =
   OctKeyMaterial . OctKeyParameters . Types.Base64Octets <$> getRandomBytes n
