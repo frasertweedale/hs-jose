@@ -32,7 +32,8 @@ module Crypto.JOSE.JWA.JWK (
 
   -- * Parameters for Elliptic Curve Keys
   , Crv(..)
-  , ECKeyParameters(..)
+  , ECKeyParameters
+  , ecCrv, ecX, ecY, ecD
   , curve
   , point
   , ecPrivateKey
@@ -204,12 +205,22 @@ instance Arbitrary RSAPrivateKeyParameters where
 -- | Parameters for Elliptic Curve Keys
 --
 data ECKeyParameters = ECKeyParameters
-  { ecCrv :: Crv
-  , ecX :: Types.SizedBase64Integer
-  , ecY :: Types.SizedBase64Integer
-  , ecD :: Maybe Types.SizedBase64Integer
+  { _ecCrv :: Crv
+  , _ecX :: Types.SizedBase64Integer
+  , _ecY :: Types.SizedBase64Integer
+  , _ecD :: Maybe Types.SizedBase64Integer
   }
   deriving (Eq, Show)
+
+ecCrv :: Getter ECKeyParameters Crv
+ecCrv = to (\(ECKeyParameters crv _ _ _) -> crv)
+
+ecX, ecY :: Getter ECKeyParameters Types.SizedBase64Integer
+ecX = to (\(ECKeyParameters _ x _ _) -> x)
+ecY = to (\(ECKeyParameters _ _ y _) -> y)
+
+ecD :: Getter ECKeyParameters (Maybe Types.SizedBase64Integer)
+ecD = to (\(ECKeyParameters _ _ _ d) -> d)
 
 instance FromJSON ECKeyParameters where
   parseJSON = withObject "EC" $ \o -> do
@@ -225,12 +236,12 @@ instance FromJSON ECKeyParameters where
       else fail "point is not on specified curve"
 
 instance ToJSON ECKeyParameters where
-  toJSON (ECKeyParameters {..}) = object $
+  toJSON k = object $
     [ "kty" .= ("EC" :: T.Text)
-    , "crv" .= ecCrv
-    , "x" .= ecX
-    , "y" .= ecY
-    ] ++ fmap ("d" .=) (toList ecD)
+    , "crv" .= view ecCrv k
+    , "x" .= view ecX k
+    , "y" .= view ecY k
+    ] <> fmap ("d" .=) (toList (view ecD k))
 
 instance Arbitrary ECKeyParameters where
   arbitrary = do
@@ -240,7 +251,7 @@ instance Arbitrary ECKeyParameters where
     includePrivate <- arbitrary
     if includePrivate
       then pure params
-      else pure params { ecD = Nothing }
+      else pure params { _ecD = Nothing }
 
 genEC :: MonadRandom m => Crv -> m ECKeyParameters
 genEC crv = do
@@ -257,13 +268,14 @@ signEC
   -> ECKeyParameters
   -> msg
   -> m B.ByteString
-signEC h (ECKeyParameters {..}) m = case ecD of
+signEC h k m = case view ecD k of
   Just ecD' -> sigToBS <$> sig where
-    w = ecCoordBytes ecCrv
+    crv = view ecCrv k
+    w = ecCoordBytes crv
     sig = ECDSA.sign privateKey h m
     sigToBS (ECDSA.Signature r s) =
       Types.sizedIntegerToBS w r <> Types.sizedIntegerToBS w s
-    privateKey = ECDSA.PrivateKey (curve ecCrv) (d ecD')
+    privateKey = ECDSA.PrivateKey (curve crv) (d ecD')
     d (Types.SizedBase64Integer _ n) = n
   Nothing -> throwError (review _KeyMismatch "not an EC private key")
 
@@ -276,7 +288,7 @@ verifyEC
   -> Bool
 verifyEC h k m s = ECDSA.verify h pubkey sig m
   where
-  pubkey = ECDSA.PublicKey (curve $ ecCrv k) (point k)
+  pubkey = ECDSA.PublicKey (curve $ view ecCrv k) (point k)
   sig = uncurry ECDSA.Signature
     $ bimap Types.bsToInteger Types.bsToInteger
     $ B.splitAt (B.length s `div` 2) s
@@ -288,8 +300,9 @@ curve = ECC.getCurveByName . curveName where
   curveName P_521 = ECC.SEC_p521r1
 
 point :: ECKeyParameters -> ECC.Point
-point ECKeyParameters {..} = ECC.Point (integer ecX) (integer ecY) where
-  integer (Types.SizedBase64Integer _ n) = n
+point k = ECC.Point (f ecX) (f ecY) where
+  f l = case view l k of
+    Types.SizedBase64Integer _ n -> n
 
 ecCoordBytes :: Integral a => Crv -> a
 ecCoordBytes P_256 = 32
@@ -542,7 +555,7 @@ data KeyMaterial
   deriving (Eq, Show)
 
 showKeyType :: KeyMaterial -> String
-showKeyType (ECKeyMaterial (ECKeyParameters { ecCrv = crv })) = "ECDSA (" ++ show crv ++ ")"
+showKeyType (ECKeyMaterial (ECKeyParameters { _ecCrv = crv })) = "ECDSA (" ++ show crv ++ ")"
 showKeyType (RSAKeyMaterial _) = "RSA"
 showKeyType (OctKeyMaterial _) = "symmetric"
 showKeyType (OKPKeyMaterial _) = "OKP"
@@ -595,9 +608,9 @@ sign
   -> B.ByteString
   -> m B.ByteString
 sign JWA.JWS.None _ = \_ -> return ""
-sign JWA.JWS.ES256 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_256 })) = signEC SHA256 k
-sign JWA.JWS.ES384 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_384 })) = signEC SHA384 k
-sign JWA.JWS.ES512 (ECKeyMaterial k@(ECKeyParameters { ecCrv = P_521 })) = signEC SHA512 k
+sign JWA.JWS.ES256 (ECKeyMaterial k@(ECKeyParameters { _ecCrv = P_256 })) = signEC SHA256 k
+sign JWA.JWS.ES384 (ECKeyMaterial k@(ECKeyParameters { _ecCrv = P_384 })) = signEC SHA384 k
+sign JWA.JWS.ES512 (ECKeyMaterial k@(ECKeyParameters { _ecCrv = P_521 })) = signEC SHA512 k
 sign JWA.JWS.RS256 (RSAKeyMaterial k) = signPKCS15 SHA256 k
 sign JWA.JWS.RS384 (RSAKeyMaterial k) = signPKCS15 SHA384 k
 sign JWA.JWS.RS512 (RSAKeyMaterial k) = signPKCS15 SHA512 k
@@ -655,7 +668,7 @@ instance AsPublicKey RSAKeyParameters where
   asPublicKey = to (Just . set rsaPrivateKeyParameters Nothing)
 
 instance AsPublicKey ECKeyParameters where
-  asPublicKey = to (\k -> Just k { ecD = Nothing })
+  asPublicKey = to (\k -> Just k { _ecD = Nothing })
 
 instance AsPublicKey OKPKeyParameters where
   asPublicKey = to $ \case

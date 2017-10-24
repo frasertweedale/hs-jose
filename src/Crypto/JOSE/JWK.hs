@@ -246,7 +246,7 @@ bestJWSAlg
   => JWK
   -> m JWA.JWS.Alg
 bestJWSAlg jwk = case view jwkMaterial jwk of
-  ECKeyMaterial k -> pure $ case ecCrv k of
+  ECKeyMaterial k -> pure $ case view ecCrv k of
     P_256 -> JWA.JWS.ES256
     P_384 -> JWA.JWS.ES384
     P_521 -> JWA.JWS.ES512
@@ -284,8 +284,11 @@ digest = prism' BA.convert digestFromByteString
 thumbprintRepr :: JWK -> L.ByteString
 thumbprintRepr k = Builder.toLazyByteString . fromEncoding . pairs $
   case view jwkMaterial k of
-    ECKeyMaterial ECKeyParameters {..} ->
-      "crv" .= ecCrv <> "kty" .= ("EC" :: T.Text) <> "x" .= ecX  <> "y" .= ecY
+    ECKeyMaterial k' -> "crv" .=
+      view ecCrv k'
+      <> "kty" .= ("EC" :: T.Text)
+      <> "x" .= view ecX k'
+      <> "y" .= view ecY k'
     RSAKeyMaterial k' ->
       "e" .= view rsaE k' <> "kty" .= ("RSA" :: T.Text) <> "n" .= view rsaN k'
     OctKeyMaterial (OctKeyParameters k') ->
