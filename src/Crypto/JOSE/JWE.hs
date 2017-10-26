@@ -61,8 +61,7 @@ module Crypto.JOSE.JWE
 
 import Control.Applicative ((<|>))
 import Control.Monad (when)
-import Data.Either (isRight)
-import Data.Foldable (find, toList)
+import Data.Foldable (toList)
 import Data.Functor.Identity (Identity(..))
 import Data.List (intersect)
 import Data.Maybe (catMaybes, fromMaybe)
@@ -73,7 +72,9 @@ import Data.Traversable (for)
 import Data.Word (Word8)
 
 import Control.Lens
-  ( AsEmpty, Cons, _Just, Lens', _2, firstOf, review, traversed, view, set)
+  ( AsEmpty, Cons, _Just, Lens', _Right, _2
+  , firstOf, folded, review, traversed, view, set
+  )
 import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Except (MonadError, runExceptT, throwError)
 import Data.Aeson
@@ -1060,7 +1061,7 @@ decryptJWE k (JWE hpRaw hp iv aad c t rs) = do
     aad' = unB64 <$> aad
     hEncoded = T.encodeUtf8 hpRaw
     cipherAAD = maybe hEncoded ((hEncoded <>) .  ("." <>)) aad'
-    f r = runExceptT $ unwrapCEK' hp r k :: m (Either Error B.ByteString)
+    unwrap r = runExceptT $ unwrapCEK' hp r k :: m (Either Error B.ByteString)
 
   enc <- maybe
     -- assume there is at most one "enc" header in the JWE
@@ -1070,17 +1071,22 @@ decryptJWE k (JWE hpRaw hp iv aad c t rs) = do
     ( (hp >>= _jweEnc)
       <|> getFirst (foldMap (\(JWERecipient hu _) -> First (hu >>= _jweEnc')) rs))
 
-  cek' <- find isRight <$> traverse f rs
-  -- FIXME gen new CEK and substitute, then continue decryption,
-  -- so that we do not reveal whether CEK decryption or content
-  -- decryption failed
-  case cek' of
-    Just (Right cek) ->
-      view recons
-      <$> decrypt enc cek cipherAAD (unB64 iv) (unB64 c) (unB64 t)
-    _ ->
-      -- failed to decrypt CEK  TODO better error
-      throwError $ review _AlgorithmNotImplemented ()
+  -- generate a backup CEK which we will use if unwrap fails,
+  -- to avoid being a timing oracle that reveals which of
+  -- CEK decryption or content decryption failed
+  randomCEK <- getRandomBytes (encKeySize enc)
+
+  -- fall back to random CEK if length is bogus
+  let checkCEK cek = if B.length cek /= encKeySize enc
+                     then randomCEK
+                     else cek
+
+  cek <- randomCEK `seq`  -- force generation
+    checkCEK . fromMaybe randomCEK . firstOf (folded . _Right)
+    <$> traverse unwrap rs
+
+  view recons
+    <$> decrypt enc cek cipherAAD (unB64 iv) (unB64 c) (unB64 t)
 
 
 {-
@@ -1213,10 +1219,12 @@ type Decryptor
   -> B.ByteString -- ^ tag
   -> m B.ByteString  -- ^ plaintext
 
+-- | Decrypt content using given 'Enc' algorithm.
+-- The key length is assumed to be what the algorithm
+-- requires.  If not, the behaviour is undefined.
+--
 decrypt :: Enc -> Decryptor
-decrypt enc k
-  | B.length k /= encKeySize enc = \_ _ _ _ -> throwError $ review _KeySizeInvalid ()
-  | otherwise = case enc of
+decrypt enc k = case enc of
     A128CBC_HS256 -> _cbcHmacDec SHA256 (undefined :: AES128) k
     A192CBC_HS384 -> _cbcHmacDec SHA384 (undefined :: AES192) k
     A256CBC_HS512 -> _cbcHmacDec SHA512 (undefined :: AES256) k
