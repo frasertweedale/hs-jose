@@ -16,6 +16,8 @@ before_cache:
   - rm -fv $HOME/.cabal/packages/hackage.haskell.org/00-index.tar
   - test -n "$STACK_ARGS" && cp -a $HOME/.ghc $HOME/.cabsnap/ghc || true
 
+env: # required so that 'allow_failures' will work
+
 matrix:
   include:
   - env: STACK_ARGS="--resolver lts-4"
@@ -42,6 +44,10 @@ matrix:
     compiler: ": #stackage lts-9 (ghc-8.0.2)"
     addons: {apt: {packages: [libgmp-dev]}}
 
+  - env: STACK_ARGS="--resolver lts-10"
+    compiler: ": #stackage lts-10 (ghc-8.2.2)"
+    addons: {apt: {packages: [libgmp-dev]}}
+
   - env: STACK_ARGS="--resolver nightly"
     compiler: ": #stackage nightly"
     addons: {apt: {packages: [libgmp-dev]}}
@@ -54,9 +60,17 @@ matrix:
     compiler: ": #GHC 8.0.2"
     addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.2], sources: [hvr-ghc]}}
 
-  - env: CABALVER=1.24 GHCVER=8.2.1
-    compiler: ": #GHC 8.2.1"
-    addons: {apt: {packages: [cabal-install-1.24,ghc-8.2.1], sources: [hvr-ghc]}}
+  - env: CABALVER=1.24 GHCVER=8.2.2
+    compiler: ": #GHC 8.2.2"
+    addons: {apt: {packages: [cabal-install-1.24,ghc-8.2.2], sources: [hvr-ghc]}}
+
+  - env: CABALVER=1.24 GHCVER=8.4.1
+    compiler: ": #GHC 8.4.1"
+    addons: {apt: {packages: [cabal-install-1.24,ghc-8.4.1], sources: [hvr-ghc]}}
+
+  allow_failures:
+  - env: CABALVER=1.24 GHCVER=8.4.1
+  - env: STACK_ARGS="--resolver nightly"
 
 before_install:
 # Using compiler above sets CC to an invalid value, so unset it
