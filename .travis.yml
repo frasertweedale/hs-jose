@@ -16,8 +16,6 @@ before_cache:
   - rm -fv $HOME/.cabal/packages/hackage.haskell.org/00-index.tar
   - test -n "$STACK_ARGS" && cp -a $HOME/.ghc $HOME/.cabsnap/ghc || true
 
-env: # required so that 'allow_failures' will work
-
 matrix:
   include:
   - env: STACK_ARGS="--resolver lts-4"
