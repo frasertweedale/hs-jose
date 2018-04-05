@@ -126,7 +126,7 @@ test-suite tests
     , jose
 
     , tasty
-    , tasty-hspec
+    , tasty-hspec >= 1.0
     , tasty-quickcheck
     , hspec
     , QuickCheck
