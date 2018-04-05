@@ -18,10 +18,6 @@ before_cache:
 
 matrix:
   include:
-  - env: STACK_ARGS="--resolver lts-4"
-    compiler: ": #stackage lts-4 (ghc-7.10.3)"
-    addons: {apt: {packages: [libgmp-dev]}}
-
   - env: STACK_ARGS="--resolver lts-5"
     compiler: ": #stackage lts-5 (ghc-7.10.3)"
     addons: {apt: {packages: [libgmp-dev]}}
