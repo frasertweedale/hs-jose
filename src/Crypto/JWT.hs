@@ -48,6 +48,20 @@ doJwtVerify jwk jwt = runExceptT $ do
   'verifyClaims' config jwk jwt
 @
 
+Some JWT libraries have a function that takes two strings: the
+"secret" (a symmetric key) and the raw JWT.  The following function
+achieves the same:
+
+@
+verify :: L.ByteString -> L.ByteString -> IO (Either 'JWTError' 'ClaimsSet')
+verify k s = runExceptT $ do
+  let
+    k' = 'fromOctets' k      -- turn raw secret into symmetric JWK
+    audCheck = const True  -- should be a proper audience check
+  s' <- 'decodeCompact' s    -- decode JWT
+  'verifyClaims' ('defaultJWTValidationSettings' audCheck) k' s'
+@
+
 -}
 module Crypto.JWT
   (
