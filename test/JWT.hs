@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -50,8 +51,10 @@ exampleClaimsSet = emptyClaimsSet
   & over unregisteredClaims (insert "http://example.com/is_root" (Bool True))
   & addClaim "http://example.com/is_root" (Bool True)
 
+#if ! MIN_VERSION_monad_time(0,3,0)
 instance Monad m => MonadTime (ReaderT UTCTime m) where
   currentTime = ask
+#endif
 
 spec :: Spec
 spec = do
@@ -61,10 +64,10 @@ spec = do
   describe "JWT Claims Set" $ do
     it "parses from JSON correctly" $
       let
-        claimsJSON = "\
-          \{\"iss\":\"joe\",\r\n\
-          \ \"exp\":1300819380,\r\n\
-          \ \"http://example.com/is_root\":true}"
+        claimsJSON =
+          "{\"iss\":\"joe\",\r\n"
+          <> "\"exp\":1300819380,\r\n"
+          <> "\"http://example.com/is_root\":true}"
       in
         decode claimsJSON `shouldBe` Just exampleClaimsSet
 
@@ -269,11 +272,12 @@ spec = do
 
   describe "RFC 7519 §6.1.  Example Unsecured JWT" $ do
     let
-      exampleJWT = "eyJhbGciOiJub25lIn0\
-        \.\
-        \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
-        \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
-        \."
+      exampleJWT =
+        "eyJhbGciOiJub25lIn0"
+        <> "."
+        <> "eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt"
+        <> "cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
+        <> "."
       jwt = decodeCompact exampleJWT
       k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}" :: JWK
 
