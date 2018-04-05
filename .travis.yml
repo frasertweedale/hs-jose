@@ -46,6 +46,10 @@ matrix:
     compiler: ": #stackage lts-10 (ghc-8.2.2)"
     addons: {apt: {packages: [libgmp-dev]}}
 
+  - env: STACK_ARGS="--resolver lts-11"
+    compiler: ": #stackage lts-11 (ghc-8.2.2)"
+    addons: {apt: {packages: [libgmp-dev]}}
+
   - env: STACK_ARGS="--resolver nightly"
     compiler: ": #stackage nightly"
     addons: {apt: {packages: [libgmp-dev]}}
