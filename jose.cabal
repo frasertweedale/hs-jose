@@ -132,7 +132,7 @@ test-suite tests
     , QuickCheck
     , quickcheck-instances
 
-executable example
+executable jose-example
   hs-source-dirs: example
   ghc-options:    -Wall
   main-is:  Main.hs
