@@ -12,7 +12,9 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-|
 
@@ -24,29 +26,34 @@ module Crypto.JOSE.JWK.Store
     JWKStore(..)
   ) where
 
-
-import Control.Lens (Fold, folding)
+import Data.Proxy
 
 import Crypto.JOSE.Header
 import Crypto.JOSE.JWK (JWK, JWKSet(..), KeyOp)
 
-class JWKStore a where
-  -- | Enumerate keys
-  keys :: Fold a JWK
+class JWKStore m s a where
+  -- | Retrieve all keys in the store
+  keys :: Proxy s -> a -> m [JWK]
 
-  -- | Look up key by JWS/JWE header
+  -- | Look up key by JWS/JWE header and payload
   keysFor
     ::  ( HasAlg h, HasJku h, HasJwk h, HasKid h
         , HasX5u h, HasX5c h, HasX5t h, HasX5tS256 h
         , HasTyp h, HasCty h )
     => KeyOp
-    -> h p
-    -> Fold a JWK
-  keysFor _ _ = keys
+    -> h p        -- ^ JWS header
+    -> s          -- ^ Payload
+    -> a
+    -> m [JWK]
+  keysFor _ _ _ = keys (Proxy :: Proxy s)
 
 
-instance JWKStore JWK where
-  keys = id
+-- | Use a 'JWK' as a 'JWKStore'.  No filtering is performed.
+--
+instance Applicative m => JWKStore m s JWK where
+  keys _ k = pure [k]
 
-instance JWKStore JWKSet where
-  keys = folding (\(JWKSet xs) -> xs)
+-- | Use a 'JWKSet' as a 'JWKStore'.  No filtering is performed.
+--
+instance Applicative m => JWKStore m s JWKSet where
+  keys _ (JWKSet xs) = pure xs

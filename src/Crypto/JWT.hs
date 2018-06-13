@@ -529,7 +529,7 @@ verifyClaims
     , HasCheckIssuedAt a
     , HasValidationSettings a
     , AsError e, AsJWTError e, MonadError e m
-    , JWKStore k
+    , JWKStore m () k
     )
   => a
   -> k
@@ -557,7 +557,7 @@ verifyClaimsAt
     , HasCheckIssuedAt a
     , HasValidationSettings a
     , AsError e, AsJWTError e, MonadError e m
-    , JWKStore k
+    , JWKStore (ReaderT WrappedUTCTime m) () k
     )
   => a
   -> k

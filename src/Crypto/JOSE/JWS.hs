@@ -545,7 +545,7 @@ defaultValidationSettings = ValidationSettings
 -- See also 'defaultValidationSettings'.
 --
 verifyJWS'
-  ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h , JWKStore k
+  ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h , JWKStore m () k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
@@ -568,7 +568,7 @@ verifyJWS' = verifyJWS defaultValidationSettings
 verifyJWS
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
-      , JWKStore k
+      , JWKStore m () k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
@@ -590,11 +590,12 @@ verifyJWS conf k (JWS p@(Types.Base64Octets p') sigs) =
     applyPolicy AllValidated [] = throwError (review _JWSNoSignatures ())
     applyPolicy AllValidated xs =
       if and xs then pure out else throwError (review _JWSInvalidSignature ())
-    validate s =
-      let h = view header s
-      in anyOf (keysFor Verify h) ((== Right True) . verifySig p s) k
-  in
-    applyPolicy policy $ map validate $ filter shouldValidateSig $ toList sigs
+    validate s = do
+      keys <- keysFor Verify (view header s) () k
+      pure $ any ((== Right True) . verifySig p s) keys
+  in do
+    results <- traverse validate $ filter shouldValidateSig $ toList sigs
+    applyPolicy policy results
 
 verifySig
   :: (HasJWSHeader a, HasParams a, ProtectionIndicator p)
