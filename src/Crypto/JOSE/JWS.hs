@@ -55,6 +55,7 @@ module Crypto.JOSE.JWS
   -- * JWS verification
   , verifyJWS
   , verifyJWS'
+  , verifyJWSWithPayload
 
   -- ** JWS validation settings
   , defaultValidationSettings
@@ -90,7 +91,7 @@ import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))
 import Control.Lens.Cons.Extras (recons)
-import Control.Monad.Except (MonadError(throwError))
+import Control.Monad.Except (MonadError(throwError), unless)
 import Data.Aeson
 import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
@@ -545,7 +546,8 @@ defaultValidationSettings = ValidationSettings
 -- See also 'defaultValidationSettings'.
 --
 verifyJWS'
-  ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h , JWKStore m () k
+  ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h
+      , JWKStore m s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
@@ -568,7 +570,7 @@ verifyJWS' = verifyJWS defaultValidationSettings
 verifyJWS
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
-      , JWKStore m () k
+      , JWKStore m s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
@@ -577,25 +579,43 @@ verifyJWS
   -> k        -- ^ key or key store
   -> JWS t p h  -- ^ JWS
   -> m s
-verifyJWS conf k (JWS p@(Types.Base64Octets p') sigs) =
+verifyJWS = verifyJWSWithPayload pure
+
+verifyJWSWithPayload
+  ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
+      , HasJWSHeader h, HasParams h
+      , JWKStore m payload k
+      , Cons s s Word8 Word8, AsEmpty s
+      , Foldable t
+      , ProtectionIndicator p
+      )
+  => (s -> m payload)  -- ^ payload decoder
+  -> a                 -- ^ validation settings
+  -> k                 -- ^ key or key store
+  -> JWS t p h         -- ^ JWS
+  -> m payload
+verifyJWSWithPayload dec conf k (JWS p@(Types.Base64Octets p') sigs) =
   let
     algs :: S.Set Alg
     algs = conf ^. algorithms
     policy :: ValidationPolicy
     policy = conf ^. validationPolicy
     shouldValidateSig = (`elem` algs) . view (header . alg . param)
-    out = view recons p'
+
     applyPolicy AnyValidated xs =
-      if or xs then pure out else throwError (review _JWSNoValidSignatures ())
-    applyPolicy AllValidated [] = throwError (review _JWSNoSignatures ())
+      unless (or xs) (throwError (review _JWSNoValidSignatures ()))
+    applyPolicy AllValidated [] =
+      throwError (review _JWSNoSignatures ())
     applyPolicy AllValidated xs =
-      if and xs then pure out else throwError (review _JWSInvalidSignature ())
-    validate s = do
-      keys <- keysFor Verify (view header s) () k
-      pure $ any ((== Right True) . verifySig p s) keys
+      unless (and xs) (throwError (review _JWSInvalidSignature ()))
+
+    validate payload sig =
+      any ((== Right True) . verifySig p sig)
+      <$> keysFor Verify (view header sig) payload k
   in do
-    results <- traverse validate $ filter shouldValidateSig $ toList sigs
-    applyPolicy policy results
+    payload <- (dec . view recons) p'
+    results <- traverse (validate payload) $ filter shouldValidateSig $ toList sigs
+    payload <$ applyPolicy policy results
 
 verifySig
   :: (HasJWSHeader a, HasParams a, ProtectionIndicator p)

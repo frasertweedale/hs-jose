@@ -529,7 +529,7 @@ verifyClaims
     , HasCheckIssuedAt a
     , HasValidationSettings a
     , AsError e, AsJWTError e, MonadError e m
-    , JWKStore m () k
+    , JWKStore m ClaimsSet k
     )
   => a
   -> k
@@ -538,9 +538,9 @@ verifyClaims
 verifyClaims conf k jws =
   -- It is important, for security reasons, that the signature get
   -- verified before the claims.
-  verifyJWS conf k jws
-  >>= either (throwError . review _JWTClaimsSetDecodeError) pure . eitherDecode
-  >>= validateClaimsSet conf
+  verifyJWSWithPayload f conf k jws >>= validateClaimsSet conf
+  where
+    f = either (throwError . review _JWTClaimsSetDecodeError) pure . eitherDecode
 
 
 -- | Cryptographically verify a JWS JWT, then validate the
@@ -557,7 +557,7 @@ verifyClaimsAt
     , HasCheckIssuedAt a
     , HasValidationSettings a
     , AsError e, AsJWTError e, MonadError e m
-    , JWKStore (ReaderT WrappedUTCTime m) () k
+    , JWKStore (ReaderT WrappedUTCTime m) ClaimsSet k
     )
   => a
   -> k
