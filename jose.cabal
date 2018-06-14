@@ -137,11 +137,14 @@ executable jose-example
   ghc-options:    -Wall
   main-is:  Main.hs
   other-modules:
+    KeyDB
     JWS
+
   build-depends:
     base
     , aeson
     , bytestring
     , lens
     , mtl
+    , unix
     , jose

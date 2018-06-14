@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 import Data.Maybe (fromJust)
 import System.Environment (getArgs)
@@ -8,6 +9,7 @@ import System.Exit (exitFailure)
 import qualified Data.ByteString.Lazy as L
 import Data.Aeson (decode, encode)
 import Data.Text.Strict.Lens (utf8)
+import System.Posix.Files (getFileStatus, isDirectory)
 
 import Control.Monad.Except (runExceptT)
 import Control.Lens (preview, re, review, set, view)
@@ -15,6 +17,7 @@ import Control.Lens (preview, re, review, set, view)
 import Crypto.JWT
 
 import JWS (doJwsSign, doJwsVerify)
+import KeyDB
 
 main :: IO ()
 main = do
@@ -78,13 +81,18 @@ doJwtSign [jwkFilename, claimsFilename] = do
 --
 doJwtVerify :: [String] -> IO ()
 doJwtVerify [jwkFilename, jwtFilename, aud] = do
+  jwtData <- L.readFile jwtFilename
   let
     aud' = fromJust $ preview stringOrUri aud
     conf = defaultJWTValidationSettings (== aud')
-  Just k <- decode <$> L.readFile jwkFilename
-  jwtData <- L.readFile jwtFilename
-  result <- runExceptT
-    (decodeCompact jwtData >>= verifyClaims conf (k :: JWK))
+    go k = runExceptT (decodeCompact jwtData >>= verifyClaims conf k)
+
+  jwkDir <- isDirectory <$> getFileStatus jwkFilename
+  result <-
+    if jwkDir
+    then go (KeyDB jwkFilename)
+    else (fromJust . decode <$> L.readFile jwkFilename :: IO JWK) >>= go
+
   case result of
     Left e -> print (e :: JWTError) >> exitFailure
     Right claims -> L.putStr $ encode claims
