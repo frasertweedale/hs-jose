@@ -609,9 +609,11 @@ verifyJWSWithPayload dec conf k (JWS p@(Types.Base64Octets p') sigs) =
     applyPolicy AllValidated xs =
       unless (and xs) (throwError (review _JWSInvalidSignature ()))
 
-    validate payload sig =
-      any ((== Right True) . verifySig p sig)
-      <$> keysFor Verify (view header sig) payload k
+    validate payload sig = do
+      keys <- keysFor Verify (view header sig) payload k
+      if null keys
+        then throwError (review _NoUsableKeys ())
+        else pure $ any ((== Right True) . verifySig p sig) keys
   in do
     payload <- (dec . view recons) p'
     results <- traverse (validate payload) $ filter shouldValidateSig $ toList sigs

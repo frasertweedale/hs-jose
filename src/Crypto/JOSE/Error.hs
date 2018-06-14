@@ -46,6 +46,7 @@ data Error
   | CryptoError CryptoError   -- ^ Various cryptonite library error cases
   | CompactDecodeError String -- ^ Cannot decode compact representation
   | JSONDecodeError String    -- ^ JSON (Aeson) decoding error
+  | NoUsableKeys              -- ^ No usable keys were found in the key store
   | JWSCritUnprotected
   | JWSNoValidSignatures
   -- ^ 'AnyValidated' policy active, and no valid signature encountered
