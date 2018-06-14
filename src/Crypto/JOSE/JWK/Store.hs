@@ -18,7 +18,39 @@
 
 {-|
 
-A 'JWKStore' provides JWK enumeration and lookup.
+A 'JWKStore' provides JWK enumeration and lookup, possibly with
+effects.
+
+The 'keysFor' function is used to perform key lookup.  It can read
+JWS header and the JWS payload to help choose or find the relevant
+keys.
+
+Instances are provided for 'JWK' and 'JWKSet'.  These instances
+ignore the header and payload and just return the JWK/s they
+contain.
+
+More complex scenarios, such as efficient key lookup by @"kid"@ or
+searching a database, can be implemented by writing a new instance.
+For example, the following instance looks in a filesystem directory
+for keys based on the @"iss"@ claim in a JWT Claims Set:
+
+@
+-- | A KeyDB is just a filesystem directory
+newtype KeyDB = KeyDB FilePath
+
+instance MonadIO m => JWKStore m ClaimsSet KeyDB where
+  keys _ _ = pure []
+  keysFor _ _ claims (KeyDB dir) = liftIO $
+    case preview (claimIss . _Just . string) claims of
+      Nothing -> pure []
+      Just iss ->
+        -- Look for a file name "${iss}.jwk"
+        let path = dir <> "/" <> iss <> ".jwk"
+        in handle
+          -- IO errors (file not found, not readable, etc) return []
+          (\(_ :: IOException) -> pure [])
+          (maybe [] pure . decode \<$\> L.readFile path)
+@
 
 -}
 module Crypto.JOSE.JWK.Store
@@ -31,11 +63,15 @@ import Data.Proxy
 import Crypto.JOSE.Header
 import Crypto.JOSE.JWK (JWK, JWKSet(..), KeyOp)
 
+-- | A key database.  Lookup operates in effect @m@, with access
+-- to payload type 's'.
+--
 class JWKStore m s a where
-  -- | Retrieve all keys in the store
+  -- | Retrieve all keys in the store.
   keys :: Proxy s -> a -> m [JWK]
 
-  -- | Look up key by JWS/JWE header and payload
+  -- | Look up key by JWS/JWE header and payload.
+  -- The default implementation returns all 'keys'.
   keysFor
     ::  ( HasAlg h, HasJku h, HasJwk h, HasKid h
         , HasX5u h, HasX5c h, HasX5t h, HasX5tS256 h
@@ -47,6 +83,7 @@ class JWKStore m s a where
     -> m [JWK]
   keysFor _ _ _ = keys (Proxy :: Proxy s)
 
+  {-# MINIMAL keys #-}
 
 -- | Use a 'JWK' as a 'JWKStore'.  No filtering is performed.
 --

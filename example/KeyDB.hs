@@ -7,8 +7,7 @@ module KeyDB
     KeyDB(..)
   ) where
 
-import Control.Exception (SomeException, handle)
-import Data.Maybe (fromJust)
+import Control.Exception (IOException, handle)
 import Data.Semigroup ((<>))
 
 import Control.Monad.Trans (MonadIO(..))
@@ -32,5 +31,5 @@ instance MonadIO m => JWKStore m ClaimsSet KeyDB where
       Just iss ->
         let path = dir <> "/" <> iss <> ".jwk"
         in handle
-          (\(_ :: SomeException) -> pure [])
-          (pure . fromJust . decode <$> L.readFile path)
+          (\(_ :: IOException) -> pure [])
+          (maybe [] pure . decode <$> L.readFile path)
