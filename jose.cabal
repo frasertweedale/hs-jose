@@ -146,5 +146,6 @@ executable jose-example
     , bytestring
     , lens
     , mtl
+    , semigroups
     , unix
     , jose
