@@ -67,7 +67,6 @@ module Crypto.JWT
   (
   -- * Creating a JWT
     signClaims
-  , JWT
   , SignedJWT
 
   -- * Validating a JWT and extracting claims
@@ -502,21 +501,9 @@ validateIssClaim conf =
       throwError (review _JWTNotInIssuer ()))
   . preview (claimIss . _Just)
 
-
--- | JSON Web Token data.
---
-newtype JWT a = JWT a
-  deriving (Eq, Show)
-
 -- | A digitally signed or MACed JWT
 --
-type SignedJWT = JWT (CompactJWS JWSHeader)
-
-instance FromCompact a => FromCompact (JWT a) where
-  fromCompact = fmap JWT . fromCompact
-
-instance ToCompact a => ToCompact (JWT a) where
-  toCompact (JWT a) = toCompact a
+type SignedJWT = CompactJWS JWSHeader
 
 
 newtype WrappedUTCTime = WrappedUTCTime { getUTCTime :: UTCTime }
@@ -548,7 +535,7 @@ verifyClaims
   -> k
   -> SignedJWT
   -> m ClaimsSet
-verifyClaims conf k (JWT jws) =
+verifyClaims conf k jws =
   -- It is important, for security reasons, that the signature get
   -- verified before the claims.
   verifyJWS conf k jws
@@ -587,5 +574,4 @@ signClaims
   -> JWSHeader ()
   -> ClaimsSet
   -> m SignedJWT
-signClaims k h c =
-  JWT <$> signJWS (encode c) (Identity (h, k))
+signClaims k h c = signJWS (encode c) (Identity (h, k))
