@@ -23,9 +23,8 @@ import Crypto.JWT
 --
 newtype KeyDB = KeyDB FilePath
 
-instance MonadIO m => JWKStore m ClaimsSet KeyDB where
-  keys _ _ = pure []
-  keysFor _ _ claims (KeyDB dir) = liftIO $
+instance MonadIO m => VerificationKeyStore m ClaimsSet KeyDB where
+  getVerificationKeys _ claims (KeyDB dir) = liftIO $
     case preview (claimIss . _Just . string) claims of
       Nothing -> pure []
       Just iss ->

@@ -547,7 +547,7 @@ defaultValidationSettings = ValidationSettings
 --
 verifyJWS'
   ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h
-      , JWKStore m s k
+      , VerificationKeyStore m s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
@@ -570,7 +570,7 @@ verifyJWS' = verifyJWS defaultValidationSettings
 verifyJWS
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
-      , JWKStore m s k
+      , VerificationKeyStore m s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
@@ -584,7 +584,7 @@ verifyJWS = verifyJWSWithPayload pure
 verifyJWSWithPayload
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
-      , JWKStore m payload k
+      , VerificationKeyStore m payload k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
@@ -610,7 +610,7 @@ verifyJWSWithPayload dec conf k (JWS p@(Types.Base64Octets p') sigs) =
       unless (and xs) (throwError (review _JWSInvalidSignature ()))
 
     validate payload sig = do
-      keys <- keysFor Verify (view header sig) payload k
+      keys <- getVerificationKeys (view header sig) payload k
       if null keys
         then throwError (review _NoUsableKeys ())
         else pure $ any ((== Right True) . verifySig p sig) keys

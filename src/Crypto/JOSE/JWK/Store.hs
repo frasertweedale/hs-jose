@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
+-- Copyright (C) 2013-2018  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -18,16 +18,9 @@
 
 {-|
 
-A 'JWKStore' provides JWK enumeration and lookup, possibly with
-effects.
-
-The 'keysFor' function is used to perform key lookup.  It can read
-JWS header and the JWS payload to help choose or find the relevant
-keys.
-
-Instances are provided for 'JWK' and 'JWKSet'.  These instances
-ignore the header and payload and just return the JWK/s they
-contain.
+Key stores.  Instances are provided for 'JWK' and 'JWKSet'.  These
+instances ignore the header and payload and just return the JWK/s
+they contain.
 
 More complex scenarios, such as efficient key lookup by @"kid"@ or
 searching a database, can be implemented by writing a new instance.
@@ -38,9 +31,8 @@ for keys based on the @"iss"@ claim in a JWT Claims Set:
 -- | A KeyDB is just a filesystem directory
 newtype KeyDB = KeyDB FilePath
 
-instance MonadIO m => JWKStore m ClaimsSet KeyDB where
-  keys _ _ = pure []
-  keysFor _ _ claims (KeyDB dir) = liftIO $
+instance MonadIO m => VerificationKeyStore m ClaimsSet KeyDB where
+  getVerificationKeys _ claims (KeyDB dir) = liftIO $
     case preview (claimIss . _Just . string) claims of
       Nothing -> pure []
       Just iss ->
@@ -55,42 +47,39 @@ instance MonadIO m => JWKStore m ClaimsSet KeyDB where
 -}
 module Crypto.JOSE.JWK.Store
   (
-    JWKStore(..)
+    VerificationKeyStore(..)
   ) where
 
-import Data.Proxy
-
 import Crypto.JOSE.Header
-import Crypto.JOSE.JWK (JWK, JWKSet(..), KeyOp)
+import Crypto.JOSE.JWK (JWK, JWKSet(..))
 
--- | A key database.  Lookup operates in effect @m@, with access
--- to payload type 's'.
+-- | Verification keys.  Lookup operates in effect @m@ with access
+-- to the JWS header and a payload of type @s@.
 --
-class JWKStore m s a where
-  -- | Retrieve all keys in the store.
-  keys :: Proxy s -> a -> m [JWK]
-
-  -- | Look up key by JWS/JWE header and payload.
-  -- The default implementation returns all 'keys'.
-  keysFor
+-- The returned keys are not guaranteed to be used, e.g. if the JWK
+-- @"use"@ or @"key_ops"@ field does not allow use for verification.
+--
+class VerificationKeyStore m s a where
+  -- | Look up verification keys by JWS header and payload.
+  getVerificationKeys
     ::  ( HasAlg h, HasJku h, HasJwk h, HasKid h
         , HasX5u h, HasX5c h, HasX5t h, HasX5tS256 h
         , HasTyp h, HasCty h )
-    => KeyOp
-    -> h p        -- ^ JWS header
+    => h p        -- ^ JWS header
     -> s          -- ^ Payload
     -> a
     -> m [JWK]
-  keysFor _ _ _ = keys (Proxy :: Proxy s)
 
-  {-# MINIMAL keys #-}
-
--- | Use a 'JWK' as a 'JWKStore'.  No filtering is performed.
+-- | Use a 'JWK' as a 'VerificationKeyStore'.  Can be used with any
+-- payload type.  Header and payload are ignored.  No filtering is
+-- performed.
 --
-instance Applicative m => JWKStore m s JWK where
-  keys _ k = pure [k]
+instance Applicative m => VerificationKeyStore m s JWK where
+  getVerificationKeys _ _ k = pure [k]
 
--- | Use a 'JWKSet' as a 'JWKStore'.  No filtering is performed.
+-- | Use a 'JWKSet' as a 'VerificationKeyStore'.  Can be used with
+-- any payload type.  Returns all keys in the set; header and
+-- payload are ignored.  No filtering is performed.
 --
-instance Applicative m => JWKStore m s JWKSet where
-  keys _ (JWKSet xs) = pure xs
+instance Applicative m => VerificationKeyStore m s JWKSet where
+  getVerificationKeys _ _ (JWKSet xs) = pure xs
