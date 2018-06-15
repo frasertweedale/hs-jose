@@ -8,6 +8,7 @@ module KeyDB
   ) where
 
 import Control.Exception (IOException, handle)
+import Data.Maybe (catMaybes)
 import Data.Semigroup ((<>))
 
 import Control.Monad.Trans (MonadIO(..))
@@ -17,18 +18,23 @@ import qualified Data.ByteString.Lazy as L
 
 import Crypto.JWT
 
--- | Looks for keys given a FilePath.  'keys' returns empty
--- list but 'keysFor' will try to find a key based on the
--- "iss" field of the JWT.
+-- | A KeyDB is just a directory
 --
 newtype KeyDB = KeyDB FilePath
 
-instance MonadIO m => VerificationKeyStore m ClaimsSet KeyDB where
-  getVerificationKeys _ claims (KeyDB dir) = liftIO $
-    case preview (claimIss . _Just . string) claims of
-      Nothing -> pure []
-      Just iss ->
-        let path = dir <> "/" <> iss <> ".jwk"
-        in handle
-          (\(_ :: IOException) -> pure [])
-          (maybe [] pure . decode <$> L.readFile path)
+-- | Looks for a key in the directory, based on the @"kid"@ field of
+-- the 'JWSHeader' or the @"iss"@ field of the JWT 'ClaimsSet'
+--
+instance (MonadIO m, HasKid h)
+    => VerificationKeyStore m (h p) ClaimsSet KeyDB where
+  getVerificationKeys h claims (KeyDB dir) = liftIO $
+    fmap catMaybes . traverse findKey $ catMaybes
+      [ preview (kid . _Just . param) h
+      , preview (claimIss . _Just . string) claims]
+    where
+    findKey :: String -> IO (Maybe JWK)
+    findKey s =
+      let path = dir <> "/" <> s <> ".jwk"
+      in handle
+        (\(_ :: IOException) -> pure Nothing)
+        (decode <$> L.readFile path)

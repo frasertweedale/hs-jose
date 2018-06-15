@@ -524,7 +524,7 @@ defaultValidationSettings = ValidationSettings
 --
 verifyJWS'
   ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h
-      , VerificationKeyStore m s k
+      , VerificationKeyStore m (h p) s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
@@ -547,7 +547,7 @@ verifyJWS' = verifyJWS defaultValidationSettings
 verifyJWS
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
-      , VerificationKeyStore m s k
+      , VerificationKeyStore m (h p) s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
@@ -561,7 +561,7 @@ verifyJWS = verifyJWSWithPayload pure
 verifyJWSWithPayload
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
-      , VerificationKeyStore m payload k
+      , VerificationKeyStore m (h p) payload k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p

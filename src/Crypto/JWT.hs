@@ -529,7 +529,7 @@ verifyClaims
     , HasCheckIssuedAt a
     , HasValidationSettings a
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore m ClaimsSet k
+    , VerificationKeyStore m (JWSHeader ()) ClaimsSet k
     )
   => a
   -> k
@@ -557,7 +557,7 @@ verifyClaimsAt
     , HasCheckIssuedAt a
     , HasValidationSettings a
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore (ReaderT WrappedUTCTime m) ClaimsSet k
+    , VerificationKeyStore (ReaderT WrappedUTCTime m) (JWSHeader ()) ClaimsSet k
     )
   => a
   -> k
