@@ -187,68 +187,45 @@ data JWSHeader p = JWSHeader
   }
   deriving (Eq, Show)
 
-instance HasAlg JWSHeader where
-  alg f h@(JWSHeader { _jwsHeaderAlg = a }) =
-    fmap (\a' -> h { _jwsHeaderAlg = a' }) (f a)
-instance HasJku JWSHeader where
-  jku f h@(JWSHeader { _jwsHeaderJku = a }) =
-    fmap (\a' -> h { _jwsHeaderJku = a' }) (f a)
-instance HasJwk JWSHeader where
-  jwk f h@(JWSHeader { _jwsHeaderJwk = a }) =
-    fmap (\a' -> h { _jwsHeaderJwk = a' }) (f a)
-instance HasKid JWSHeader where
-  kid f h@(JWSHeader { _jwsHeaderKid = a }) =
-    fmap (\a' -> h { _jwsHeaderKid = a' }) (f a)
-instance HasX5u JWSHeader where
-  x5u f h@(JWSHeader { _jwsHeaderX5u = a }) =
-    fmap (\a' -> h { _jwsHeaderX5u = a' }) (f a)
-instance HasX5c JWSHeader where
-  x5c f h@(JWSHeader { _jwsHeaderX5c = a }) =
-    fmap (\a' -> h { _jwsHeaderX5c = a' }) (f a)
-instance HasX5t JWSHeader where
-  x5t f h@(JWSHeader { _jwsHeaderX5t = a }) =
-    fmap (\a' -> h { _jwsHeaderX5t = a' }) (f a)
-instance HasX5tS256 JWSHeader where
-  x5tS256 f h@(JWSHeader { _jwsHeaderX5tS256 = a }) =
-    fmap (\a' -> h { _jwsHeaderX5tS256 = a' }) (f a)
-instance HasTyp JWSHeader where
-  typ f h@(JWSHeader { _jwsHeaderTyp = a }) =
-    fmap (\a' -> h { _jwsHeaderTyp = a' }) (f a)
-instance HasCty JWSHeader where
-  cty f h@(JWSHeader { _jwsHeaderCty = a }) =
-    fmap (\a' -> h { _jwsHeaderCty = a' }) (f a)
-instance HasCrit JWSHeader where
-  crit f h@(JWSHeader { _jwsHeaderCrit = a }) =
-    fmap (\a' -> h { _jwsHeaderCrit = a' }) (f a)
-
 class HasJWSHeader a where
   jwsHeader :: Lens' (a p) (JWSHeader p)
 
 instance HasJWSHeader JWSHeader where
   jwsHeader = id
 
-instance {-# INCOHERENT #-} HasJWSHeader a => HasAlg a where
-  alg = jwsHeader . alg
-instance {-# INCOHERENT #-} HasJWSHeader a => HasJku a where
-  jku = jwsHeader . jku
-instance {-# INCOHERENT #-} HasJWSHeader a => HasJwk a where
-  jwk = jwsHeader . jwk
-instance {-# INCOHERENT #-} HasJWSHeader a => HasKid a where
-  kid = jwsHeader . kid
-instance {-# INCOHERENT #-} HasJWSHeader a => HasX5u a where
-  x5u = jwsHeader . x5u
-instance {-# INCOHERENT #-} HasJWSHeader a => HasX5c a where
-  x5c = jwsHeader . x5c
-instance {-# INCOHERENT #-} HasJWSHeader a => HasX5t a where
-  x5t = jwsHeader . x5t
-instance {-# INCOHERENT #-} HasJWSHeader a => HasX5tS256 a where
-  x5tS256 = jwsHeader . x5tS256
-instance {-# INCOHERENT #-} HasJWSHeader a => HasTyp a where
-  typ = jwsHeader . typ
-instance {-# INCOHERENT #-} HasJWSHeader a => HasCty a where
-  cty = jwsHeader . cty
-instance {-# INCOHERENT #-} HasJWSHeader a => HasCrit a where
-  crit = jwsHeader . crit
+instance HasJWSHeader a => HasAlg a where
+  alg = jwsHeader . \f h@(JWSHeader { _jwsHeaderAlg = a }) ->
+    fmap (\a' -> h { _jwsHeaderAlg = a' }) (f a)
+instance HasJWSHeader a => HasJku a where
+  jku = jwsHeader . \f h@(JWSHeader { _jwsHeaderJku = a }) ->
+    fmap (\a' -> h { _jwsHeaderJku = a' }) (f a)
+instance HasJWSHeader a => HasJwk a where
+  jwk = jwsHeader . \f h@(JWSHeader { _jwsHeaderJwk = a }) ->
+    fmap (\a' -> h { _jwsHeaderJwk = a' }) (f a)
+instance HasJWSHeader a => HasKid a where
+  kid = jwsHeader . \f h@(JWSHeader { _jwsHeaderKid = a }) ->
+    fmap (\a' -> h { _jwsHeaderKid = a' }) (f a)
+instance HasJWSHeader a => HasX5u a where
+  x5u = jwsHeader . \f h@(JWSHeader { _jwsHeaderX5u = a }) ->
+    fmap (\a' -> h { _jwsHeaderX5u = a' }) (f a)
+instance HasJWSHeader a => HasX5c a where
+  x5c = jwsHeader . \f h@(JWSHeader { _jwsHeaderX5c = a }) ->
+    fmap (\a' -> h { _jwsHeaderX5c = a' }) (f a)
+instance HasJWSHeader a => HasX5t a where
+  x5t = jwsHeader . \f h@(JWSHeader { _jwsHeaderX5t = a }) ->
+    fmap (\a' -> h { _jwsHeaderX5t = a' }) (f a)
+instance HasJWSHeader a => HasX5tS256 a where
+  x5tS256 = jwsHeader . \f h@(JWSHeader { _jwsHeaderX5tS256 = a }) ->
+    fmap (\a' -> h { _jwsHeaderX5tS256 = a' }) (f a)
+instance HasJWSHeader a => HasTyp a where
+  typ = jwsHeader . \f h@(JWSHeader { _jwsHeaderTyp = a }) ->
+    fmap (\a' -> h { _jwsHeaderTyp = a' }) (f a)
+instance HasJWSHeader a => HasCty a where
+  cty = jwsHeader . \f h@(JWSHeader { _jwsHeaderCty = a }) ->
+    fmap (\a' -> h { _jwsHeaderCty = a' }) (f a)
+instance HasJWSHeader a => HasCrit a where
+  crit = jwsHeader . \f h@(JWSHeader { _jwsHeaderCrit = a }) ->
+    fmap (\a' -> h { _jwsHeaderCrit = a' }) (f a)
 
 
 -- | Construct a minimal header with the given algorithm and
