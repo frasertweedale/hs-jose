@@ -20,8 +20,8 @@ doJwsSign [jwkFilename, payloadFilename] = do
   Just jwk <- decode <$> L.readFile jwkFilename
   payload <- L.readFile payloadFilename
   result <- runExceptT $ do
-    alg <- bestJWSAlg jwk
-    signJWS payload [(newJWSHeader (Protected, alg), jwk)]
+    h <- makeJWSHeader jwk
+    signJWS payload [(h :: JWSHeader Protection, jwk)]
   case result of
     Left e -> print (e :: Error) >> exitFailure
     Right jws -> L.putStr (encode jws)

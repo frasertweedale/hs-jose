@@ -60,9 +60,7 @@ doJwtSign :: [String] -> IO ()
 doJwtSign [jwkFilename, claimsFilename] = do
   Just k <- decode <$> L.readFile jwkFilename
   Just claims <- decode <$> L.readFile claimsFilename
-  result <- runExceptT $ do
-    alg' <- bestJWSAlg k
-    signClaims k (newJWSHeader ((), alg')) claims
+  result <- runExceptT $ makeJWSHeader k >>= \h -> signClaims k h claims
   case result of
     Left e -> print (e :: Error) >> exitFailure
     Right jwt -> L.putStr (encodeCompact jwt)

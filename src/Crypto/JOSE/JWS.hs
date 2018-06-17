@@ -50,6 +50,7 @@ module Crypto.JOSE.JWS
 
   -- * JWS creation
   , newJWSHeader
+  , makeJWSHeader
   , signJWS
 
   -- * JWS verification
@@ -234,6 +235,30 @@ instance HasJWSHeader a => HasCrit a where
 newJWSHeader :: (p, Alg) -> (JWSHeader p)
 newJWSHeader a = JWSHeader (uncurry HeaderParam a) z z z z z z z z z z
   where z = Nothing
+
+-- | Make a JWS header for the given signing key.
+--
+-- Uses 'bestJWSAlg' to choose the algorithm.
+-- If set, the JWK's @"kid"@, @"x5u"@, @"x5c"@, @"x5t"@ and
+-- @"x5t#S256"@ parameters are copied to the JWS header (as
+-- protected parameters).
+--
+-- May return 'KeySizeTooSmall' or 'KeyMismatch'.
+--
+makeJWSHeader
+  :: (MonadError e m, AsError e, ProtectionIndicator p)
+  => JWK
+  -> m (JWSHeader p)
+makeJWSHeader k = do
+  let p = getProtected
+  let f lh lk = set lh (HeaderParam p <$> view lk k)
+  algo <- bestJWSAlg k
+  pure $ newJWSHeader (p, algo)
+    & f kid (jwkKid . to (fmap (view recons)))
+    & f x5u jwkX5u
+    & f x5c jwkX5c
+    & f x5t jwkX5t
+    & f x5tS256 jwkX5tS256
 
 
 -- | Signature object containing header, and signature bytes.
