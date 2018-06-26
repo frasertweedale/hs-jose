@@ -69,6 +69,7 @@ module Crypto.JOSE.JWK
   , fromKeyMaterial
   , fromRSA
   , fromOctets
+  , fromX509Certificate
 
 #if MIN_VERSION_aeson(0,10,0)
   -- * JWK Thumbprint
@@ -216,12 +217,34 @@ fromKeyMaterial k = JWK k z z z z z z z z where z = Nothing
 fromRSA :: RSA.PrivateKey -> JWK
 fromRSA = fromKeyMaterial . RSAKeyMaterial . toRSAKeyParameters
 
+-- | Convert an RSA public key into a JWK
+--
+fromRSAPublic :: RSA.PublicKey -> JWK
+fromRSAPublic = fromKeyMaterial . RSAKeyMaterial . toRSAPublicKeyParameters
+
 -- | Convert octet string into a JWK
 --
 fromOctets :: Cons s s Word8 Word8 => s -> JWK
 fromOctets =
   fromKeyMaterial . OctKeyMaterial . OctKeyParameters . Types.Base64Octets
   . view recons
+
+
+-- | Convert an X.509 certificate into a JWK.
+--
+-- Only RSA keys are supported.  Other key types will throw
+-- 'KeyMismatch'.
+--
+-- The @"x5c"@ field of the resulting JWK contains the certificate.
+--
+fromX509Certificate
+  :: (AsError e, MonadError e m)
+  => X509.SignedCertificate -> m JWK
+fromX509Certificate cert = do
+  k <- case (X509.certPubKey . X509.signedObject . X509.getSigned) cert of
+    X509.PubKeyRSA k -> pure (fromRSAPublic k)
+    _ -> {- TODO EC -} throwError (review _KeyMismatch "X.509 key type not supported")
+  pure $ k & set jwkX5c (Just (pure cert))
 
 
 instance AsPublicKey JWK where

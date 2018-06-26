@@ -44,6 +44,7 @@ module Crypto.JOSE.JWA.JWK (
   , RSAPrivateKeyParameters(..)
   , RSAKeyParameters(RSAKeyParameters)
   , toRSAKeyParameters
+  , toRSAPublicKeyParameters
   , rsaE
   , rsaN
   , rsaPrivateKeyParameters
@@ -351,14 +352,19 @@ genRSA :: MonadRandom m => Int -> m RSAKeyParameters
 genRSA size = toRSAKeyParameters . snd <$> RSA.generate size 65537
 
 toRSAKeyParameters :: RSA.PrivateKey -> RSAKeyParameters
-toRSAKeyParameters (RSA.PrivateKey (RSA.PublicKey _ n e) d p q dp dq qi) =
+toRSAKeyParameters priv@(RSA.PrivateKey pub _ _ _ _ _ _) =
+  toRSAPublicKeyParameters pub
+  & set rsaPrivateKeyParameters (pure $ toRSAPrivateKeyParameters priv)
+
+toRSAPublicKeyParameters :: RSA.PublicKey -> RSAKeyParameters
+toRSAPublicKeyParameters (RSA.PublicKey _ n e) =
+  RSAKeyParameters (Types.Base64Integer n) (Types.Base64Integer e) Nothing
+
+toRSAPrivateKeyParameters :: RSA.PrivateKey -> RSAPrivateKeyParameters
+toRSAPrivateKeyParameters (RSA.PrivateKey _ d p q dp dq qi) =
   let i = Types.Base64Integer
-  in RSAKeyParameters
-    ( i n )
-    ( i e )
-    ( Just (RSAPrivateKeyParameters (i d)
-      (Just (RSAPrivateKeyOptionalParameters
-        (i p) (i q) (i dp) (i dq) (i qi) Nothing))) )
+  in RSAPrivateKeyParameters (i d)
+      (Just (RSAPrivateKeyOptionalParameters (i p) (i q) (i dp) (i dq) (i qi) Nothing))
 
 signPKCS15
   :: (PKCS15.HashAlgorithmASN1 h, MonadRandom m, MonadError e m, AsError e)
