@@ -163,6 +163,9 @@ instance ProtectionIndicator () where
 data HeaderParam p a = HeaderParam p a
   deriving (Eq, Show)
 
+instance Functor (HeaderParam p) where
+  fmap f (HeaderParam p a) = HeaderParam p (f a)
+
 -- | Lens for the 'Protection' of a 'HeaderParam'
 protection :: Lens' (HeaderParam p a) p
 protection f (HeaderParam p v) = fmap (\p' -> HeaderParam p' v) (f p)
@@ -325,7 +328,7 @@ class HasX5u a where
   x5u :: Lens' (a p) (Maybe (HeaderParam p Types.URI))
 
 class HasX5c a where
-  x5c :: Lens' (a p) (Maybe (HeaderParam p (NonEmpty Types.Base64X509)))
+  x5c :: Lens' (a p) (Maybe (HeaderParam p (NonEmpty Types.SignedCertificate)))
 
 class HasX5t a where
   x5t :: Lens' (a p) (Maybe (HeaderParam p Types.Base64SHA1))

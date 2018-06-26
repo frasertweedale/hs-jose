@@ -31,6 +31,7 @@ module Crypto.JOSE.Types
   , Base64SHA1(..)
   , Base64SHA256(..)
   , Base64X509(..)
+  , SignedCertificate
   , URI
   , base64url
   ) where

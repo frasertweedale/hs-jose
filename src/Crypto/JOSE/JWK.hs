@@ -104,6 +104,7 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Builder as Builder
 import Data.List.NonEmpty
 import qualified Data.Text as T
+import qualified Data.X509 as X509
 
 import Test.QuickCheck
 
@@ -157,7 +158,7 @@ data JWK = JWK
   , _jwkAlg :: Maybe JWKAlg
   , _jwkKid :: Maybe T.Text
   , _jwkX5u :: Maybe Types.URI
-  , _jwkX5c :: Maybe (NonEmpty Types.Base64X509)
+  , _jwkX5c :: Maybe (NonEmpty X509.SignedCertificate)
   , _jwkX5t :: Maybe Types.Base64SHA1
   , _jwkX5tS256 :: Maybe Types.Base64SHA256
   }
@@ -172,7 +173,7 @@ instance FromJSON JWK where
     <*> o .:? "alg"
     <*> o .:? "kid"
     <*> o .:? "x5u"
-    <*> o .:? "x5c"
+    <*> ((fmap . fmap) (\(Types.Base64X509 cert) -> cert) <$> o .:? "x5c")
     <*> o .:? "x5t"
     <*> o .:? "x5t#S256"
 
@@ -183,7 +184,7 @@ instance ToJSON JWK where
     , fmap ("key_ops" .=) _jwkKeyOps
     , fmap ("kid" .=) _jwkKid
     , fmap ("x5u" .=) _jwkX5u
-    , fmap ("x5c" .=) _jwkX5c
+    , fmap (("x5c" .=) . fmap Types.Base64X509) _jwkX5c
     , fmap ("x5t" .=) _jwkX5t
     , fmap ("x5t#S256" .=) _jwkX5tS256
     ]

@@ -73,7 +73,7 @@ data JWEHeader p = JWEHeader
   , _jweJwk :: Maybe (HeaderParam p JWK)
   , _jweKid :: Maybe (HeaderParam p String)
   , _jweX5u :: Maybe (HeaderParam p Types.URI)
-  , _jweX5c :: Maybe (HeaderParam p (NonEmpty Types.Base64X509))
+  , _jweX5c :: Maybe (HeaderParam p (NonEmpty Types.SignedCertificate))
   , _jweX5t :: Maybe (HeaderParam p Types.Base64SHA1)
   , _jweX5tS256 :: Maybe (HeaderParam p Types.Base64SHA256)
   , _jweTyp :: Maybe (HeaderParam p String)  -- ^ Content Type (of object)
@@ -96,7 +96,8 @@ instance HasParams JWEHeader where
     <*> headerOptional "jwk" hp hu
     <*> headerOptional "kid" hp hu
     <*> headerOptional "x5u" hp hu
-    <*> headerOptional "x5c" hp hu
+    <*> ((fmap . fmap . fmap . fmap)
+          (\(Types.Base64X509 cert) -> cert) (headerOptional "x5c" hp hu))
     <*> headerOptional "x5t" hp hu
     <*> headerOptional "x5t#S256" hp hu
     <*> headerOptional "typ" hp hu
@@ -113,7 +114,7 @@ instance HasParams JWEHeader where
       , fmap (\p -> (view isProtected p, "jwk" .= view param p)) jwk
       , fmap (\p -> (view isProtected p, "kid" .= view param p)) kid
       , fmap (\p -> (view isProtected p, "x5u" .= view param p)) x5u
-      , fmap (\p -> (view isProtected p, "x5c" .= view param p)) x5c
+      , fmap (\p -> (view isProtected p, "x5c" .= fmap Types.Base64X509 (view param p))) x5c
       , fmap (\p -> (view isProtected p, "x5t" .= view param p)) x5t
       , fmap (\p -> (view isProtected p, "x5t#S256" .= view param p)) x5tS256
       , fmap (\p -> (view isProtected p, "typ" .= view param p)) typ
