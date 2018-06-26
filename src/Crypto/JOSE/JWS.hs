@@ -177,13 +177,13 @@ data JWSHeader p = JWSHeader
   { _jwsHeaderAlg :: HeaderParam p Alg
   , _jwsHeaderJku :: Maybe (HeaderParam p Types.URI)  -- ^ JWK Set URL
   , _jwsHeaderJwk :: Maybe (HeaderParam p JWK)
-  , _jwsHeaderKid :: Maybe (HeaderParam p String)  -- ^ interpretation unspecified
+  , _jwsHeaderKid :: Maybe (HeaderParam p T.Text)  -- ^ interpretation unspecified
   , _jwsHeaderX5u :: Maybe (HeaderParam p Types.URI)
   , _jwsHeaderX5c :: Maybe (HeaderParam p (NonEmpty Types.SignedCertificate))
   , _jwsHeaderX5t :: Maybe (HeaderParam p Types.Base64SHA1)
   , _jwsHeaderX5tS256 :: Maybe (HeaderParam p Types.Base64SHA256)
-  , _jwsHeaderTyp :: Maybe (HeaderParam p String)  -- ^ Content Type (of object)
-  , _jwsHeaderCty :: Maybe (HeaderParam p String)  -- ^ Content Type (of payload)
+  , _jwsHeaderTyp :: Maybe (HeaderParam p T.Text)  -- ^ Content Type (of object)
+  , _jwsHeaderCty :: Maybe (HeaderParam p T.Text)  -- ^ Content Type (of payload)
   , _jwsHeaderCrit :: Maybe (NonEmpty T.Text)
   }
   deriving (Eq, Show)

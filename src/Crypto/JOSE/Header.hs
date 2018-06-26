@@ -322,7 +322,7 @@ class HasJwk a where
   jwk :: Lens' (a p) (Maybe (HeaderParam p JWK))
 
 class HasKid a where
-  kid :: Lens' (a p) (Maybe (HeaderParam p String))
+  kid :: Lens' (a p) (Maybe (HeaderParam p T.Text))
 
 class HasX5u a where
   x5u :: Lens' (a p) (Maybe (HeaderParam p Types.URI))
@@ -337,10 +337,10 @@ class HasX5tS256 a where
   x5tS256 :: Lens' (a p) (Maybe (HeaderParam p Types.Base64SHA256))
 
 class HasTyp a where
-  typ :: Lens' (a p) (Maybe (HeaderParam p String))
+  typ :: Lens' (a p) (Maybe (HeaderParam p T.Text))
 
 class HasCty a where
-  cty :: Lens' (a p) (Maybe (HeaderParam p String))
+  cty :: Lens' (a p) (Maybe (HeaderParam p T.Text))
 
 class HasCrit a where
   crit :: Lens' (a p) (Maybe (NonEmpty T.Text))

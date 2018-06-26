@@ -33,13 +33,14 @@ import qualified Crypto.PubKey.RSA as RSA
 import Crypto.Error (CryptoError)
 import Crypto.Random (MonadRandom(..))
 import Control.Lens.TH (makeClassyPrisms)
+import qualified Data.Text as T
 
 -- | All the errors that can occur.
 --
 data Error
   = AlgorithmNotImplemented   -- ^ A requested algorithm is not implemented
   | AlgorithmMismatch String  -- ^ A requested algorithm cannot be used
-  | KeyMismatch String        -- ^ Wrong type of key was given
+  | KeyMismatch T.Text        -- ^ Wrong type of key was given
   | KeySizeTooSmall           -- ^ Key size is too small
   | OtherPrimesNotSupported   -- ^ RSA private key with >2 primes not supported
   | RSAError RSA.Error        -- ^ RSA encryption, decryption or signing error

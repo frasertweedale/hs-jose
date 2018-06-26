@@ -15,6 +15,7 @@ import Control.Monad.Trans (MonadIO(..))
 import Control.Lens (_Just, preview)
 import Data.Aeson (decode)
 import qualified Data.ByteString.Lazy as L
+import qualified Data.Text as T
 
 import Crypto.JWT
 
@@ -32,9 +33,8 @@ instance (MonadIO m, HasKid h)
       [ preview (kid . _Just . param) h
       , preview (claimIss . _Just . string) claims]
     where
-    findKey :: String -> IO (Maybe JWK)
     findKey s =
-      let path = dir <> "/" <> s <> ".jwk"
+      let path = dir <> "/" <> T.unpack s <> ".jwk"
       in handle
         (\(_ :: IOException) -> pure Nothing)
         (decode <$> L.readFile path)

@@ -147,5 +147,6 @@ executable jose-example
     , lens
     , mtl
     , semigroups
+    , text
     , unix
     , jose

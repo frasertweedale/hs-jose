@@ -119,13 +119,13 @@ import Control.Monad.Time.Instances ()
 import Data.Foldable (traverse_)
 import Data.Functor.Identity
 import Data.Maybe
-import Data.List (unfoldr)
 import qualified Data.String
 
 import Control.Lens (
   makeClassy, makeClassyPrisms, makePrisms,
   Lens', _Just, over, preview, review, view,
-  Prism', prism', Cons, cons, uncons, iso, Iso')
+  Prism', prism', Cons, iso, AsEmpty)
+import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Except (MonadError(throwError))
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Data.Aeson
@@ -166,22 +166,22 @@ instance AsError JWTError where
 -- contains a @:@ but does not parse as a 'URI'.  Use 'stringOrUri'
 -- directly in this situation.
 --
-data StringOrURI = Arbitrary String | OrURI URI deriving (Eq, Show)
+data StringOrURI = Arbitrary T.Text | OrURI URI deriving (Eq, Show)
 
+-- | Non-total.  A string with a @':'@ in it MUST parse as a URI
 instance Data.String.IsString StringOrURI where
   fromString = fromJust . preview stringOrUri
 
-consString :: (Cons s s Char Char, Monoid s) => Iso' s String
-consString = iso (unfoldr uncons) (foldr cons mempty)
-
-stringOrUri :: (Cons s s Char Char, Monoid s) => Prism' s StringOrURI
-stringOrUri = consString . prism' rev fwd
+stringOrUri :: (Cons s s Char Char, AsEmpty s) => Prism' s StringOrURI
+stringOrUri = iso (view recons) (view recons) . prism' rev fwd
   where
   rev (Arbitrary s) = s
-  rev (OrURI x) = show x
-  fwd s = if ':' `elem` s then OrURI <$> parseURI s else pure (Arbitrary s)
+  rev (OrURI x) = T.pack (show x)
+  fwd s
+    | T.any (== ':') s = OrURI <$> parseURI (T.unpack s)
+    | otherwise = pure (Arbitrary s)
 
-string :: Prism' StringOrURI String
+string :: Prism' StringOrURI T.Text
 string = prism' Arbitrary f where
   f (Arbitrary s) = Just s
   f _ = Nothing

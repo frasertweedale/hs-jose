@@ -68,16 +68,16 @@ newtype CritParameters = CritParameters (NonEmpty (T.Text, Value))
 data JWEHeader p = JWEHeader
   { _jweAlg :: Maybe AlgWithParams
   , _jweEnc :: HeaderParam p Enc
-  , _jweZip :: Maybe String  -- protected header only  "DEF" (DEFLATE) defined
+  , _jweZip :: Maybe T.Text  -- protected header only  "DEF" (DEFLATE) defined
   , _jweJku :: Maybe (HeaderParam p Types.URI)
   , _jweJwk :: Maybe (HeaderParam p JWK)
-  , _jweKid :: Maybe (HeaderParam p String)
+  , _jweKid :: Maybe (HeaderParam p T.Text)
   , _jweX5u :: Maybe (HeaderParam p Types.URI)
   , _jweX5c :: Maybe (HeaderParam p (NonEmpty Types.SignedCertificate))
   , _jweX5t :: Maybe (HeaderParam p Types.Base64SHA1)
   , _jweX5tS256 :: Maybe (HeaderParam p Types.Base64SHA256)
-  , _jweTyp :: Maybe (HeaderParam p String)  -- ^ Content Type (of object)
-  , _jweCty :: Maybe (HeaderParam p String)  -- ^ Content Type (of payload)
+  , _jweTyp :: Maybe (HeaderParam p T.Text)  -- ^ Content Type (of object)
+  , _jweCty :: Maybe (HeaderParam p T.Text)  -- ^ Content Type (of payload)
   , _jweCrit :: Maybe (NonEmpty T.Text)
   }
   deriving (Eq, Show)
