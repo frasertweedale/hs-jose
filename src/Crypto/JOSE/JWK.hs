@@ -62,6 +62,7 @@ module Crypto.JOSE.JWK
   , jwkKid
   , jwkX5u
   , jwkX5c
+  , setJWKX5c
   , jwkX5t
   , jwkX5tS256
 
@@ -89,6 +90,7 @@ module Crypto.JOSE.JWK
   ) where
 
 import Control.Applicative
+import Data.Function (on)
 import Data.Maybe (catMaybes)
 import Data.Monoid ((<>))
 import Data.Word (Word8)
@@ -159,12 +161,33 @@ data JWK = JWK
   , _jwkAlg :: Maybe JWKAlg
   , _jwkKid :: Maybe T.Text
   , _jwkX5u :: Maybe Types.URI
-  , _jwkX5c :: Maybe (NonEmpty X509.SignedCertificate)
+  , _jwkX5cRaw :: Maybe (NonEmpty X509.SignedCertificate)
   , _jwkX5t :: Maybe Types.Base64SHA1
   , _jwkX5tS256 :: Maybe Types.Base64SHA256
   }
   deriving (Eq, Show)
 makeLenses ''JWK
+
+-- | Get the certificate chain.  Not a lens, because the key of the first
+-- certificate in the chain must correspond be the public key of the JWK.
+-- To set the certificate chain use 'setJWKX5c'.
+--
+jwkX5c :: Getter JWK (Maybe (NonEmpty X509.SignedCertificate))
+jwkX5c = jwkX5cRaw
+
+-- | Set the @"x5c"@ Certificate Chain parameter.  If setting the list,
+-- checks that the key in the first certificate matches the JWK; returns
+-- @Nothing@ if it does not.
+--
+setJWKX5c :: Maybe (NonEmpty X509.SignedCertificate) -> JWK -> Maybe JWK
+setJWKX5c Nothing k = pure (set jwkX5cRaw Nothing k)
+setJWKX5c certs@(Just (cert :| _)) key
+  | certMatchesKey = pure (set jwkX5cRaw certs key)
+  | otherwise = Nothing
+  where
+  certMatchesKey = maybe False (((==) `on` view jwkMaterial) key)
+      (fromX509CertificateMaybe cert >>= view asPublicKey)
+
 
 instance FromJSON JWK where
   parseJSON = withObject "JWK" $ \o -> JWK
@@ -185,7 +208,7 @@ instance ToJSON JWK where
     , fmap ("key_ops" .=) _jwkKeyOps
     , fmap ("kid" .=) _jwkKid
     , fmap ("x5u" .=) _jwkX5u
-    , fmap (("x5c" .=) . fmap Types.Base64X509) _jwkX5c
+    , fmap (("x5c" .=) . fmap Types.Base64X509) _jwkX5cRaw
     , fmap ("x5t" .=) _jwkX5t
     , fmap ("x5t#S256" .=) _jwkX5tS256
     ]
@@ -240,11 +263,17 @@ fromOctets =
 fromX509Certificate
   :: (AsError e, MonadError e m)
   => X509.SignedCertificate -> m JWK
-fromX509Certificate cert = do
+fromX509Certificate =
+  maybe (throwError (review _KeyMismatch "X.509 key type not supported")) pure
+  . fromX509CertificateMaybe
+
+fromX509CertificateMaybe :: X509.SignedCertificate -> Maybe JWK
+fromX509CertificateMaybe cert = do
   k <- case (X509.certPubKey . X509.signedObject . X509.getSigned) cert of
     X509.PubKeyRSA k -> pure (fromRSAPublic k)
-    _ -> {- TODO EC -} throwError (review _KeyMismatch "X.509 key type not supported")
-  pure $ k & set jwkX5c (Just (pure cert))
+    _ -> {- TODO EC -} Nothing
+  pure $ k & set jwkX5cRaw (Just (pure cert))
+
 
 
 instance AsPublicKey JWK where
