@@ -288,7 +288,7 @@ cfrgSpec = describe "RFC 8037 test vectors" $ do
     it "corresponds to A.1. private key" $ Right True == do
       sk <- _A1_result
       pk <- _A2_result
-      pure $ maybe False (== pk) (view asPublicKey sk)
+      pure $ view asPublicKey sk == Just pk
 
 rfc8037_A1_jwkJson = ""
   <> "{\"kty\":\"OKP\",\"crv\":\"Ed25519\","

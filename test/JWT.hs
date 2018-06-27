@@ -282,12 +282,12 @@ spec = do
       k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}" :: JWK
 
     describe "when the current time is prior to the Expiration Time" $
-      it "can be decoded and validated" $ do
+      it "can be decoded and validated" $
         runReaderT (jwt >>= verifyClaims conf k) (utcTime "2010-01-01 00:00:00")
           `shouldBe` (Right exampleClaimsSet :: Either JWTError ClaimsSet)
 
     describe "when the current time is after the Expiration Time" $
-      it "can be decoded, but not validated" $ do
+      it "can be decoded, but not validated" $
         runReaderT (jwt >>= verifyClaims conf k) (utcTime "2012-01-01 00:00:00")
           `shouldBe` Left JWTExpired
 

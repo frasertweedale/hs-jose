@@ -72,10 +72,10 @@ data ACMEHeader p = ACMEHeader
   , _acmeNonce :: Types.Base64Octets
   } deriving (Show)
 acmeJwsHeader :: Lens' (ACMEHeader p) (JWSHeader p)
-acmeJwsHeader f s@(ACMEHeader { _acmeJwsHeader = a}) =
+acmeJwsHeader f s@ACMEHeader{ _acmeJwsHeader = a} =
   fmap (\a' -> s { _acmeJwsHeader = a'}) (f a)
 acmeNonce :: Lens' (ACMEHeader p) Types.Base64Octets
-acmeNonce f s@(ACMEHeader { _acmeNonce = a}) =
+acmeNonce f s@ACMEHeader{ _acmeNonce = a} =
   fmap (\a' -> s { _acmeNonce = a'}) (f a)
 instance HasJWSHeader ACMEHeader where
   jwsHeader = acmeJwsHeader
@@ -386,27 +386,24 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
     jws ^? _Right . dropping 1 signatures . header `shouldBe` Just h2'
     jws ^? _Right . dropping 1 signatures . signature `shouldBe` Just mac2
 
-  it "decodes single-sig Generalised JWS correctly" $ do
-    let jws = eitherDecode exampleJWSOneSig :: Either String (GeneralJWS JWSHeader)
-    lengthOf (_Right . signatures) jws `shouldBe` 1
-    jws ^? _Right . signatures . header `shouldBe` Just h2'
-    jws ^? _Right . signatures . signature `shouldBe` Just mac2
+  let
+    decodeChecks jws = do
+      lengthOf (_Right . signatures) jws `shouldBe` 1
+      jws ^? _Right . signatures . header `shouldBe` Just h2'
+      jws ^? _Right . signatures . signature `shouldBe` Just mac2
 
-  it "fails to decode single-sig Generalised JWS to 'JWS Identity'" $ do
+  it "decodes single-sig Generalised JWS correctly" $
+    decodeChecks (eitherDecode exampleJWSOneSig :: Either String (GeneralJWS JWSHeader))
+
+  it "fails to decode single-sig Generalised JWS to 'JWS Identity'" $
     (eitherDecode exampleJWSOneSig :: Either String (FlattenedJWS JWSHeader))
       `shouldSatisfy` is _Left
 
-  it "decodes flattened JWS to 'JWS []' correctly" $ do
-    let jws = eitherDecode exampleJWSFlat :: Either String (GeneralJWS JWSHeader)
-    lengthOf (_Right . signatures) jws `shouldBe` 1
-    jws ^? _Right . signatures . header `shouldBe` Just h2'
-    jws ^? _Right . signatures . signature `shouldBe` Just mac2
+  it "decodes flattened JWS to 'JWS []' correctly" $
+    decodeChecks (eitherDecode exampleJWSFlat :: Either String (GeneralJWS JWSHeader))
 
-  it "decodes flattened JWS to 'JWS Identity' correctly" $ do
-    let jws = eitherDecode exampleJWSFlat :: Either String (FlattenedJWS JWSHeader)
-    lengthOf (_Right . signatures) jws `shouldBe` 1
-    jws ^? _Right . signatures . header `shouldBe` Just h2'
-    jws ^? _Right . signatures . signature `shouldBe` Just mac2
+  it "decodes flattened JWS to 'JWS Identity' correctly" $
+    decodeChecks (eitherDecode exampleJWSFlat :: Either String (FlattenedJWS JWSHeader))
 
   it "fails to decode flattened JWS when \"signatures\" key is present" $ do
     (eitherDecode exampleFlatJWSWithSignatures :: Either String (GeneralJWS JWSHeader))

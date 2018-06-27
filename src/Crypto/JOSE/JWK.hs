@@ -203,7 +203,7 @@ instance FromJSON JWK where
     <*> o .:? "x5t#S256"
 
 instance ToJSON JWK where
-  toJSON (JWK {..}) = object $ catMaybes
+  toJSON JWK{..} = object $ catMaybes
     [ fmap ("alg" .=) _jwkAlg
     , fmap ("use" .=) _jwkUse
     , fmap ("key_ops" .=) _jwkKeyOps

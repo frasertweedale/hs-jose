@@ -255,7 +255,7 @@ data ClaimsSet = ClaimsSet
 -- JWT.  The processing of this claim is generally application
 -- specific.
 claimIss :: Lens' ClaimsSet (Maybe StringOrURI)
-claimIss f h@(ClaimsSet { _claimIss = a}) =
+claimIss f h@ClaimsSet{ _claimIss = a} =
   fmap (\a' -> h { _claimIss = a' }) (f a)
 
 -- | The subject claim identifies the principal that is the
@@ -265,7 +265,7 @@ claimIss f h@(ClaimsSet { _claimIss = a}) =
 -- globally unique.  The processing of this claim is generally
 -- application specific.
 claimSub :: Lens' ClaimsSet (Maybe StringOrURI)
-claimSub f h@(ClaimsSet { _claimSub = a}) =
+claimSub f h@ClaimsSet{ _claimSub = a} =
   fmap (\a' -> h { _claimSub = a' }) (f a)
 
 -- | The audience claim identifies the recipients that the JWT is
@@ -275,7 +275,7 @@ claimSub f h@(ClaimsSet { _claimSub = a}) =
 -- value in the /aud/ claim when this claim is present, then the
 -- JWT MUST be rejected.
 claimAud :: Lens' ClaimsSet (Maybe Audience)
-claimAud f h@(ClaimsSet { _claimAud = a}) =
+claimAud f h@ClaimsSet{ _claimAud = a} =
   fmap (\a' -> h { _claimAud = a' }) (f a)
 
 -- | The expiration time claim identifies the expiration time on
@@ -285,7 +285,7 @@ claimAud f h@(ClaimsSet { _claimAud = a}) =
 -- /exp/ claim.  Implementers MAY provide for some small leeway,
 -- usually no more than a few minutes, to account for clock skew.
 claimExp :: Lens' ClaimsSet (Maybe NumericDate)
-claimExp f h@(ClaimsSet { _claimExp = a}) =
+claimExp f h@ClaimsSet{ _claimExp = a} =
   fmap (\a' -> h { _claimExp = a' }) (f a)
 
 -- | The not before claim identifies the time before which the JWT
@@ -295,14 +295,14 @@ claimExp f h@(ClaimsSet { _claimExp = a}) =
 -- claim.  Implementers MAY provide for some small leeway, usually
 -- no more than a few minutes, to account for clock skew.
 claimNbf :: Lens' ClaimsSet (Maybe NumericDate)
-claimNbf f h@(ClaimsSet { _claimNbf = a}) =
+claimNbf f h@ClaimsSet{ _claimNbf = a} =
   fmap (\a' -> h { _claimNbf = a' }) (f a)
 
 -- | The issued at claim identifies the time at which the JWT was
 -- issued.  This claim can be used to determine the age of the
 -- JWT.
 claimIat :: Lens' ClaimsSet (Maybe NumericDate)
-claimIat f h@(ClaimsSet { _claimIat = a}) =
+claimIat f h@ClaimsSet{ _claimIat = a} =
   fmap (\a' -> h { _claimIat = a' }) (f a)
 
 -- | The JWT ID claim provides a unique identifier for the JWT.
@@ -312,12 +312,12 @@ claimIat f h@(ClaimsSet { _claimIat = a}) =
 -- claim can be used to prevent the JWT from being replayed.  The
 -- /jti/ value is a case-sensitive string.
 claimJti :: Lens' ClaimsSet (Maybe T.Text)
-claimJti f h@(ClaimsSet { _claimJti = a}) =
+claimJti f h@ClaimsSet{ _claimJti = a} =
   fmap (\a' -> h { _claimJti = a' }) (f a)
 
 -- | Claim Names can be defined at will by those using JWTs.
 unregisteredClaims :: Lens' ClaimsSet (M.HashMap T.Text Value)
-unregisteredClaims f h@(ClaimsSet { _unregisteredClaims = a}) =
+unregisteredClaims f h@ClaimsSet{ _unregisteredClaims = a} =
   fmap (\a' -> h { _unregisteredClaims = a' }) (f a)
 
 
@@ -463,7 +463,7 @@ validateIatClaim conf =
   traverse_ (\t -> do
     now <- currentTime
     when (view checkIssuedAt conf) $
-      when ((view _NumericDate t) > addUTCTime (abs (view allowedSkew conf)) now) $
+      when (view _NumericDate t > addUTCTime (abs (view allowedSkew conf)) now) $
         throwError (review _JWTIssuedAtFuture ()))
     . preview (claimIat . _Just)
 

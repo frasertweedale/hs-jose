@@ -161,7 +161,7 @@ instance FromJSON RSAPrivateKeyOptionalParameters where
     o .:? "oth")
 
 instance ToJSON RSAPrivateKeyOptionalParameters where
-  toJSON (RSAPrivateKeyOptionalParameters {..}) = object $ [
+  toJSON RSAPrivateKeyOptionalParameters{..} = object $ [
     "p" .= rsaP
     , "q" .= rsaQ
     , "dp" .= rsaDp
@@ -561,7 +561,7 @@ data KeyMaterial
   deriving (Eq, Show)
 
 showKeyType :: KeyMaterial -> String
-showKeyType (ECKeyMaterial (ECKeyParameters { _ecCrv = crv })) = "ECDSA (" ++ show crv ++ ")"
+showKeyType (ECKeyMaterial ECKeyParameters{ _ecCrv = crv }) = "ECDSA (" ++ show crv ++ ")"
 showKeyType (RSAKeyMaterial _) = "RSA"
 showKeyType (OctKeyMaterial _) = "symmetric"
 showKeyType (OKPKeyMaterial _) = "OKP"
@@ -614,9 +614,9 @@ sign
   -> B.ByteString
   -> m B.ByteString
 sign JWA.JWS.None _ = \_ -> return ""
-sign JWA.JWS.ES256 (ECKeyMaterial k@(ECKeyParameters { _ecCrv = P_256 })) = signEC SHA256 k
-sign JWA.JWS.ES384 (ECKeyMaterial k@(ECKeyParameters { _ecCrv = P_384 })) = signEC SHA384 k
-sign JWA.JWS.ES512 (ECKeyMaterial k@(ECKeyParameters { _ecCrv = P_521 })) = signEC SHA512 k
+sign JWA.JWS.ES256 (ECKeyMaterial k@ECKeyParameters{ _ecCrv = P_256 }) = signEC SHA256 k
+sign JWA.JWS.ES384 (ECKeyMaterial k@ECKeyParameters{ _ecCrv = P_384 }) = signEC SHA384 k
+sign JWA.JWS.ES512 (ECKeyMaterial k@ECKeyParameters{ _ecCrv = P_521 }) = signEC SHA512 k
 sign JWA.JWS.RS256 (RSAKeyMaterial k) = signPKCS15 SHA256 k
 sign JWA.JWS.RS384 (RSAKeyMaterial k) = signPKCS15 SHA384 k
 sign JWA.JWS.RS512 (RSAKeyMaterial k) = signPKCS15 SHA512 k
