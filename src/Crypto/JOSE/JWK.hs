@@ -185,8 +185,9 @@ setJWKX5c certs@(Just (cert :| _)) key
   | certMatchesKey = pure (set jwkX5cRaw certs key)
   | otherwise = Nothing
   where
-  certMatchesKey = maybe False (((==) `on` view jwkMaterial) key)
-      (fromX509CertificateMaybe cert >>= view asPublicKey)
+  certMatchesKey =
+    maybe False (((==) `on` preview (jwkMaterial . asPublicKey)) key)
+      (fromX509CertificateMaybe cert)
 
 
 instance FromJSON JWK where

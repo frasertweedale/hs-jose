@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2017  Fraser Tweedale
+-- Copyright (C) 2013, 2017, 2018  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -179,23 +179,10 @@ jwkAppendixA3Spec = describe "RFC 7517 A.3. Example Symmetric Keys" $
       <> "}"
 
 jwkAppendixBSpec :: Spec
-jwkAppendixBSpec = describe "JWK B.  Example Use of \"x5c\" (X.509 Certificate Chain) Parameter" $
-  it "successfully decodes the example" $
-    (eitherDecode exampleJWK :: Either String JWK) `shouldSatisfy` is _Right
-    where
-    exampleJWK = ""
-      <> "{\"kty\":\"RSA\","
-      <> " \"use\":\"sig\","
-      <> " \"kid\":\"1b94c\","
-      <> " \"n\":\"vrjOfz9Ccdgx5nQudyhdoR17V-IubWMeOZCwX_jj0hgAsz2J_pqYW08"
-      <> "PLbK_PdiVGKPrqzmDIsLI7sA25VEnHU1uCLNwBuUiCO11_-7dYbsr4iJmG0Q"
-      <> "u2j8DsVyT1azpJC_NG84Ty5KKthuCaPod7iI7w0LK9orSMhBEwwZDCxTWq4a"
-      <> "YWAchc8t-emd9qOvWtVMDC2BXksRngh6X5bUYLy6AyHKvj-nUy1wgzjYQDwH"
-      <> "MTplCoLtU-o-8SNnZ1tmRoGE9uJkBLdh5gFENabWnU5m1ZqZPdwS-qo-meMv"
-      <> "VfJb6jJVWRpl2SUtCnYG2C32qvbWbjZ_jBPD5eunqsIo1vQ\","
-      <> " \"e\":\"AQAB\","
-      <> " \"x5c\":"
-      <> "  [\"MIIDQjCCAiqgAwIBAgIGATz/FuLiMA0GCSqGSIb3DQEBBQUAMGIxCzAJB"
+jwkAppendixBSpec = describe "JWK B.  Example Use of \"x5c\" (X.509 Certificate Chain) Parameter" $ do
+  let
+    appendixBExampleX5c = ""
+      <> "[\"MIIDQjCCAiqgAwIBAgIGATz/FuLiMA0GCSqGSIb3DQEBBQUAMGIxCzAJB"
       <> "gNVBAYTAlVTMQswCQYDVQQIEwJDTzEPMA0GA1UEBxMGRGVudmVyMRwwGgYD"
       <> "VQQKExNQaW5nIElkZW50aXR5IENvcnAuMRcwFQYDVQQDEw5CcmlhbiBDYW1"
       <> "wYmVsbDAeFw0xMzAyMjEyMzI5MTVaFw0xODA4MTQyMjI5MTVaMGIxCzAJBg"
@@ -214,7 +201,37 @@ jwkAppendixBSpec = describe "JWK B.  Example Use of \"x5c\" (X.509 Certificate C
       <> "2Bo3UPGrpsHzUoaGpDftmWssZkhpBJKVMJyf/RuP2SmmaIzmnw9JiSlYhzo"
       <> "4tpzd5rFXhjRbg4zW9C+2qok+2+qDM1iJ684gPHMIY8aLWrdgQTxkumGmTq"
       <> "gawR+N5MDtdPTEQ0XfIBc2cJEUyMTY5MPvACWpkA6SdS4xSvdXK3IVfOWA==\"]"
-      <> "}"
+    exampleKeyCommon = ""
+      <> "{\"kty\":\"RSA\","
+      <> " \"use\":\"sig\","
+      <> " \"kid\":\"1b94c\","
+      <> " \"n\":\"vrjOfz9Ccdgx5nQudyhdoR17V-IubWMeOZCwX_jj0hgAsz2J_pqYW08"
+      <> "PLbK_PdiVGKPrqzmDIsLI7sA25VEnHU1uCLNwBuUiCO11_-7dYbsr4iJmG0Q"
+      <> "u2j8DsVyT1azpJC_NG84Ty5KKthuCaPod7iI7w0LK9orSMhBEwwZDCxTWq4a"
+      <> "YWAchc8t-emd9qOvWtVMDC2BXksRngh6X5bUYLy6AyHKvj-nUy1wgzjYQDwH"
+      <> "MTplCoLtU-o-8SNnZ1tmRoGE9uJkBLdh5gFENabWnU5m1ZqZPdwS-qo-meMv"
+      <> "VfJb6jJVWRpl2SUtCnYG2C32qvbWbjZ_jBPD5eunqsIo1vQ\","
+      <> " \"e\":\"AQAB\""
+    Just exampleJWKWithX5c = decode $ exampleKeyCommon <> ",\"x5c\":" <> appendixBExampleX5c <> "}"
+    Just exampleJWKWithoutX5c = decode $ exampleKeyCommon <> "}"
+    -- Note: this key is bogus: the "d" param does not correspond to the "n"
+    -- of the public key.  This is not what we're testing, but if a "n"/"d"
+    -- sanity check gets implemented in future this test will need updating
+    Just examplePrivateJWKWithoutX5c = decode $ exampleKeyCommon
+      <> ",\"d\":\"X4cTteJY_gn4FYPsXB8rdXix5vwsg1FLN5E3EaG6RJoVH-HLLKD9"
+      <> "M7dx5oo7GURknchnrRweUkC7hT5fJLM0WbFAKNLWY2vv7B6NqXSzUvxT0_YSfqij"
+      <> "wp3RTzlBaCxWp4doFk5N2o8Gy_nHNKroADIkJ46pRUohsXywbReAdYaMwFs9tv8d"
+      <> "_cPVY3i07a3t8MN6TNwm0dSawm9v47UiCl3Sk5ZiG7xojPLu4sbg1U2jx4IBTNBz"
+      <> "nbJSzFHK66jT8bgkuqsk0GjskDJk19Z4qwjwbsnn4j2WBii3RL-Us2lGVkY8fkFz"
+      <> "me1z0HbIkfz0Y6mqnOYtqc0X4jfcKoAC8Q\"}"
+    Just certs = (fmap . fmap) (\(Types.Base64X509 cert) -> cert) (decode appendixBExampleX5c)
+  it "sets x5c in JWK with PUBLIC key when first cert matches key" $
+    setJWKX5c (Just certs) exampleJWKWithoutX5c `shouldBe` Just exampleJWKWithX5c
+  it "sets x5c in JWK with PRIVATE key when first cert matches key" $
+    (setJWKX5c (Just certs) examplePrivateJWKWithoutX5c >>= view asPublicKey)
+    `shouldBe` Just exampleJWKWithX5c
+  it "unsets x5c in JWK when given x5c = Nothing" $
+    setJWKX5c Nothing exampleJWKWithX5c `shouldBe` Just exampleJWKWithoutX5c
 
 jwkAppendixC1Spec :: Spec
 jwkAppendixC1Spec = describe "RFC 7517  C.1. Plaintext RSA Private Key" $
