@@ -19,7 +19,7 @@ module JWK where
 
 import Data.Monoid ((<>))
 
-import Control.Lens (_Right, review, view)
+import Control.Lens (_Left, _Right, review, view)
 import Control.Lens.Extras (is)
 import Data.Aeson
 import qualified Data.ByteArray as BA
@@ -225,6 +225,15 @@ jwkAppendixBSpec = describe "JWK B.  Example Use of \"x5c\" (X.509 Certificate C
       <> "nbJSzFHK66jT8bgkuqsk0GjskDJk19Z4qwjwbsnn4j2WBii3RL-Us2lGVkY8fkFz"
       <> "me1z0HbIkfz0Y6mqnOYtqc0X4jfcKoAC8Q\"}"
     Just certs = (fmap . fmap) (\(Types.Base64X509 cert) -> cert) (decode appendixBExampleX5c)
+    jwkWithMismatchedPubKeyAndX5c = ""
+      <> "{\"kty\":\"RSA\","
+      <> " \"n\":\"vrjOfz9Ccdgx5nQudyhdoR17V-IubWMeOZCwX_jj0hgAsz2J_pqYW08"
+      <> "HACK_HACK_HACK_HACK_HACK_HACK_HACK_HACK_HACK_HACK_HACK_HACK_"
+      <> "u2j8DsVyT1azpJC_NG84Ty5KKthuCaPod7iI7w0LK9orSMhBEwwZDCxTWq4a"
+      <> "YWAchc8t-emd9qOvWtVMDC2BXksRngh6X5bUYLy6AyHKvj-nUy1wgzjYQDwH"
+      <> "MTplCoLtU-o-8SNnZ1tmRoGE9uJkBLdh5gFENabWnU5m1ZqZPdwS-qo-meMv"
+      <> "VfJb6jJVWRpl2SUtCnYG2C32qvbWbjZ_jBPD5eunqsIo1vQ\","
+      <> " \"e\":\"AQAB\",\"x5c\":" <> appendixBExampleX5c <> "}"
   it "sets x5c in JWK with PUBLIC key when first cert matches key" $
     setJWKX5c (Just certs) exampleJWKWithoutX5c `shouldBe` Just exampleJWKWithX5c
   it "sets x5c in JWK with PRIVATE key when first cert matches key" $
@@ -232,6 +241,8 @@ jwkAppendixBSpec = describe "JWK B.  Example Use of \"x5c\" (X.509 Certificate C
     `shouldBe` Just exampleJWKWithX5c
   it "unsets x5c in JWK when given x5c = Nothing" $
     setJWKX5c Nothing exampleJWKWithX5c `shouldBe` Just exampleJWKWithoutX5c
+  it "rejects (parse error) keys with x5c that does not match public key" $
+    (eitherDecode jwkWithMismatchedPubKeyAndX5c :: Either String JWK) `shouldSatisfy` is _Left
 
 jwkAppendixC1Spec :: Spec
 jwkAppendixC1Spec = describe "RFC 7517  C.1. Plaintext RSA Private Key" $

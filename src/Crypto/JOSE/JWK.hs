@@ -90,6 +90,7 @@ module Crypto.JOSE.JWK
   ) where
 
 import Control.Applicative
+import Control.Monad ((>=>))
 import Data.Function (on)
 import Data.Maybe (catMaybes)
 import Data.Monoid ((<>))
@@ -182,16 +183,17 @@ jwkX5c = jwkX5cRaw
 setJWKX5c :: Maybe (NonEmpty X509.SignedCertificate) -> JWK -> Maybe JWK
 setJWKX5c Nothing k = pure (set jwkX5cRaw Nothing k)
 setJWKX5c certs@(Just (cert :| _)) key
-  | certMatchesKey = pure (set jwkX5cRaw certs key)
+  | certMatchesKey key cert = pure (set jwkX5cRaw certs key)
   | otherwise = Nothing
-  where
-  certMatchesKey =
-    maybe False (((==) `on` preview (jwkMaterial . asPublicKey)) key)
-      (fromX509CertificateMaybe cert)
+
+certMatchesKey :: JWK -> X509.SignedCertificate -> Bool
+certMatchesKey key cert =
+  maybe False (((==) `on` preview (jwkMaterial . asPublicKey)) key)
+    (fromX509CertificateMaybe cert)
 
 
 instance FromJSON JWK where
-  parseJSON = withObject "JWK" $ \o -> JWK
+  parseJSON = withObject "JWK" (\o -> JWK
     <$> parseJSON (Object o)
     <*> o .:? "use"
     <*> o .:? "key_ops"
@@ -201,6 +203,12 @@ instance FromJSON JWK where
     <*> ((fmap . fmap) (\(Types.Base64X509 cert) -> cert) <$> o .:? "x5c")
     <*> o .:? "x5t"
     <*> o .:? "x5t#S256"
+    ) >=> checkKey
+    where
+    checkKey k
+      | maybe False (not . certMatchesKey k . Data.List.NonEmpty.head) (view jwkX5c k)
+        = fail "X.509 cert in \"x5c\" param does not match key"
+      | otherwise = pure k
 
 instance ToJSON JWK where
   toJSON JWK{..} = object $ catMaybes
