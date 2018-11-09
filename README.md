@@ -61,6 +61,17 @@ so please do not open issues:
   case you are out of luck until *Auth0* bring their implementation
   into compliance.
 
+- JWKs with leading null bytes in the RSA `"n"` parameter (a
+  [violation of RFC
+  7518](https://tools.ietf.org/html/rfc7518#section-2)) have been
+  [seen in the
+  wild](https://github.com/frasertweedale/hs-jose/issues/68).  This
+  library rejects nonconformant JWKs.  If you know which
+  programs/libraries produce such objects, please file bugs against
+  them.  It is straightforward to repair these keys:
+  base64url-decode the offending parameter, drop the leading null
+  byte, base64url-encode again then update the JSON object.
+
 
 ## Contributing
 
