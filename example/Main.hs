@@ -3,11 +3,12 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 import Data.Maybe (fromJust)
+import Data.Semigroup ((<>))
 import System.Environment (getArgs)
-import System.Exit (exitFailure)
+import System.Exit (die, exitFailure)
 
 import qualified Data.ByteString.Lazy as L
-import Data.Aeson (decode, encode)
+import Data.Aeson (decode, eitherDecode, encode)
 import Data.Text.Strict.Lens (utf8)
 import System.Posix.Files (getFileStatus, isDirectory)
 
@@ -89,11 +90,16 @@ doJwtVerify [jwkFilename, jwtFilename, aud] = do
   result <-
     if jwkDir
     then go (KeyDB jwkFilename)
-    else (fromJust . decode <$> L.readFile jwkFilename :: IO JWK) >>= go
+    else (eitherDecode <$> L.readFile jwkFilename :: IO (Either String JWK))
+      >>= rightOrDie "Failed to decode JWK"
+      >>= go
 
   case result of
     Left e -> print (e :: JWTError) >> exitFailure
     Right claims -> L.putStr $ encode claims
+
+rightOrDie :: (Show e) => String -> Either e a -> IO a
+rightOrDie s = either (die . (\e -> s <> ": " <> show e)) pure
 
 
 #if MIN_VERSION_aeson(0,10,0)
