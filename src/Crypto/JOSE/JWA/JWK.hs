@@ -568,10 +568,13 @@ showKeyType (OKPKeyMaterial _) = "OKP"
 
 instance FromJSON KeyMaterial where
   parseJSON = withObject "KeyMaterial" $ \o ->
-    ECKeyMaterial      <$> parseJSON (Object o)
-    <|> RSAKeyMaterial <$> parseJSON (Object o)
-    <|> OctKeyMaterial <$> parseJSON (Object o)
-    <|> OKPKeyMaterial <$> parseJSON (Object o)
+    case M.lookup "kty" o of
+      Nothing     -> fail "missing \"kty\" parameter"
+      Just "EC"   -> ECKeyMaterial  <$> parseJSON (Object o)
+      Just "RSA"  -> RSAKeyMaterial <$> parseJSON (Object o)
+      Just "oct"  -> OctKeyMaterial <$> parseJSON (Object o)
+      Just "OKP"  -> OKPKeyMaterial <$> parseJSON (Object o)
+      Just s      -> fail $ "unsupported \"kty\": " <> show s
 
 instance ToJSON KeyMaterial where
   toJSON (ECKeyMaterial p)  = object $ Types.objectPairs (toJSON p)
