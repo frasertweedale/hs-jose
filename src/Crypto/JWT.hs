@@ -19,6 +19,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE MonoLocalBinds #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 {-|
 
@@ -368,7 +369,7 @@ data JWTValidationSettings = JWTValidationSettings
   }
 makeClassy ''JWTValidationSettings
 
-instance HasValidationSettings JWTValidationSettings where
+instance HasJWTValidationSettings a => HasValidationSettings a where
   validationSettings = jwtValidationSettingsValidationSettings
 
 -- | Maximum allowed skew when validating the /nbf/, /exp/ and /iat/ claims.
