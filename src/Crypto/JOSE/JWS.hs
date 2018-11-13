@@ -35,6 +35,8 @@ doJwsVerify jwk jws = runExceptT $ 'verifyJWS'' jwk jws
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE MonoLocalBinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Crypto.JOSE.JWS
@@ -246,12 +248,16 @@ newJWSHeader a = JWSHeader (uncurry HeaderParam a) z z z z z z z z z z
 -- May return 'KeySizeTooSmall' or 'KeyMismatch'.
 --
 makeJWSHeader
-  :: (MonadError e m, AsError e, ProtectionIndicator p)
+  :: forall e m p. (MonadError e m, AsError e, ProtectionIndicator p)
   => JWK
   -> m (JWSHeader p)
 makeJWSHeader k = do
-  let p = getProtected
-  let f lh lk = set lh (HeaderParam p <$> view lk k)
+  let
+    p = getProtected
+    f :: ASetter s t a (Maybe (HeaderParam p a1))
+      -> Getting (Maybe a1) JWK (Maybe a1)
+      -> s -> t
+    f lh lk = set lh (HeaderParam p <$> view lk k)
   algo <- bestJWSAlg k
   pure $ newJWSHeader (p, algo)
     & f kid (jwkKid . to (fmap (view recons)))
