@@ -26,14 +26,72 @@ module Crypto.JOSE.Error
   (
     Error(..)
   , AsError(..)
+
+  -- * JOSE compact serialisation errors
+  , InvalidNumberOfParts(..), expectedParts, actualParts
+  , CompactTextError(..)
+  , CompactDecodeError(..)
+  , _CompactInvalidNumberOfParts
+  , _CompactInvalidText
   ) where
+
+import Data.Semigroup ((<>))
+import Numeric.Natural
 
 import Control.Monad.Trans (MonadTrans(..))
 import qualified Crypto.PubKey.RSA as RSA
 import Crypto.Error (CryptoError)
 import Crypto.Random (MonadRandom(..))
-import Control.Lens.TH (makeClassyPrisms)
+import Control.Lens (Getter, to)
+import Control.Lens.TH (makeClassyPrisms, makePrisms)
 import qualified Data.Text as T
+import qualified Data.Text.Encoding.Error as T
+
+
+-- | The wrong number of parts were found when decoding a
+-- compact JOSE object.
+--
+data InvalidNumberOfParts =
+  InvalidNumberOfParts Natural Natural -- ^ expected vs actual parts
+  deriving (Eq)
+
+instance Show InvalidNumberOfParts where
+  show (InvalidNumberOfParts n m) =
+    "Expected " <> show n <> " parts; got " <> show m
+
+-- | Get the expected or actual number of parts.
+expectedParts, actualParts :: Getter InvalidNumberOfParts Natural
+expectedParts = to $ \(InvalidNumberOfParts n _) -> n
+actualParts   = to $ \(InvalidNumberOfParts _ n) -> n
+
+
+-- | Bad UTF-8 data in a compact object, at the specified index
+data CompactTextError = CompactTextError
+  Natural
+  T.UnicodeException
+  deriving (Eq)
+
+instance Show CompactTextError where
+  show (CompactTextError n s) =
+    "Invalid text at part " <> show n <> ": " <> show s
+
+
+-- | An error when decoding a JOSE compact object.
+-- JSON decoding errors that occur during compact object processing
+-- throw 'JSONDecodeError'.
+--
+data CompactDecodeError
+  = CompactInvalidNumberOfParts InvalidNumberOfParts
+  | CompactInvalidText CompactTextError
+  deriving (Eq)
+makePrisms ''CompactDecodeError
+
+instance Show CompactDecodeError where
+  show err = "CompactDecodeError: " <> case err of
+    CompactInvalidNumberOfParts e -> show e
+    CompactInvalidText e        -> show e
+
+
 
 -- | All the errors that can occur.
 --
@@ -45,7 +103,8 @@ data Error
   | OtherPrimesNotSupported   -- ^ RSA private key with >2 primes not supported
   | RSAError RSA.Error        -- ^ RSA encryption, decryption or signing error
   | CryptoError CryptoError   -- ^ Various cryptonite library error cases
-  | CompactDecodeError String -- ^ Cannot decode compact representation
+  | CompactDecodeError CompactDecodeError
+  -- ^ Wrong number of parts in compact serialisation
   | JSONDecodeError String    -- ^ JSON (Aeson) decoding error
   | NoUsableKeys              -- ^ No usable keys were found in the key store
   | JWSCritUnprotected

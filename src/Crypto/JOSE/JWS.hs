@@ -451,15 +451,18 @@ instance HasParams a => ToCompact (JWS Identity () a) where
 instance HasParams a => FromCompact (JWS Identity () a) where
   fromCompact xs = case xs of
     [h, p, s] -> do
-      (h', p', s') <- (,,) <$> t h <*> t p <*> t s
+      (h', p', s') <- (,,) <$> t 0 h <*> t 1 p <*> t 2 s
       let o = object [ ("payload", p'), ("protected", h'), ("signature", s') ]
       case fromJSON o of
-        Error e -> throwError (compactErr e)
+        Error e -> throwError (review _JSONDecodeError e)
         Success a -> pure a
-    xs' -> throwError $ compactErr $ "expected 3 parts, got " ++ show (length xs')
+    xs' -> throwError $
+            review (_CompactDecodeError . _CompactInvalidNumberOfParts)
+            (InvalidNumberOfParts 3 (fromIntegral (length xs')))
     where
-      compactErr = review _CompactDecodeError
-      t = either (throwError . compactErr . show) (pure . String)
+      textErr n e = review (_CompactDecodeError . _CompactInvalidText)
+        (CompactTextError n e)
+      t n = either (throwError . textErr n) (pure . String)
         . T.decodeUtf8' . view recons
 
 
