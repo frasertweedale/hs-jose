@@ -56,10 +56,11 @@ so please do not open issues:
   The datum [should be a base64url-encoded SHA-1 digest](
   https://tools.ietf.org/html/rfc7515#section-4.1.7), but *Auth0*
   produces a base64url-encoded hex-encoded SHA-1 digest.  The object
-  can be repaired so that this library will admit it, unless the
-  offending parameter is part of the *JWS Protected Header* in which
-  case you are out of luck until *Auth0* bring their implementation
-  into compliance.
+  can be repaired
+  ([example](https://github.com/frasertweedale/hs-jose/issues/54#issuecomment-356460452))
+  so that this library will admit it, unless the offending parameter
+  is part of the *JWS Protected Header* in which case you are out of
+  luck (until *Auth0* bring their implementation into compliance).
 
 - JWKs with leading null bytes in the RSA `"n"` parameter (a
   [violation of RFC
