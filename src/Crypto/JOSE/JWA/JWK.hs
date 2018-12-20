@@ -73,13 +73,14 @@ module Crypto.JOSE.JWA.JWK (
 
 import Control.Applicative
 import Control.Monad (guard)
-import Control.Monad.Except (MonadError(throwError))
+import Control.Monad.Except (MonadError)
 import Data.Bifunctor
 import Data.Foldable (toList)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Monoid ((<>))
 
 import Control.Lens hiding ((.=), elements)
+import Control.Monad.Error.Lens (throwing, throwing_)
 import Crypto.Error (onCryptoFailure)
 import Crypto.Hash
 import Crypto.MAC.HMAC
@@ -278,7 +279,7 @@ signEC h k m = case view ecD k of
       Types.sizedIntegerToBS w r <> Types.sizedIntegerToBS w s
     privateKey = ECDSA.PrivateKey (curve crv) (d ecD')
     d (Types.SizedBase64Integer _ n) = n
-  Nothing -> throwError (review _KeyMismatch "not an EC private key")
+  Nothing -> throwing _KeyMismatch "not an EC private key"
 
 verifyEC
   :: (BA.ByteArrayAccess msg, HashAlgorithm h)
@@ -312,7 +313,7 @@ ecCoordBytes P_521 = 66
 
 ecPrivateKey :: (MonadError e m, AsError e) => ECKeyParameters -> m Integer
 ecPrivateKey (ECKeyParameters _ _ _ (Just (Types.SizedBase64Integer _ d))) = pure d
-ecPrivateKey _ = throwError (review _KeyMismatch "Not an EC private key")
+ecPrivateKey _ = throwing _KeyMismatch "Not an EC private key"
 
 
 -- | Parameters for RSA Keys
@@ -375,7 +376,7 @@ signPKCS15
 signPKCS15 h k m = do
   k' <- rsaPrivateKey k
   PKCS15.signSafer (Just h) k' m
-    >>= either (throwError . review _RSAError) pure
+    >>= either (throwing _RSAError) pure
 
 verifyPKCS15
   :: PKCS15.HashAlgorithmASN1 h
@@ -395,7 +396,7 @@ signPSS
 signPSS h k m = do
   k' <- rsaPrivateKey k
   PSS.signSafer (PSS.defaultPSSParams h) k' m
-    >>= either (throwError . review _RSAError) pure
+    >>= either (throwing _RSAError) pure
 
 verifyPSS
   :: (HashAlgorithm h)
@@ -413,15 +414,15 @@ rsaPrivateKey (RSAKeyParameters
   (Types.Base64Integer n)
   (Types.Base64Integer e)
   (Just (RSAPrivateKeyParameters (Types.Base64Integer d) opt)))
-  | isJust (opt >>= rsaOth) = throwError $ review _OtherPrimesNotSupported ()
-  | n < 2 ^ (2040 :: Integer) = throwError $ review _KeySizeTooSmall ()
+  | isJust (opt >>= rsaOth) = throwing_ _OtherPrimesNotSupported
+  | n < 2 ^ (2040 :: Integer) = throwing_ _KeySizeTooSmall
   | otherwise = pure $
     RSA.PrivateKey (RSA.PublicKey (Types.intBytes n) n e) d
       (opt' rsaP) (opt' rsaQ) (opt' rsaDp) (opt' rsaDq) (opt' rsaQi)
     where
       opt' f = fromMaybe 0 (unB64I . f <$> opt)
       unB64I (Types.Base64Integer x) = x
-rsaPrivateKey _ = throwError $ review _KeyMismatch "not an RSA private key"
+rsaPrivateKey _ = throwing _KeyMismatch "not an RSA private key"
 
 rsaPublicKey :: RSAKeyParameters -> RSA.PublicKey
 rsaPublicKey (RSAKeyParameters (Types.Base64Integer n) (Types.Base64Integer e) _)
@@ -458,7 +459,7 @@ signOct
   -> m B.ByteString
 signOct h (OctKeyParameters (Types.Base64Octets k)) m =
   if B.length k < hashDigestSize h
-  then throwError (review _KeySizeTooSmall ())
+  then throwing_ _KeySizeTooSmall
   else pure $ B.pack $ BA.unpack (hmac k m :: HMAC h)
 
 
@@ -537,18 +538,18 @@ signEdDSA
   -> B.ByteString
   -> m B.ByteString
 signEdDSA (Ed25519Key pk (Just sk)) m = pure . BA.convert $ Ed25519.sign sk pk m
-signEdDSA (Ed25519Key _ Nothing) _ = throwError (review _KeyMismatch "not a private key")
-signEdDSA _ _ = throwError (review _KeyMismatch "not an EdDSA key")
+signEdDSA (Ed25519Key _ Nothing) _ = throwing _KeyMismatch "not a private key"
+signEdDSA _ _ = throwing _KeyMismatch "not an EdDSA key"
 
 verifyEdDSA
   :: (BA.ByteArrayAccess msg, BA.ByteArrayAccess sig, MonadError e m, AsError e)
   => OKPKeyParameters -> msg -> sig -> m Bool
 verifyEdDSA (Ed25519Key pk _) m s =
   onCryptoFailure
-    (throwError . review _CryptoError)
+    (throwing _CryptoError)
     (pure . Ed25519.verify pk m)
     (Ed25519.signature s)
-verifyEdDSA _ _ _ = throwError (review _AlgorithmMismatch "not an EdDSA key")
+verifyEdDSA _ _ _ = throwing _AlgorithmMismatch "not an EdDSA key"
 
 
 -- | Key material sum type.
@@ -630,8 +631,8 @@ sign JWA.JWS.HS256 (OctKeyMaterial k) = signOct SHA256 k
 sign JWA.JWS.HS384 (OctKeyMaterial k) = signOct SHA384 k
 sign JWA.JWS.HS512 (OctKeyMaterial k) = signOct SHA512 k
 sign JWA.JWS.EdDSA (OKPKeyMaterial k) = signEdDSA k
-sign h k = \_ -> throwError (review _AlgorithmMismatch
-  (show h <> "cannot be used with " <> showKeyType k <> " key"))
+sign h k = \_ -> throwing _AlgorithmMismatch
+  (show h <> "cannot be used with " <> showKeyType k <> " key")
 
 verify
   :: (MonadError e m, AsError e)
@@ -654,7 +655,7 @@ verify JWA.JWS.HS256 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA25
 verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA384 k m
 verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA512 k m
 verify JWA.JWS.EdDSA (OKPKeyMaterial k) = verifyEdDSA k
-verify h k = \_ _ -> throwError $ review _AlgorithmMismatch
+verify h k = \_ _ -> throwing _AlgorithmMismatch
   (show h <> "cannot be used with " <> showKeyType k <> " key")
 
 instance Arbitrary KeyMaterial where

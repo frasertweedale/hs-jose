@@ -125,10 +125,11 @@ import qualified Data.String
 
 import Control.Lens (
   makeClassy, makeClassyPrisms, makePrisms,
-  Lens', _Just, over, preview, review, view,
+  Lens', _Just, over, preview, view,
   Prism', prism', Cons, iso, AsEmpty)
 import Control.Lens.Cons.Extras (recons)
-import Control.Monad.Except (MonadError(throwError))
+import Control.Monad.Error.Lens (throwing, throwing_)
+import Control.Monad.Except (MonadError)
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Data.Aeson
 import qualified Data.HashMap.Strict as M
@@ -453,7 +454,7 @@ validateExpClaim conf =
   traverse_ (\t -> do
     now <- currentTime
     unless (now < addUTCTime (abs (view allowedSkew conf)) (view _NumericDate t)) $
-      throwError (review _JWTExpired ()))
+      throwing_ _JWTExpired )
   . preview (claimExp . _Just)
 
 validateIatClaim
@@ -466,7 +467,7 @@ validateIatClaim conf =
     now <- currentTime
     when (view checkIssuedAt conf) $
       when (view _NumericDate t > addUTCTime (abs (view allowedSkew conf)) now) $
-        throwError (review _JWTIssuedAtFuture ()))
+        throwing_ _JWTIssuedAtFuture )
     . preview (claimIat . _Just)
 
 validateNbfClaim
@@ -478,7 +479,7 @@ validateNbfClaim conf =
   traverse_ (\t -> do
     now <- currentTime
     unless (now >= addUTCTime (negate (abs (view allowedSkew conf))) (view _NumericDate t)) $
-      throwError (review _JWTNotYetValid ()))
+      throwing_ _JWTNotYetValid )
   . preview (claimNbf . _Just)
 
 validateAudClaim
@@ -489,7 +490,7 @@ validateAudClaim
 validateAudClaim conf =
   traverse_
     (\auds -> unless (or (view audiencePredicate conf <$> auds)) $
-        throwError (review _JWTNotInAudience ()))
+        throwing_ _JWTNotInAudience )
   . preview (claimAud . _Just . _Audience)
 
 validateIssClaim
@@ -499,8 +500,7 @@ validateIssClaim
   -> m ()
 validateIssClaim conf =
   traverse_ (\iss ->
-    unless (view issuerPredicate conf iss) $
-      throwError (review _JWTNotInIssuer ()))
+    unless (view issuerPredicate conf iss) (throwing_ _JWTNotInIssuer) )
   . preview (claimIss . _Just)
 
 -- | A digitally signed or MACed JWT
@@ -542,7 +542,7 @@ verifyClaims conf k jws =
   -- verified before the claims.
   verifyJWSWithPayload f conf k jws >>= validateClaimsSet conf
   where
-    f = either (throwError . review _JWTClaimsSetDecodeError) pure . eitherDecode
+    f = either (throwing _JWTClaimsSetDecodeError) pure . eitherDecode
 
 
 -- | Cryptographically verify a JWS JWT, then validate the

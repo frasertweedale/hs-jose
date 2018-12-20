@@ -94,7 +94,8 @@ import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))
 import Control.Lens.Cons.Extras (recons)
-import Control.Monad.Except (MonadError(throwError), unless)
+import Control.Monad.Error.Lens (throwing, throwing_)
+import Control.Monad.Except (MonadError, unless)
 import Data.Aeson
 import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
@@ -454,15 +455,13 @@ instance HasParams a => FromCompact (JWS Identity () a) where
       (h', p', s') <- (,,) <$> t 0 h <*> t 1 p <*> t 2 s
       let o = object [ ("payload", p'), ("protected", h'), ("signature", s') ]
       case fromJSON o of
-        Error e -> throwError (review _JSONDecodeError e)
+        Error e -> throwing _JSONDecodeError e
         Success a -> pure a
-    xs' -> throwError $
-            review (_CompactDecodeError . _CompactInvalidNumberOfParts)
+    xs' -> throwing (_CompactDecodeError . _CompactInvalidNumberOfParts)
             (InvalidNumberOfParts 3 (fromIntegral (length xs')))
     where
-      textErr n e = review (_CompactDecodeError . _CompactInvalidText)
-        (CompactTextError n e)
-      t n = either (throwError . textErr n) (pure . String)
+      l = _CompactDecodeError . _CompactInvalidText
+      t n = either (throwing l . CompactTextError n) (pure . String)
         . T.decodeUtf8' . view recons
 
 
@@ -614,17 +613,14 @@ verifyJWSWithPayload dec conf k (JWS p@(Types.Base64Octets p') sigs) =
     policy = conf ^. validationPolicy
     shouldValidateSig = (`elem` algs) . view (header . alg . param)
 
-    applyPolicy AnyValidated xs =
-      unless (or xs) (throwError (review _JWSNoValidSignatures ()))
-    applyPolicy AllValidated [] =
-      throwError (review _JWSNoSignatures ())
-    applyPolicy AllValidated xs =
-      unless (and xs) (throwError (review _JWSInvalidSignature ()))
+    applyPolicy AnyValidated xs = unless (or xs) (throwing_ _JWSNoValidSignatures)
+    applyPolicy AllValidated [] = throwing_ _JWSNoSignatures
+    applyPolicy AllValidated xs = unless (and xs) (throwing_ _JWSInvalidSignature)
 
     validate payload sig = do
       keys <- getVerificationKeys (view header sig) payload k
       if null keys
-        then throwError (review _NoUsableKeys ())
+        then throwing_ _NoUsableKeys
         else pure $ any ((== Right True) . verifySig p sig) keys
   in do
     payload <- (dec . view recons) p'
