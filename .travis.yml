@@ -152,7 +152,7 @@ script:
 
 - if test -n "$CABALVER" -a -f configure.ac ; then autoreconf -i ; fi
 - if test -n "$CABALVER" ; then cabal configure --enable-tests --enable-benchmarks -v2 ; fi  # -v2 provides useful information for debugging
-- if test -n "$CABALVER" ; then cabal build ; fi   # this builds all libraries and executables (including tests/benchmarks)
+- if test -n "$CABALVER" ; then cabal build -f demos ; fi   # this builds all libraries and executables (including tests/benchmarks)
 - if test -n "$CABALVER" ; then cabal test ; fi
 - if test -n "$CABALVER" ; then cabal check ; fi
 - if test -n "$CABALVER" ; then cabal sdist ; fi  # tests that a source-distribution can be generated
