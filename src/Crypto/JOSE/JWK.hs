@@ -98,7 +98,8 @@ import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))
 import Control.Lens.Cons.Extras (recons)
-import Control.Monad.Except (MonadError(throwError))
+import Control.Monad.Except (MonadError)
+import Control.Monad.Error.Lens (throwing, throwing_)
 import Crypto.Hash
 import qualified Crypto.PubKey.RSA as RSA
 import Data.Aeson
@@ -273,7 +274,7 @@ fromX509Certificate
   :: (AsError e, MonadError e m)
   => X509.SignedCertificate -> m JWK
 fromX509Certificate =
-  maybe (throwError (review _KeyMismatch "X.509 key type not supported")) pure
+  maybe (throwing _KeyMismatch "X.509 key type not supported") pure
   . fromX509CertificateMaybe
 
 fromX509CertificateMaybe :: X509.SignedCertificate -> Maybe JWK
@@ -318,14 +319,14 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
     in
       if n >= 2 ^ (2040 :: Integer)
       then pure JWA.JWS.PS512
-      else throwError (review _KeySizeTooSmall ())
+      else throwing_ _KeySizeTooSmall
   OctKeyMaterial (OctKeyParameters (Types.Base64Octets k))
     | B.length k >= 512 `div` 8 -> pure JWA.JWS.HS512
     | B.length k >= 384 `div` 8 -> pure JWA.JWS.HS384
     | B.length k >= 256 `div` 8 -> pure JWA.JWS.HS256
-    | otherwise -> throwError (review _KeySizeTooSmall ())
+    | otherwise -> throwing_ _KeySizeTooSmall
   OKPKeyMaterial (Ed25519Key _ _) -> pure JWA.JWS.EdDSA
-  OKPKeyMaterial _ -> throwError (review _KeyMismatch "Cannot sign with OKP ECDH key")
+  OKPKeyMaterial _ -> throwing _KeyMismatch "Cannot sign with OKP ECDH key"
 
 
 #if MIN_VERSION_aeson(0,10,0)

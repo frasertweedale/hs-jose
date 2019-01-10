@@ -31,7 +31,11 @@ category:            Cryptography
 build-type:          Simple
 cabal-version:       >= 1.8
 tested-with:
-  GHC==7.10.3, GHC==8.0.1, GHC==8.0.2, GHC==8.2.2, GHC==8.4.4, GHC==8.6.2
+  GHC==7.10.3, GHC==8.0.2, GHC==8.2.2, GHC==8.4.4, GHC==8.6.3
+
+flag demos
+  description: Build demonstration programs
+  default: False
 
 library
   exposed-modules:
@@ -63,7 +67,7 @@ library
     , concise >= 0.1
     , containers >= 0.5
     , cryptonite >= 0.7
-    , lens >= 4.3
+    , lens >= 4.16
     , memory >= 0.7
     , monad-time >= 0.1
     , mtl >= 2
@@ -133,6 +137,8 @@ test-suite tests
     , quickcheck-instances
 
 executable jose-example
+  if !flag(demos)
+    buildable: False
   hs-source-dirs: example
   ghc-options:    -Wall
   main-is:  Main.hs
