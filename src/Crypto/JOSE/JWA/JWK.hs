@@ -631,7 +631,7 @@ sign JWA.JWS.HS384 (OctKeyMaterial k) = signOct SHA384 k
 sign JWA.JWS.HS512 (OctKeyMaterial k) = signOct SHA512 k
 sign JWA.JWS.EdDSA (OKPKeyMaterial k) = signEdDSA k
 sign h k = \_ -> throwError (review _AlgorithmMismatch
-  (show h <> "cannot be used with " <> showKeyType k <> " key"))
+  (show h <> " cannot be used with " <> showKeyType k <> " key"))
 
 verify
   :: (MonadError e m, AsError e)
@@ -655,7 +655,7 @@ verify JWA.JWS.HS384 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA38
 verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA512 k m
 verify JWA.JWS.EdDSA (OKPKeyMaterial k) = verifyEdDSA k
 verify h k = \_ _ -> throwError $ review _AlgorithmMismatch
-  (show h <> "cannot be used with " <> showKeyType k <> " key")
+  (show h <> " cannot be used with " <> showKeyType k <> " key")
 
 instance Arbitrary KeyMaterial where
   arbitrary = oneof
