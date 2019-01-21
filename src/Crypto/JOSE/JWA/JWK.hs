@@ -107,8 +107,7 @@ import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
-import Crypto.JOSE.Types.Orphans ()
-
+import Crypto.JOSE.Types.WrappedNonEmpty (parseNonEmpty, kvNonEmpty, gettingGenMaybeNonEmpty)
 
 -- | \"crv\" (Curve) Parameter
 --
@@ -159,7 +158,7 @@ instance FromJSON RSAPrivateKeyOptionalParameters where
     o .: "dp" <*>
     o .: "dq" <*>
     o .: "qi" <*>
-    o .:? "oth")
+    (o `parseNonEmpty` "oth"))
 
 instance ToJSON RSAPrivateKeyOptionalParameters where
   toJSON RSAPrivateKeyOptionalParameters{..} = object $ [
@@ -168,7 +167,7 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
     , "dp" .= rsaDp
     , "dq" .= rsaDq
     , "qi" .= rsaQi
-    ] ++ maybe [] ((:[]) . ("oth" .=)) rsaOth
+    ] ++ maybe [] ((:[]) . ("oth" `kvNonEmpty`)) rsaOth
 
 instance Arbitrary RSAPrivateKeyOptionalParameters where
   arbitrary = RSAPrivateKeyOptionalParameters
@@ -177,7 +176,7 @@ instance Arbitrary RSAPrivateKeyOptionalParameters where
     <*> arbitrary
     <*> arbitrary
     <*> arbitrary
-    <*> arbitrary
+    <*> gettingGenMaybeNonEmpty
 
 
 -- | RSA private key parameters

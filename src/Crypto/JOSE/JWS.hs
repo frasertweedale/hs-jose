@@ -34,10 +34,8 @@ doJwsVerify jwk jws = runExceptT $ 'verifyJWS'' jwk jws
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE MonoLocalBinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 module Crypto.JOSE.JWS
   (
@@ -79,6 +77,19 @@ module Crypto.JOSE.JWS
   , HasJWSHeader(..)
   , JWSHeader
 
+  -- * Header fields shared by JWS and JWE
+  , HasAlg(..)
+  , HasJku(..)
+  , HasJwk(..)
+  , HasKid(..)
+  , HasX5u(..)
+  , HasX5c(..)
+  , HasX5t(..)
+  , HasX5tS256(..)
+  , HasTyp(..)
+  , HasCty(..)
+  , HasCrit(..)
+
   , module Crypto.JOSE.Error
   , module Crypto.JOSE.Header
   , module Crypto.JOSE.JWK
@@ -89,7 +100,6 @@ import Data.Foldable (toList)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
 import Data.List.NonEmpty (NonEmpty)
-import Data.Traversable (traverse)
 import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))
@@ -111,6 +121,14 @@ import Crypto.JOSE.JWK.Store
 import Crypto.JOSE.Header
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
+import Crypto.JOSE.Types.WrappedNonEmpty(kvNonEmpty)
+import Crypto.JOSE.Types.WrappedURI(kvURI)
+import Text.URI(URI)
+import Data.Text(Text)
+import Data.X509(SignedCertificate)
+import Crypto.JOSE.Types(Base64SHA1)
+import Crypto.JOSE.Types(Base64SHA256)
+import Data.Functor.Classes(Eq1(liftEq), eq1, Show1(liftShowsPrec), showsPrec1)
 
 {- $extending
 
@@ -191,46 +209,166 @@ data JWSHeader p = JWSHeader
   }
   deriving (Eq, Show)
 
-class HasJWSHeader a where
+instance Eq1 JWSHeader where
+  liftEq f (JWSHeader a1 k1 w1 i1 u1 c1 t1 s1 p1 y1 r1) (JWSHeader a2 k2 w2 i2 u2 c2 t2 s2 p2 y2 r2) =
+    let eqHeaderParam (HeaderParam p1' a1') (HeaderParam p2' a2') =
+          (p1' `f` p2') && a1' == a2'
+        eqMaybeHeaderParam a1' a2' =
+          all (\x1' -> all (\x2' -> x1' `eqHeaderParam` x2') a2') a1'
+    in  and 
+          [
+            a1 `eqHeaderParam` a2
+          , k1 `eqMaybeHeaderParam` k2
+          , w1 `eqMaybeHeaderParam` w2
+          , i1 `eqMaybeHeaderParam` i2
+          , u1 `eqMaybeHeaderParam` u2
+          , c1 `eqMaybeHeaderParam` c2
+          , t1 `eqMaybeHeaderParam` t2
+          , s1 `eqMaybeHeaderParam` s2
+          , p1 `eqMaybeHeaderParam` p2
+          , y1 `eqMaybeHeaderParam` y2
+          , r1 == r2
+          ]
+
+instance Show1 JWSHeader where
+  liftShowsPrec f _ n (JWSHeader a k w i u c t s p y r) = 
+    let showHeaderParam (HeaderParam p' a') =
+          showParen True (showString "HeaderParam " . f n p' . showString " " . shows a')
+        showMaybeHeaderParam Nothing =
+          showString "Nothing"
+        showMaybeHeaderParam (Just hp) =
+          showString "Just " . showHeaderParam hp
+    in  showString "JWSHeader " .
+        showHeaderParam a .
+        showMaybeHeaderParam k .
+        showMaybeHeaderParam w .
+        showMaybeHeaderParam i .
+        showMaybeHeaderParam u .
+        showMaybeHeaderParam c .
+        showMaybeHeaderParam t .
+        showMaybeHeaderParam s .
+        showMaybeHeaderParam p .
+        showMaybeHeaderParam y .
+        shows r
+
+class HasAlg a where
+  alg :: Lens' (a p) (HeaderParam p Alg)
+  default alg :: HasJWSHeader a => Lens' (a p) (HeaderParam p Alg)
+  alg = jwsHeader . alg
+
+class HasJku a where
+  jku :: Lens' (a p) (Maybe (HeaderParam p URI))
+  default jku :: HasJWSHeader a => Lens' (a p) (Maybe (HeaderParam p URI))
+  jku = jwsHeader . jku
+
+class HasJwk a where
+  jwk :: Lens' (a p) (Maybe (HeaderParam p JWK))  
+  default jwk :: HasJWSHeader a => Lens' (a p) (Maybe (HeaderParam p JWK))
+  jwk = jwsHeader . jwk
+
+class HasKid a where
+  kid :: Lens' (a p) (Maybe (HeaderParam p Text))
+  default kid :: HasJWSHeader a => Lens' (a p) (Maybe (HeaderParam p Text))
+  kid = jwsHeader . kid
+
+class HasX5u a where
+  x5u :: Lens' (a p) (Maybe (HeaderParam p URI))
+  default x5u :: HasJWSHeader a => Lens' (a p) (Maybe (HeaderParam p URI))
+  x5u = jwsHeader . x5u
+
+class HasX5c a where
+  x5c :: Lens' (a p) (Maybe (HeaderParam p (NonEmpty SignedCertificate)))
+  default x5c :: HasJWSHeader a => Lens' (a p) (Maybe (HeaderParam p (NonEmpty SignedCertificate)))
+  x5c = jwsHeader . x5c
+
+class HasX5t a where
+  x5t :: Lens' (a p) (Maybe (HeaderParam p Base64SHA1))
+  default x5t :: HasJWSHeader a => Lens' (a p) (Maybe (HeaderParam p Base64SHA1))
+  x5t = jwsHeader . x5t
+
+class HasX5tS256 a where
+  x5tS256 :: Lens' (a p) (Maybe (HeaderParam p Base64SHA256))
+  default x5tS256 :: HasJWSHeader a => Lens' (a p) (Maybe (HeaderParam p Base64SHA256))
+  x5tS256 = jwsHeader . x5tS256
+
+class HasTyp a where
+  typ :: Lens' (a p) (Maybe (HeaderParam p Text))
+  default typ :: HasJWSHeader a => Lens' (a p) (Maybe (HeaderParam p Text))
+  typ = jwsHeader . typ
+
+class HasCty a where
+  cty :: Lens' (a p) (Maybe (HeaderParam p Text))
+  default cty :: HasJWSHeader a => Lens' (a p) (Maybe (HeaderParam p Text))
+  cty = jwsHeader . cty
+
+class HasCrit a where
+  crit :: Lens' (a p) (Maybe (NonEmpty Text))
+  default crit :: HasJWSHeader a => Lens' (a p) (Maybe (NonEmpty Text))
+  crit = jwsHeader . crit
+
+class
+  (
+    HasAlg a
+  , HasJku a
+  , HasJwk a
+  , HasKid a
+  , HasX5u a
+  , HasX5c a
+  , HasX5t a
+  , HasX5tS256 a
+  , HasTyp a
+  , HasCty a
+  , HasCrit a
+  ) =>
+  HasJWSHeader a where
   jwsHeader :: Lens' (a p) (JWSHeader p)
-
-instance HasJWSHeader JWSHeader where
-  jwsHeader = id
-
-instance HasJWSHeader a => HasAlg a where
-  alg = jwsHeader . \f h@(JWSHeader { _jwsHeaderAlg = a }) ->
+  
+instance HasAlg JWSHeader where
+  alg f h@(JWSHeader { _jwsHeaderAlg = a }) =
     fmap (\a' -> h { _jwsHeaderAlg = a' }) (f a)
-instance HasJWSHeader a => HasJku a where
+
+instance HasJku JWSHeader where
   jku = jwsHeader . \f h@(JWSHeader { _jwsHeaderJku = a }) ->
     fmap (\a' -> h { _jwsHeaderJku = a' }) (f a)
-instance HasJWSHeader a => HasJwk a where
+
+instance HasJwk JWSHeader where
   jwk = jwsHeader . \f h@(JWSHeader { _jwsHeaderJwk = a }) ->
     fmap (\a' -> h { _jwsHeaderJwk = a' }) (f a)
-instance HasJWSHeader a => HasKid a where
+
+instance HasKid JWSHeader where
   kid = jwsHeader . \f h@(JWSHeader { _jwsHeaderKid = a }) ->
     fmap (\a' -> h { _jwsHeaderKid = a' }) (f a)
-instance HasJWSHeader a => HasX5u a where
+
+instance HasX5u JWSHeader where
   x5u = jwsHeader . \f h@(JWSHeader { _jwsHeaderX5u = a }) ->
     fmap (\a' -> h { _jwsHeaderX5u = a' }) (f a)
-instance HasJWSHeader a => HasX5c a where
+
+instance HasX5c JWSHeader where
   x5c = jwsHeader . \f h@(JWSHeader { _jwsHeaderX5c = a }) ->
     fmap (\a' -> h { _jwsHeaderX5c = a' }) (f a)
-instance HasJWSHeader a => HasX5t a where
+
+instance HasX5t JWSHeader where
   x5t = jwsHeader . \f h@(JWSHeader { _jwsHeaderX5t = a }) ->
     fmap (\a' -> h { _jwsHeaderX5t = a' }) (f a)
-instance HasJWSHeader a => HasX5tS256 a where
+
+instance HasX5tS256 JWSHeader where
   x5tS256 = jwsHeader . \f h@(JWSHeader { _jwsHeaderX5tS256 = a }) ->
     fmap (\a' -> h { _jwsHeaderX5tS256 = a' }) (f a)
-instance HasJWSHeader a => HasTyp a where
+
+instance HasTyp JWSHeader where
   typ = jwsHeader . \f h@(JWSHeader { _jwsHeaderTyp = a }) ->
     fmap (\a' -> h { _jwsHeaderTyp = a' }) (f a)
-instance HasJWSHeader a => HasCty a where
+
+instance HasCty JWSHeader where
   cty = jwsHeader . \f h@(JWSHeader { _jwsHeaderCty = a }) ->
     fmap (\a' -> h { _jwsHeaderCty = a' }) (f a)
-instance HasJWSHeader a => HasCrit a where
+
+instance HasCrit JWSHeader where
   crit = jwsHeader . \f h@(JWSHeader { _jwsHeaderCrit = a }) ->
     fmap (\a' -> h { _jwsHeaderCrit = a' }) (f a)
 
+instance HasJWSHeader JWSHeader where
+  jwsHeader = id
 
 -- | Construct a minimal header with the given algorithm and
 -- protection indicator for the /alg/ header.
@@ -282,7 +420,6 @@ data Signature p a = Signature
   (Maybe T.Text)      -- Encoded protected header, if available
   (a p)               -- Header
   Types.Base64Octets  -- Signature
-  deriving (Show)
 
 -- | Getter for header of a signature
 header :: Getter (Signature p a) (a p)
@@ -292,8 +429,12 @@ header = to (\(Signature _ h _) -> h)
 signature :: (Cons s s Word8 Word8, AsEmpty s) => Getter (Signature p a) s
 signature = to (\(Signature _ _ (Types.Base64Octets s)) -> s) . recons
 
-instance (Eq (a p)) => Eq (Signature p a) where
-  Signature _ h s == Signature _ h' s' = h == h' && s == s'
+instance (Eq1 a, Eq p) => Eq (Signature p a) where
+  Signature _ h s == Signature _ h' s' = (h `eq1` h') && s == s'
+
+instance (Show1 a, Show p) => Show (Signature p a) where
+  showsPrec n (Signature t h s) =
+    showString "Signature " . showParen True (showsPrec n t . showString ", " . showsPrec1 n h . showString ", " . showsPrec n s)
 
 instance (HasParams a, ProtectionIndicator p) => FromJSON (Signature p a) where
   parseJSON = withObject "signature" (\o -> Signature
@@ -328,32 +469,32 @@ instance (HasParams a, ProtectionIndicator p) => ToJSON (Signature p a) where
 instance HasParams JWSHeader where
   parseParamsFor proxy hp hu = JWSHeader
     <$> headerRequired "alg" hp hu
-    <*> headerOptional "jku" hp hu
+    <*> headerOptionalURI "jku" hp hu
     <*> headerOptional "jwk" hp hu
     <*> headerOptional "kid" hp hu
-    <*> headerOptional "x5u" hp hu
+    <*> headerOptionalURI "x5u" hp hu
     <*> ((fmap . fmap . fmap . fmap)
-          (\(Types.Base64X509 cert) -> cert) (headerOptional "x5c" hp hu))
+          (\(Types.Base64X509 cert) -> cert) (headerOptionalNonEmpty "x5c" hp hu))
     <*> headerOptional "x5t" hp hu
     <*> headerOptional "x5t#S256" hp hu
     <*> headerOptional "typ" hp hu
     <*> headerOptional "cty" hp hu
-    <*> (headerOptionalProtected "crit" hp hu
+    <*> (headerOptionalProtectedNonEmpty "crit" hp hu
       >>= parseCrit jwsCritInvalidNames (extensions proxy)
         (fromMaybe mempty hp <> fromMaybe mempty hu))
   params h =
     catMaybes
       [ Just (view (alg . isProtected) h, "alg" .= (view (alg . param) h))
-      , fmap (\p -> (view isProtected p, "jku" .= view param p)) (view jku h)
+      , fmap (\p -> (view isProtected p, "jku" `kvURI` view param p)) (view jku h)
       , fmap (\p -> (view isProtected p, "jwk" .= view param p)) (view jwk h)
       , fmap (\p -> (view isProtected p, "kid" .= view param p)) (view kid h)
-      , fmap (\p -> (view isProtected p, "x5u" .= view param p)) (view x5u h)
-      , fmap (\p -> (view isProtected p, "x5c" .= fmap Types.Base64X509 (view param p))) (view x5c h)
+      , fmap (\p -> (view isProtected p, "x5u" `kvURI` view param p)) (view x5u h)
+      , fmap (\p -> (view isProtected p, "x5c" `kvNonEmpty` fmap Types.Base64X509 (view param p))) (view x5c h)
       , fmap (\p -> (view isProtected p, "x5t" .= view param p)) (view x5t h)
       , fmap (\p -> (view isProtected p, "x5t#S256" .= view param p)) (view x5tS256 h)
       , fmap (\p -> (view isProtected p, "typ" .= view param p)) (view typ h)
       , fmap (\p -> (view isProtected p, "cty" .= view param p)) (view cty h)
-      , fmap (\p -> (True, "crit" .= p)) (view crit h)
+      , fmap (\p -> (True, "crit" `kvNonEmpty` p)) (view crit h)
       ]
 
 
@@ -397,11 +538,13 @@ type FlattenedJWS = JWS Identity Protection
 --
 type CompactJWS = JWS Identity ()
 
-instance (Eq (t (Signature p a))) => Eq (JWS t p a) where
-  JWS p sigs == JWS p' sigs' = p == p' && sigs == sigs'
+instance (Eq1 t, Eq1 a, Eq p) => Eq (JWS t p a) where
+  JWS p sigs == JWS p' sigs' =
+    p == p' && (sigs `eq1` sigs')
 
-instance (Show (t (Signature p a))) => Show (JWS t p a) where
-  show (JWS p sigs) = "JWS " <> show p <> " " <> show sigs
+instance (Show1 t, Show1 a, Show p) => Show (JWS t p a) where
+  showsPrec n (JWS p sigs) = 
+    showString "JWS " . showsPrec n p . showString " " . showsPrec1 n sigs
 
 signatures :: Foldable t => Fold (JWS t p a) (Signature p a)
 signatures = folding (\(JWS _ sigs) -> sigs)
@@ -470,7 +613,7 @@ instance HasParams a => FromCompact (JWS Identity () a) where
 --
 signJWS
   :: ( Cons s s Word8 Word8
-     , HasJWSHeader a, HasParams a, MonadRandom m, AsError e, MonadError e m
+     , HasAlg a, HasParams a, MonadRandom m, AsError e, MonadError e m
      , Traversable t
      , ProtectionIndicator p
      )
@@ -482,7 +625,7 @@ signJWS s =
   in fmap (JWS (Types.Base64Octets s')) . traverse (uncurry (mkSignature s'))
 
 mkSignature
-  :: ( HasJWSHeader a, HasParams a, MonadRandom m, AsError e, MonadError e m
+  :: ( HasAlg a, HasParams a, MonadRandom m, AsError e, MonadError e m
      , ProtectionIndicator p
      )
   => B.ByteString -> a p -> JWK -> m (Signature p a)
@@ -510,31 +653,35 @@ data ValidationSettings = ValidationSettings
   (S.Set Alg)
   ValidationPolicy
 
-class HasValidationSettings a where
+class (HasValidationPolicy a, HasAlgorithms a) => HasValidationSettings a where
   validationSettings :: Lens' a ValidationSettings
-
-  validationSettingsAlgorithms :: Lens' a (S.Set Alg)
-  validationSettingsAlgorithms = validationSettings . go where
-    go f (ValidationSettings algs pol) =
-      (\algs' -> ValidationSettings algs' pol) <$> f algs
-
-  validationSettingsValidationPolicy :: Lens' a ValidationPolicy
-  validationSettingsValidationPolicy = validationSettings . go where
-    go f (ValidationSettings algs pol) =
-      (\pol' -> ValidationSettings algs pol') <$> f pol
 
 instance HasValidationSettings ValidationSettings where
   validationSettings = id
-
+  
 class HasAlgorithms s where
   algorithms :: Lens' s (S.Set Alg)
+  default algorithms :: HasValidationSettings s => Lens' s (S.Set Alg)
+  algorithms = validationSettings . algorithms
+
+instance HasAlgorithms (S.Set Alg) where
+  algorithms = id
+
+instance HasAlgorithms ValidationSettings where
+  algorithms f (ValidationSettings a p) =
+    fmap (\a' -> ValidationSettings a' p) (f a)
+
 class HasValidationPolicy s where
   validationPolicy :: Lens' s ValidationPolicy
+  default validationPolicy :: HasValidationSettings s => Lens' s ValidationPolicy
+  validationPolicy = validationSettings . validationPolicy
 
-instance HasValidationSettings a => HasAlgorithms a where
-  algorithms = validationSettingsAlgorithms
-instance HasValidationSettings a => HasValidationPolicy a where
-  validationPolicy = validationSettingsValidationPolicy
+instance HasValidationPolicy ValidationPolicy where
+  validationPolicy = id
+
+instance HasValidationPolicy ValidationSettings where
+  validationPolicy f (ValidationSettings a p) =
+    fmap (\p' -> ValidationSettings a p') (f p)
 
 -- | The default validation settings.
 --
@@ -557,7 +704,7 @@ defaultValidationSettings = ValidationSettings
 -- See also 'defaultValidationSettings'.
 --
 verifyJWS'
-  ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h
+  ::  ( AsError e, MonadError e m , HasAlg h, HasParams h
       , VerificationKeyStore m (h p) s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
@@ -579,8 +726,8 @@ verifyJWS' = verifyJWS defaultValidationSettings
 -- Returns the payload if successfully verified.
 --
 verifyJWS
-  ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
-      , HasJWSHeader h, HasParams h
+  ::  ( HasValidationSettings a, AsError e, MonadError e m
+      , HasAlg h, HasParams h
       , VerificationKeyStore m (h p) s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
@@ -593,8 +740,8 @@ verifyJWS
 verifyJWS = verifyJWSWithPayload pure
 
 verifyJWSWithPayload
-  ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
-      , HasJWSHeader h, HasParams h
+  ::  ( HasValidationSettings a, AsError e, MonadError e m
+      , HasAlg h, HasParams h
       , VerificationKeyStore m (h p) payload k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
@@ -628,7 +775,7 @@ verifyJWSWithPayload dec conf k (JWS p@(Types.Base64Octets p') sigs) =
     payload <$ applyPolicy policy results
 
 verifySig
-  :: (HasJWSHeader a, HasParams a, ProtectionIndicator p)
+  :: (HasAlg a, HasParams a, ProtectionIndicator p)
   => Types.Base64Octets
   -> Signature p a
   -> JWK

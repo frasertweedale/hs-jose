@@ -13,16 +13,17 @@
 -- limitations under the License.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Types where
 
 import Data.Aeson
 import qualified Data.ByteString as BS
 import Data.List.NonEmpty
-import Network.URI (parseURI)
 import Test.Hspec
 
 import Crypto.JOSE.Types
+import Crypto.JOSE.Types.WrappedURI(WrappedURI, mkURI')
 
 spec :: Spec
 spec = do
@@ -45,12 +46,12 @@ uriSpec :: Spec
 uriSpec = describe "URI typeclasses" $ do
   it "gets parsed from JSON correctly" $ do
     decode "[\"http://example.com\"]" `shouldBe`
-      fmap (fmap (:[])) parseURI "http://example.com"
-    decode "[\"foo\"]" `shouldBe` (Nothing :: Maybe [URI])
+      fmap (fmap (:[])) mkURI' "http://example.com"
+    decode "[\"foo\\\"]" `shouldBe` (Nothing :: Maybe [WrappedURI])
 
   it "gets formatted to JSON correctly" $
-    fmap toJSON (Network.URI.parseURI "http://example.com")
-      `shouldBe` Just (String "http://example.com")
+    fmap toJSON (mkURI' "http://example.com/")
+      `shouldBe` Just (String "http://example.com/")
 
 base64IntegerSpec :: Spec
 base64IntegerSpec = describe "Base64Integer" $ do

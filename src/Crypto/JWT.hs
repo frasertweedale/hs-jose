@@ -17,9 +17,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE MonoLocalBinds #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE LambdaCase #-}
 
 {-|
 
@@ -108,6 +107,14 @@ module Crypto.JWT
   , uri
   , NumericDate(..)
 
+  -- * waargonaut encoder/decoder
+  , encodeStringOrURI
+  , decodeStringOrURI
+  , encodeNumericDate
+  , decodeNumericDate
+  , encodeAudience
+  , decodeAudience
+
   , module Crypto.JOSE
 
   ) where
@@ -124,7 +131,7 @@ import Data.Maybe
 import qualified Data.String
 
 import Control.Lens (
-  makeClassy, makeClassyPrisms, makePrisms,
+  makeClassyPrisms, makePrisms,
   Lens', _Just, over, preview, view,
   Prism', prism', Cons, iso, AsEmpty)
 import Control.Lens.Cons.Extras (recons)
@@ -136,11 +143,17 @@ import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import Data.Time (NominalDiffTime, UTCTime, addUTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Network.URI (parseURI)
-
+import Text.URI (mkURI)
 import Crypto.JOSE
 import Crypto.JOSE.Types
-
+import qualified Waargonaut.Encode as Encoder(text, either, scientific, list, encodeA, runEncoder)
+import Waargonaut.Encode(Encoder)
+import qualified Waargonaut.Decode as Decoder(text, scientific, list)
+import Waargonaut.Decode(Decoder)
+import Waargonaut.Decode.Error(_ConversionFailure)
+import Data.Functor.Contravariant(contramap)
+import Crypto.JOSE.Types.WrappedURI
+import Data.Functor.Alt((<!>))
 
 data JWTError
   = JWSError Error
@@ -181,18 +194,18 @@ stringOrUri = iso (view recons) (view recons) . prism' rev fwd
   rev (Arbitrary s) = s
   rev (OrURI x) = T.pack (show x)
   fwd s
-    | T.any (== ':') s = OrURI <$> parseURI (T.unpack s)
+    | T.any (== ':') s = OrURI <$> mkURI s
     | otherwise = pure (Arbitrary s)
 
 string :: Prism' StringOrURI T.Text
 string = prism' Arbitrary f where
   f (Arbitrary s) = Just s
-  f _ = Nothing
+  f (OrURI _) = Nothing
 
 uri :: Prism' StringOrURI URI
 uri = prism' OrURI f where
   f (OrURI s) = Just s
-  f _ = Nothing
+  f (Arbitrary _) = Nothing
 
 instance FromJSON StringOrURI where
   parseJSON = withText "StringOrURI"
@@ -202,6 +215,27 @@ instance ToJSON StringOrURI where
   toJSON (Arbitrary s)  = toJSON s
   toJSON (OrURI x)      = toJSON $ show x
 
+encodeStringOrURI ::
+  Applicative f =>
+  Encoder f StringOrURI
+encodeStringOrURI =
+  contramap (
+    \case
+      Arbitrary s ->
+        Left s
+      OrURI x ->
+        Right (WrappedURI x)
+  ) (Encoder.either Encoder.text encodeWrappedURI)
+
+decodeStringOrURI ::
+  Monad f =>
+  Decoder f StringOrURI
+decodeStringOrURI =
+  Decoder.text >>= \a -> case preview stringOrUri a of
+    Nothing ->
+      throwing _ConversionFailure a
+    Just u ->
+      pure u
 
 -- | A JSON numeric value representing the number of seconds from
 --   1970-01-01T0:0:0Z UTC until the specified UTC date\/time.
@@ -215,8 +249,19 @@ instance FromJSON NumericDate where
 
 instance ToJSON NumericDate where
   toJSON (NumericDate t)
-    = Number $ fromRational $ toRational $ utcTimeToPOSIXSeconds t
+    = Number . fromRational . toRational . utcTimeToPOSIXSeconds $ t
 
+encodeNumericDate ::
+  Applicative f =>
+  Encoder f NumericDate
+encodeNumericDate =
+  contramap (\(NumericDate x) -> fromRational . toRational . utcTimeToPOSIXSeconds $ x) Encoder.scientific
+
+decodeNumericDate ::
+  Monad f =>
+  Decoder f NumericDate
+decodeNumericDate =
+  fmap (NumericDate . posixSecondsToUTCTime . fromRational . toRational) Decoder.scientific
 
 -- | Audience data.  In the general case, the /aud/ value is an
 -- array of case-sensitive strings, each containing a 'StringOrURI'
@@ -237,6 +282,49 @@ instance ToJSON Audience where
   toJSON (Audience [aud]) = toJSON aud
   toJSON (Audience auds) = toJSON auds
 
+encodeAudience ::
+  Applicative f =>
+  Encoder f Audience
+encodeAudience =
+  Encoder.encodeA $ \case
+    Audience [x] ->
+      Encoder.runEncoder encodeStringOrURI x
+    Audience xs ->
+      Encoder.runEncoder (Encoder.list encodeStringOrURI) xs
+
+decodeAudience ::
+  Monad f =>
+  Decoder f Audience
+decodeAudience =
+  fmap Audience (fmap pure decodeStringOrURI <!> Decoder.list decodeStringOrURI)
+  
+{-
+
+instance FromJSON Audience where
+  parseJSON v = Audience <$> (parseJSON v <|> fmap (:[]) (parseJSON v))
+-}
+
+  -- a :: JCurs
+
+  -- fmap undefined (Decoder.runDecoder undefined undefined undefined)
+  -- fmap undefined (Decoder.either (Decoder.list decodeStringOrURI) decodeStringOrURI)
+
+{-
+
+
+encodeNumericDate ::
+  Applicative f =>
+  Encoder f NumericDate
+encodeNumericDate =
+  contramap (\(NumericDate x) -> fromRational . toRational . utcTimeToPOSIXSeconds $ x) Encoder.scientific
+
+decodeNumericDate ::
+  Monad f =>
+  Decoder f NumericDate
+decodeNumericDate =
+  fmap (NumericDate . posixSecondsToUTCTime . fromRational . toRational) Decoder.scientific
+
+-}
 
 -- | The JWT Claims Set represents a JSON object whose members are
 -- the registered claims defined by RFC 7519.  Unrecognised
@@ -368,35 +456,67 @@ data JWTValidationSettings = JWTValidationSettings
   , _jwtValidationSettingsAudiencePredicate :: StringOrURI -> Bool
   , _jwtValidationSettingsIssuerPredicate :: StringOrURI -> Bool
   }
-makeClassy ''JWTValidationSettings
 
-instance HasJWTValidationSettings a => HasValidationSettings a where
-  validationSettings = jwtValidationSettingsValidationSettings
+class (
+        HasValidationSettings a
+      , HasAllowedSkew a
+      , HasAudiencePredicate a
+      , HasIssuerPredicate a
+      , HasCheckIssuedAt a
+      ) =>
+  HasJWTValidationSettings a where
+  jwtValidationSettings :: Lens' a JWTValidationSettings
+
+instance HasJWTValidationSettings JWTValidationSettings where
+  jwtValidationSettings = id
+
+instance HasAlgorithms JWTValidationSettings where
+
+instance HasValidationPolicy JWTValidationSettings where
+
+instance HasValidationSettings JWTValidationSettings where
+  validationSettings f (JWTValidationSettings v s i a p) =
+    fmap (\v' -> JWTValidationSettings v' s i a p) (f v)
+
+instance HasAllowedSkew JWTValidationSettings where
+  allowedSkew f (JWTValidationSettings v s i a p) =
+    fmap (\s' -> JWTValidationSettings v s' i a p) (f s)
+
+instance HasAudiencePredicate JWTValidationSettings where
+  audiencePredicate f (JWTValidationSettings v s i a p) =
+    fmap (\a' -> JWTValidationSettings v s i a' p) (f a)
+
+instance HasIssuerPredicate JWTValidationSettings where
+  issuerPredicate f (JWTValidationSettings v s i a p) =
+    fmap (\p' -> JWTValidationSettings v s i a p') (f p)
+
+instance HasCheckIssuedAt JWTValidationSettings where
+  checkIssuedAt f (JWTValidationSettings v s i a p) =
+    fmap (\i' -> JWTValidationSettings v s i' a p) (f i)
 
 -- | Maximum allowed skew when validating the /nbf/, /exp/ and /iat/ claims.
 class HasAllowedSkew s where
   allowedSkew :: Lens' s NominalDiffTime
+  default allowedSkew :: HasJWTValidationSettings s => Lens' s NominalDiffTime
+  allowedSkew = jwtValidationSettings . allowedSkew
 
 -- | Predicate for checking values in the /aud/ claim.
 class HasAudiencePredicate s where
   audiencePredicate :: Lens' s (StringOrURI -> Bool)
+  default audiencePredicate :: HasJWTValidationSettings s => Lens' s (StringOrURI -> Bool)
+  audiencePredicate = jwtValidationSettings . audiencePredicate
 
 -- | Predicate for checking the /iss/ claim.
 class HasIssuerPredicate s where
   issuerPredicate :: Lens' s (StringOrURI -> Bool)
+  default issuerPredicate :: HasJWTValidationSettings s => Lens' s (StringOrURI -> Bool)
+  issuerPredicate = jwtValidationSettings . issuerPredicate
 
 -- | Whether to check that the /iat/ claim is not in the future.
 class HasCheckIssuedAt s where
   checkIssuedAt :: Lens' s Bool
-
-instance HasJWTValidationSettings a => HasAllowedSkew a where
-  allowedSkew = jwtValidationSettingsAllowedSkew
-instance HasJWTValidationSettings a => HasAudiencePredicate a where
-  audiencePredicate = jwtValidationSettingsAudiencePredicate
-instance HasJWTValidationSettings a => HasIssuerPredicate a where
-  issuerPredicate = jwtValidationSettingsIssuerPredicate
-instance HasJWTValidationSettings a => HasCheckIssuedAt a where
-  checkIssuedAt = jwtValidationSettingsCheckIssuedAt
+  default checkIssuedAt :: HasJWTValidationSettings s => Lens' s Bool
+  checkIssuedAt = jwtValidationSettings . checkIssuedAt
 
 -- | Acquire the default validation settings.
 --

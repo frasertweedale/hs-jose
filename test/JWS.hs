@@ -13,6 +13,9 @@
 -- limitations under the License.
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module JWS where
 
@@ -25,7 +28,6 @@ import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Except (runExceptT)
 import Data.Aeson
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64.URL as B64U
 import Test.Hspec
 
@@ -36,7 +38,11 @@ import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.Types as Types
+import Data.Functor.Classes
+import WrappedExceptT
 
+deriving instance Eq1 JWSHeader'
+deriving instance Show1 JWSHeader'
 
 drg :: ChaChaDRG
 drg = drgNewTest (1,2,3,4,5)
@@ -56,8 +62,21 @@ spec = do
 --
 newtype JWSHeader' p = JWSHeader' { unJWSHeader' :: JWSHeader p }
   deriving (Eq, Show)
+
 _JWSHeader' :: Iso' (JWSHeader' p) (JWSHeader p)
 _JWSHeader' = iso unJWSHeader' JWSHeader'
+
+instance HasX5u JWSHeader' where
+instance HasAlg JWSHeader' where
+instance HasJku JWSHeader' where
+instance HasJwk JWSHeader' where
+instance HasKid JWSHeader' where
+instance HasX5c JWSHeader' where
+instance HasX5t JWSHeader' where
+instance HasX5tS256 JWSHeader' where
+instance HasTyp JWSHeader' where
+instance HasCty JWSHeader' where
+instance HasCrit JWSHeader' where
 instance HasJWSHeader JWSHeader' where
   jwsHeader = _JWSHeader'
 instance HasParams JWSHeader' where
@@ -71,12 +90,34 @@ data ACMEHeader p = ACMEHeader
   { _acmeJwsHeader :: JWSHeader p
   , _acmeNonce :: Types.Base64Octets
   } deriving (Show)
+
+instance Eq1 ACMEHeader where
+  liftEq f (ACMEHeader h1 o1) (ACMEHeader h2 o2) =
+    (liftEq f h1 h2) && (o1 == o2)
+
+instance Show1 ACMEHeader where
+  liftShowsPrec f g n (ACMEHeader h o) =
+    showString "ACMEHeader " .
+    liftShowsPrec f g n h .
+    shows o
+
 acmeJwsHeader :: Lens' (ACMEHeader p) (JWSHeader p)
 acmeJwsHeader f s@ACMEHeader{ _acmeJwsHeader = a} =
   fmap (\a' -> s { _acmeJwsHeader = a'}) (f a)
 acmeNonce :: Lens' (ACMEHeader p) Types.Base64Octets
 acmeNonce f s@ACMEHeader{ _acmeNonce = a} =
   fmap (\a' -> s { _acmeNonce = a'}) (f a)
+instance HasX5u ACMEHeader where
+instance HasAlg ACMEHeader where
+instance HasJku ACMEHeader where
+instance HasJwk ACMEHeader where
+instance HasKid ACMEHeader where
+instance HasX5c ACMEHeader where
+instance HasX5t ACMEHeader where
+instance HasX5tS256 ACMEHeader where
+instance HasTyp ACMEHeader where
+instance HasCty ACMEHeader where
+instance HasCrit ACMEHeader where
 instance HasJWSHeader ACMEHeader where
   jwsHeader = acmeJwsHeader
 instance HasParams ACMEHeader where
@@ -222,11 +263,11 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
 
   it "computes the HMAC correctly" $
     fst (withDRG drg $
-      runExceptT (sign alg (jwk ^. jwkMaterial) (signingInput' ^. recons)))
+      runWrappedExceptT' (sign alg_ (jwk_ ^. jwkMaterial) (signingInput' ^. recons)))
       `shouldBe` (Right mac :: Either Error BS.ByteString)
 
   it "validates the JWS correctly" $
-    (jws >>= verifyJWS defaultValidationSettings jwk)
+    (jws >>= verifyJWS defaultValidationSettings jwk_)
     `shouldBe` Right examplePayloadBytes
 
   where
@@ -237,14 +278,14 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
     compactJWS = signingInput' <> ".dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     jws = decodeCompact compactJWS :: Either Error (CompactJWS JWSHeader)
-    alg = JWA.JWS.HS256
-    h = newJWSHeader ((), alg)
+    alg_ = JWA.JWS.HS256
+    h = newJWSHeader ((), alg_)
         & typ .~ Just (HeaderParam () "JWT")
     mac = view recons
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
       187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
       132, 141, 121]
-    jwk = fromOctets
+    jwk_ = fromOctets
       [3,35,53,75,43,15,165,188,131,126,6,101,119,123,166,143,90,179,40,
        230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
        210,6,71,239,150,138,180,195,119,98,61,34,61,46,33,114,5,46,79,8,
@@ -275,15 +316,15 @@ jwkRSA1024 = fromJust $ decode $
 appendixA2Spec :: Spec
 appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
-    fst (withDRG drg $ runExceptT (sign JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput'))
+    fst (withDRG drg $ runWrappedExceptT' (sign JWA.JWS.RS256 (jwk_ ^. jwkMaterial) signingInput'))
       `shouldBe` (Right sig :: Either Error BS.ByteString)
 
   it "validates the signature correctly" $
-    verify JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput' sig
+    verify JWA.JWS.RS256 (jwk_ ^. jwkMaterial) signingInput' sig
       `shouldBe` (Right True :: Either Error Bool)
 
   it "prohibits signing with 1024-bit key" $
-    fst (withDRG drg (runExceptT $
+    fst (withDRG drg (runWrappedExceptT' $
       signJWS signingInput' (Identity (newJWSHeader ((), JWA.JWS.RS256), jwkRSA1024))))
         `shouldBe` (Left KeySizeTooSmall :: Either Error (CompactJWS JWSHeader))
 
@@ -293,7 +334,7 @@ appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
-    jwk = fromJust $ decode "\
+    jwk_ = fromJust $ decode "\
       \{\"kty\":\"RSA\",\
       \ \"n\":\"ofgWCuLjybRlzo0tZWJjNiuSfb4p4fAkd_wWJcyQoTbji9k0l8W26mPddx\
             \HmfHQp-Vaw-4qPCJrcS2mJPMEzP1Pt0Bm4d4QlL-yRT-SFd2lZS-pCgNMs\
@@ -334,7 +375,7 @@ appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-
 appendixA3Spec :: Spec
 appendixA3Spec = describe "RFC 7515 A.3.  Example JWS using ECDSA P-256 SHA-256" $
   it "validates the signature correctly" $
-    verify JWA.JWS.ES256 (jwk ^. jwkMaterial) signingInput' sig
+    verify JWA.JWS.ES256 (jwk_ ^. jwkMaterial) signingInput' sig
     `shouldBe` (Right True :: Either Error Bool)
   where
     signingInput' = "\
@@ -342,7 +383,7 @@ appendixA3Spec = describe "RFC 7515 A.3.  Example JWS using ECDSA P-256 SHA-256"
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
-    jwk = fromJust $ decode "\
+    jwk_ = fromJust $ decode "\
       \{\"kty\":\"EC\",\
       \ \"crv\":\"P-256\",\
       \ \"x\":\"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU\",\
@@ -367,7 +408,7 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
 
   where
     jws = fst $ withDRG drg $ runExceptT $
-      signJWS examplePayloadBytes (Identity (newJWSHeader ((), JWA.JWS.None), undefined))
+      runWrappedExceptT (signJWS examplePayloadBytes (Identity (newJWSHeader ((), JWA.JWS.None), undefined)))
       :: Either Error (CompactJWS JWSHeader)
     exampleJWS = "eyJhbGciOiJub25lIn0\
       \.\
@@ -502,7 +543,7 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
 cfrgSpec :: Spec
 cfrgSpec = describe "RFC 8037 signature/validation test vectors" $ do
   let
-    jwk = fromJust $ decode "\
+    jwk_ = fromJust $ decode "\
       \{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\
       \\"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\",\
       \\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
@@ -514,8 +555,8 @@ cfrgSpec = describe "RFC 8037 signature/validation test vectors" $ do
     sig = BS.pack sigOctets
     signingInput = "eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc"
   it "computes the correct signature" $
-    fst (withDRG drg $ runExceptT (sign JWA.JWS.EdDSA (view jwkMaterial jwk) signingInput))
+    fst (withDRG drg $ runWrappedExceptT' (sign JWA.JWS.EdDSA (view jwkMaterial jwk_) signingInput))
       `shouldBe` (Right sig :: Either Error BS.ByteString)
   it "validates signatures correctly" $
-    verify JWA.JWS.EdDSA (view jwkMaterial jwk) signingInput sig
+    verify JWA.JWS.EdDSA (view jwkMaterial jwk_) signingInput sig
       `shouldBe` (Right True :: Either Error Bool)
