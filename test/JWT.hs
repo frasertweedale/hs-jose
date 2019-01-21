@@ -18,25 +18,21 @@
 
 module JWT where
 
-import Data.Maybe
+import Data.Maybe(fromJust)
 import Data.Monoid ((<>))
 
-import Control.Lens
-import Control.Lens.Extras (is)
-import Control.Monad.Reader (MonadReader(..), ReaderT, runReaderT)
-import Control.Monad.State (execState)
-import Control.Monad.Time (MonadTime(..))
-import Data.Aeson hiding ((.=))
-import Data.Functor.Identity (runIdentity)
+import Control.Lens((&), (.~), preview, over, set, _Left)
+import Control.Lens.Extras(is)
+import Control.Monad.Reader (runReaderT)
+import Data.Aeson(Value(Bool), decode, encode)
 import Data.HashMap.Strict (insert)
-import qualified Data.Set as S
-import Data.Time
-import Network.URI (parseURI)
+import qualified Data.Set as S(singleton)
+import Data.Time(UTCTime, parseTimeM, defaultTimeLocale)
 import Safe (headMay)
 import Test.Hspec
 
-import Crypto.JWT
-
+import Crypto.JWT(NumericDate(NumericDate), ClaimsSet, JWTError, StringOrURI, JWK, emptyClaimsSet, claimIss, stringOrUri, claimExp, unregisteredClaims, addClaim, algorithms, Alg(None), defaultJWTValidationSettings, validateClaimsSet, JWTError(JWTExpired, JWTIssuedAtFuture, JWTNotYetValid, JWTNotInAudience, JWTNotInIssuer), allowedSkew, claimIat, checkIssuedAt, claimNbf, audiencePredicate, claimAud, Audience(Audience), issuerPredicate, string, uri, decodeCompact, verifyClaims, _JWSInvalidSignature)
+import Crypto.JOSE.Types.WrappedURI
 
 intDate :: String -> Maybe NumericDate
 intDate = fmap NumericDate . parseTimeM True defaultTimeLocale "%F %T"
@@ -259,9 +255,9 @@ spec = do
   describe "StringOrURI" $
     it "parses from JSON correctly" $ do
       (decode "[\"foo\"]" >>= headMay >>= preview string) `shouldBe` Just "foo"
-      (decode "[\"http://example.com\"]" >>= headMay >>= preview uri)
-        `shouldBe` parseURI "http://example.com"
-      decode "[\":\"]" `shouldBe` (Nothing :: Maybe [StringOrURI])
+      (decode "[\"http://example.com\"]" >>= headMay >>= preview uri >>= pure . WrappedURI)
+        `shouldBe` mkURI' "http://example.com"
+      decode "[\"\\:\"]" `shouldBe` (Nothing :: Maybe [StringOrURI])
       decode "[12345]" `shouldBe` (Nothing :: Maybe [StringOrURI])
 
   describe "NumericDate" $

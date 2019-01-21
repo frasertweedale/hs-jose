@@ -31,6 +31,5 @@ import Crypto.JOSE.Error
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWK.Store
 import Crypto.JOSE.JWS
-import Crypto.JOSE.Types (base64url)
 
 {-# ANN module ("HLint: ignore Use import/export shortcut" :: String) #-}

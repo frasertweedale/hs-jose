@@ -54,36 +54,42 @@ library
     Crypto.JOSE.JWA.JWS
     Crypto.JOSE.JWA.JWE
     Crypto.JOSE.JWA.JWE.Alg
+    Crypto.JOSE.Types.WrappedURI
 
   other-modules:
     Crypto.JOSE.TH
     Crypto.JOSE.Types.Internal
-    Crypto.JOSE.Types.Orphans
+    Crypto.JOSE.Types.WrappedNonEmpty
 
   build-depends:
-    base >= 4.8 && < 5
-    , attoparsec
-    , base64-bytestring == 1.0.*
-    , concise >= 0.1
-    , containers >= 0.5
-    , cryptonite >= 0.7
-    , lens >= 4.16
-    , memory >= 0.7
-    , monad-time >= 0.1
-    , mtl >= 2
-    , semigroups >= 0.15
-    , template-haskell >= 2.4
-    , safe >= 0.3
-    , aeson >= 0.8.0.1
-    , unordered-containers == 0.2.*
-    , bytestring == 0.10.*
-    , text >= 1.1
-    , time >= 1.5
-    , network-uri >= 2.6
-    , QuickCheck >= 2
-    , quickcheck-instances
-    , x509 >= 1.4
-    , vector
+    aeson                >= 1.4.2 && < 1.5,
+    attoparsec           >= 0.13.2 && < 0.14,
+    base                 >= 4.8 && < 5,
+    base64-bytestring    == 1.0.*,
+    bytestring           == 0.10.*,
+    concise              >= 0.1 && < 0.2,
+    containers           >= 0.5 && < 0.7,
+    contravariant        >= 1.4 && < 1.5,
+    cryptonite           >= 0.7 && < 0.26,
+    exceptions           >= 0.10.0 && < 0.11,
+    lens                 >= 4.16 && < 4.18,
+    mtl                  >= 2 && < 2.3,
+    memory               >= 0.7 && < 0.15,
+    modern-uri           >= 0.3.0 && < 0.4,
+    monad-time           >= 0.1 && < 0.4,
+    network-uri          >= 2.6 && < 2.7,
+    QuickCheck           >= 2 && < 2.13,
+    quickcheck-instances >= 0.3 && < 0.4,
+    safe                 >= 0.3 && < 0.4,
+    semigroups           >= 0.15 && < 0.19,
+    semigroupoids        >= 5 && < 6,
+    template-haskell     >= 2.4 && < 2.15,
+    text                 >= 1.1 && < 1.3,
+    time                 >= 1.5 && < 1.10,
+    unordered-containers == 0.2.*,
+    vector               >= 0.12 && < 0.13,
+    waargonaut           >= 0.5 && < 0.6,
+    x509                 >= 1.4 && < 1.8
 
   ghc-options:    -Wall
   hs-source-dirs: src
@@ -103,6 +109,8 @@ test-suite tests
     JWT
     Properties
     Types
+    WrappedExceptT
+  ghc-options:    -Wall
 
   build-depends:
     base
@@ -135,6 +143,7 @@ test-suite tests
     , hspec
     , QuickCheck
     , quickcheck-instances
+    , modern-uri
 
 executable jose-example
   if !flag(demos)

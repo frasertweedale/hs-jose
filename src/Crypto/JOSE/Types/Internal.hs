@@ -35,6 +35,11 @@ module Crypto.JOSE.Types.Internal
   , intBytes
   , sizedIntegerToBS
   , base64url
+  , viewMaybe
+  , previewEqual
+  , gettingGen
+  , genMaybe
+  , gettingGenMaybe
   ) where
 
 import Data.Bifunctor (first)
@@ -43,7 +48,7 @@ import Data.Monoid ((<>))
 import Data.Tuple (swap)
 import Data.Word (Word8)
 
-import Control.Lens
+import Control.Lens(Snoc, snoc, unsnoc, AsEmpty, Cons, Prism', Getting, AReview, iso, prism, view, preview, review)
 import Control.Lens.Cons.Extras
 import Crypto.Number.Basic (log2)
 import Data.Aeson.Types
@@ -52,8 +57,10 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.HashMap.Strict as M
+import Data.Text(Text)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
+import Test.QuickCheck(Arbitrary(arbitrary), Gen, frequency)
 
 -- | Convert a JSON object into a list of pairs or the empty list
 -- if the JSON value is not an object.
@@ -181,3 +188,18 @@ sizedIntegerToBS w = zeroPad . integerToBS
 
 intBytes :: Integer -> Int
 intBytes n = (log2 n `div` 8) + 1
+
+viewMaybe :: FromJSON a => Getting b a b -> Object -> Text -> Parser (Maybe b)
+viewMaybe k o t = fmap (fmap (view k)) (o .:? t)
+
+previewEqual :: (ToJSON v, KeyValue kv) => AReview v a -> Text -> a -> kv
+previewEqual k t v = t .= review k v
+
+gettingGen :: Arbitrary s => Getting a s a -> Gen a
+gettingGen k = fmap (view k) arbitrary
+
+genMaybe :: Gen a -> Gen (Maybe a)
+genMaybe g = frequency [(1, return Nothing), (3, fmap Just g)]
+
+gettingGenMaybe :: Arbitrary s => Getting a s a -> Gen (Maybe a)
+gettingGenMaybe k = genMaybe (fmap (view k) arbitrary)
