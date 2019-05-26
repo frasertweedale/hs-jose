@@ -87,9 +87,8 @@ data CompactDecodeError
 makePrisms ''CompactDecodeError
 
 instance Show CompactDecodeError where
-  show err = "CompactDecodeError: " <> case err of
-    CompactInvalidNumberOfParts e -> show e
-    CompactInvalidText e        -> show e
+  show (CompactInvalidNumberOfParts e) = "Invalid number of parts: " <> show e
+  show (CompactInvalidText e) = "Invalid text: " <> show e
 
 
 
