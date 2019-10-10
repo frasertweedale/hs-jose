@@ -62,6 +62,7 @@ module Crypto.JOSE.Header
   ) where
 
 
+import qualified Control.Monad.Fail as Fail
 import Data.List.NonEmpty (NonEmpty)
 import Data.Monoid ((<>))
 import Data.Proxy (Proxy(..))
@@ -285,12 +286,12 @@ headerRequiredProtected k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
 
 
 critObjectParser
-  :: (Foldable t0, Foldable t1, Monad m)
+  :: (Foldable t0, Foldable t1, Fail.MonadFail m)
   => t0 T.Text -> t1 T.Text -> Object -> T.Text -> m T.Text
 critObjectParser reserved exts o s
-  | s `elem` reserved         = fail "crit key is reserved"
-  | s `notElem` exts          = fail "crit key is not understood"
-  | not (s `M.member` o)      = fail "crit key is not present in headers"
+  | s `elem` reserved         = Fail.fail "crit key is reserved"
+  | s `notElem` exts          = Fail.fail "crit key is not understood"
+  | not (s `M.member` o)      = Fail.fail "crit key is not present in headers"
   | otherwise                 = pure s
 
 -- | Parse a "crit" header param
@@ -302,7 +303,7 @@ critObjectParser reserved exts o s
 -- * any value in "crit" does not have a corresponding key in the object
 --
 parseCrit
-  :: (Foldable t0, Foldable t1, Traversable t2, Traversable t3, Monad m)
+  :: (Foldable t0, Foldable t1, Traversable t2, Traversable t3, Fail.MonadFail m)
   => t0 T.Text -- ^ reserved header parameters
   -> t1 T.Text -- ^ recognised extensions
   -> Object    -- ^ full header (union of protected and unprotected headers)
