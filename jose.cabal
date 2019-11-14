@@ -85,6 +85,9 @@ library
     , x509 >= 1.4
     , vector
 
+  if impl(ghc<8)
+    build-depends: fail
+
   ghc-options:    -Wall
   hs-source-dirs: src
 
