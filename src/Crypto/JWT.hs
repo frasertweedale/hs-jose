@@ -35,9 +35,9 @@ mkClaims :: IO 'ClaimsSet'
 mkClaims = do
   t <- 'currentTime'
   pure $ 'emptyClaimsSet'
-    & 'claimIss' .~ Just ("alice")
-    & 'claimAud' .~ Just ('Audience' ["bob"])
-    & 'claimIat' .~ Just ('NumericDate' t)
+    & 'claimIss' ?~ "alice"
+    & 'claimAud' ?~ 'Audience' ["bob"]
+    & 'claimIat' ?~ 'NumericDate' t
 
 doJwtSign :: 'JWK' -> 'ClaimsSet' -> IO (Either 'JWTError' 'SignedJWT')
 doJwtSign jwk claims = runExceptT $ do
