@@ -47,7 +47,7 @@ The following known interoperability issues will not be addressed,
 so please do not open issues:
 
 - Some JOSE tools and libraries permit the use of **short keys**, in
-  violation of the RFCs.  This implementation reject JWS or JWT
+  violation of the RFCs.  This implementation rejects JWS or JWT
   objects minted with short keys, as required by the RFCs.
 
 - The *Auth0* software produces objects with an [invalid `"x5t"`
@@ -88,4 +88,4 @@ To submit a patch, please use ``git send-email`` or open a pull
 request.  Write a [well formed commit message](
 http://tbaggery.com/2008/04/19/a-note-about-git-commit-messages.html).
 If your patch is nontrivial, update the copyright notice at the top
-of the modified files
+of the modified files.
