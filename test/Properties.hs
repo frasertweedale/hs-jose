@@ -13,10 +13,10 @@
 -- limitations under the License.
 
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Properties where
 
-import Control.Applicative
 import Control.Monad.Except (runExceptT)
 
 import Data.Aeson
@@ -32,6 +32,9 @@ import Crypto.JOSE.Types
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
 
+import WrappedExceptT
+
+properties :: TestTree
 properties = testGroup "Properties"
   [ testProperty "SizedBase64Integer round-trip"
     (prop_roundTrip :: SizedBase64Integer -> Bool)
@@ -58,9 +61,9 @@ prop_rsaSignAndVerify :: B.ByteString -> Property
 prop_rsaSignAndVerify msg = monadicIO $ do
   keylen <- pick $ elements ((`div` 8) <$> [2048, 3072, 4096])
   k :: JWK <- run $ genJWK (RSAGenParam keylen)
-  alg <- pick $ elements [RS256, RS384, RS512, PS256, PS384, PS512]
-  monitor (collect alg)
-  wp (runExceptT (signJWS msg [(newJWSHeader (Protected, alg), k)]
+  alg_ <- pick $ elements [RS256, RS384, RS512, PS256, PS384, PS512]
+  monitor (collect alg_)
+  wp (runWrappedExceptT' (signJWS msg [(newJWSHeader (Protected, alg_), k)]
     >>= verifyJWS defaultValidationSettings k)) (checkSignVerifyResult msg)
 
 prop_bestJWSAlg :: B.ByteString -> Property
@@ -70,11 +73,11 @@ prop_bestJWSAlg msg = monadicIO $ do
   case bestJWSAlg k of
     Left (KeyMismatch _) -> pre False  -- skip non-signing keys
     Left _ -> assert False
-    Right alg -> do
-      monitor (collect alg)
+    Right alg_ -> do
+      monitor (collect alg_)
       let
         go = do
-          jws <- signJWS msg [(newJWSHeader (Protected, alg), k)]
+          jws <- runWrappedExceptT (signJWS msg [(newJWSHeader (Protected, alg_), k)])
           verifyJWS defaultValidationSettings k jws
       wp (runExceptT go) (checkSignVerifyResult msg)
 

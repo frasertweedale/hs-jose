@@ -14,7 +14,6 @@
 
 import Test.Tasty
 import Test.Tasty.Hspec
-import Test.Tasty.QuickCheck
 
 import AESKW
 import JWK

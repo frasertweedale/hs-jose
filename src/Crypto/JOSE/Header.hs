@@ -36,7 +36,13 @@ module Crypto.JOSE.Header
   , headerRequired
   , headerRequiredProtected
   , headerOptional
+  , headerOptional'
+  , headerOptionalNonEmpty
+  , headerOptionalURI
   , headerOptionalProtected
+  , headerOptionalProtected'
+  , headerOptionalProtectedNonEmpty
+  , headerOptionalProtectedURI
 
   -- * Parsing headers
   , parseParams
@@ -45,20 +51,6 @@ module Crypto.JOSE.Header
   -- * Encoding headers
   , protectedParamsEncoded
   , unprotectedParams
-
-
-  -- * Header fields shared by JWS and JWE
-  , HasAlg(..)
-  , HasJku(..)
-  , HasJwk(..)
-  , HasKid(..)
-  , HasX5u(..)
-  , HasX5c(..)
-  , HasX5t(..)
-  , HasX5tS256(..)
-  , HasTyp(..)
-  , HasCty(..)
-  , HasCrit(..)
   ) where
 
 
@@ -67,7 +59,7 @@ import Data.List.NonEmpty (NonEmpty)
 import Data.Monoid ((<>))
 import Data.Proxy (Proxy(..))
 
-import Control.Lens (Lens', Getter, to)
+import Control.Lens (Lens', Getter, to, Getting, view, _Wrapped)
 import Data.Aeson (FromJSON(..), Object, Value, encode, object)
 import Data.Aeson.Types (Pair, Parser)
 import qualified Data.ByteString.Base64.URL.Lazy as B64UL
@@ -75,12 +67,10 @@ import qualified Data.ByteString.Lazy as L
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 
-import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
-import Crypto.JOSE.JWK (JWK)
-import Crypto.JOSE.Types.Orphans ()
+import Crypto.JOSE.Types.WrappedURI(WrappedURI)
+import Crypto.JOSE.Types.WrappedNonEmpty(WrappedNonEmpty)
 import Crypto.JOSE.Types.Internal (unpad)
-import qualified Crypto.JOSE.Types as Types
-
+import Text.URI(URI)
 
 -- | A thing with parameters.
 --
@@ -236,6 +226,34 @@ headerOptional k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
     getUnprotected
   (Nothing, Nothing)  -> pure Nothing
 
+headerOptional'
+  :: (FromJSON a, ProtectionIndicator p)
+  => Getting b a b
+  -> T.Text
+  -> Maybe Object
+  -> Maybe Object
+  -> Parser (Maybe (HeaderParam p b))
+headerOptional' j k hp hu =
+  fmap (fmap (fmap (view j))) (headerOptional k hp hu)
+
+headerOptionalNonEmpty
+  :: (FromJSON a, ProtectionIndicator p)
+  => T.Text
+  -> Maybe Object
+  -> Maybe Object
+  -> Parser (Maybe (HeaderParam p (NonEmpty a)))
+headerOptionalNonEmpty =
+  headerOptional' (_Wrapped :: Getting (NonEmpty a) (WrappedNonEmpty a) (NonEmpty a))
+
+headerOptionalURI
+  :: ProtectionIndicator p
+  => T.Text
+  -> Maybe Object
+  -> Maybe Object
+  -> Parser (Maybe (HeaderParam p URI))
+headerOptionalURI =
+  headerOptional' (_Wrapped :: Getting URI WrappedURI URI)
+
 -- | Parse an optional parameter that, if present, MUST be carried
 -- in the protected header.
 --
@@ -250,6 +268,33 @@ headerOptionalProtected k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
   (_, Just _) -> fail $ "header must be protected: " ++ show k
   (Just v, _) -> Just <$> parseJSON v
   _           -> pure Nothing
+
+headerOptionalProtected'
+  :: FromJSON a
+  => Getting b a b
+  -> T.Text
+  -> Maybe Object
+  -> Maybe Object
+  -> Parser (Maybe b)
+headerOptionalProtected' j k hp hu =
+  fmap (fmap (view j)) (headerOptionalProtected k hp hu)
+
+headerOptionalProtectedNonEmpty
+  :: FromJSON a
+  => T.Text
+  -> Maybe Object
+  -> Maybe Object
+  -> Parser (Maybe (NonEmpty a))
+headerOptionalProtectedNonEmpty =
+  headerOptionalProtected' (_Wrapped :: Getting (NonEmpty a) (WrappedNonEmpty a) (NonEmpty a))
+
+headerOptionalProtectedURI
+  :: T.Text
+  -> Maybe Object
+  -> Maybe Object
+  -> Parser (Maybe URI)
+headerOptionalProtectedURI =
+  headerOptionalProtected' (_Wrapped :: Getting URI WrappedURI URI)
 
 -- | Parse a required parameter that may be carried in either
 -- the protected or the unprotected header.
@@ -312,36 +357,3 @@ parseCrit
 parseCrit reserved exts o = mapM (mapM (critObjectParser reserved exts o))
   -- TODO fail on duplicate strings
 
-
-class HasAlg a where
-  alg :: Lens' (a p) (HeaderParam p JWA.JWS.Alg)
-
-class HasJku a where
-  jku :: Lens' (a p) (Maybe (HeaderParam p Types.URI))
-
-class HasJwk a where
-  jwk :: Lens' (a p) (Maybe (HeaderParam p JWK))
-
-class HasKid a where
-  kid :: Lens' (a p) (Maybe (HeaderParam p T.Text))
-
-class HasX5u a where
-  x5u :: Lens' (a p) (Maybe (HeaderParam p Types.URI))
-
-class HasX5c a where
-  x5c :: Lens' (a p) (Maybe (HeaderParam p (NonEmpty Types.SignedCertificate)))
-
-class HasX5t a where
-  x5t :: Lens' (a p) (Maybe (HeaderParam p Types.Base64SHA1))
-
-class HasX5tS256 a where
-  x5tS256 :: Lens' (a p) (Maybe (HeaderParam p Types.Base64SHA256))
-
-class HasTyp a where
-  typ :: Lens' (a p) (Maybe (HeaderParam p T.Text))
-
-class HasCty a where
-  cty :: Lens' (a p) (Maybe (HeaderParam p T.Text))
-
-class HasCrit a where
-  crit :: Lens' (a p) (Maybe (NonEmpty T.Text))

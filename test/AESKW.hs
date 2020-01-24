@@ -28,6 +28,7 @@ import Test.Tasty.QuickCheck
 import Crypto.JOSE.AESKW
 
 
+aeskwProperties :: TestTree
 aeskwProperties = testGroup "AESKW"
   [ testProperty "AESKW round-trip" prop_roundTrip
   ]
@@ -52,3 +53,4 @@ prop_roundTrip = monadicIO $ do
     16 -> assert $ check (cipherInit kek :: CryptoFailable AES128)
     24 -> assert $ check (cipherInit kek :: CryptoFailable AES192)
     32 -> assert $ check (cipherInit kek :: CryptoFailable AES256)
+    n  -> fail ("expecting length one of [16,24,32], was :" ++ show n)

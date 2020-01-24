@@ -120,7 +120,8 @@ import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
 import qualified Crypto.JOSE.Types.Internal as Types
-
+import Crypto.JOSE.Types.WrappedNonEmpty(parseNonEmpty, kvNonEmpty)
+import Crypto.JOSE.Types.WrappedURI(parseURI, kvURI)
 
 -- | RFC 7517 §4.4.  "alg" (Algorithm) Parameter
 --
@@ -200,8 +201,8 @@ instance FromJSON JWK where
     <*> o .:? "key_ops"
     <*> o .:? "alg"
     <*> o .:? "kid"
-    <*> o .:? "x5u"
-    <*> ((fmap . fmap) (\(Types.Base64X509 cert) -> cert) <$> o .:? "x5c")
+    <*> o `parseURI` "x5u"
+    <*> ((fmap . fmap) (\(Types.Base64X509 cert) -> cert) <$> (o `parseNonEmpty` "x5c"))
     <*> o .:? "x5t"
     <*> o .:? "x5t#S256"
     ) >=> checkKey
@@ -217,8 +218,8 @@ instance ToJSON JWK where
     , fmap ("use" .=) _jwkUse
     , fmap ("key_ops" .=) _jwkKeyOps
     , fmap ("kid" .=) _jwkKid
-    , fmap ("x5u" .=) _jwkX5u
-    , fmap (("x5c" .=) . fmap Types.Base64X509) _jwkX5cRaw
+    , fmap ("x5u" `kvURI`) _jwkX5u
+    , fmap (("x5c" `kvNonEmpty`) . fmap Types.Base64X509) _jwkX5cRaw
     , fmap ("x5t" .=) _jwkX5t
     , fmap ("x5t#S256" .=) _jwkX5tS256
     ]
