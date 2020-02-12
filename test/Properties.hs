@@ -32,6 +32,9 @@ import Crypto.JOSE.Types
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
 
+import Orphans
+
+
 properties = testGroup "Properties"
   [ testProperty "SizedBase64Integer round-trip"
     (prop_roundTrip :: SizedBase64Integer -> Bool)
