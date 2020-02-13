@@ -106,7 +106,6 @@ test-suite tests
     JWT
     Properties
     Types
-    Orphans
 
   build-depends:
     base

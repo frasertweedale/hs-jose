@@ -13,7 +13,6 @@
 -- limitations under the License.
 
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module JWS where
 
@@ -37,8 +36,6 @@ import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.Types as Types
-
-import Orphans
 
 
 drg :: ChaChaDRG
