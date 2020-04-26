@@ -63,7 +63,7 @@ library
   build-depends:
     base >= 4.8 && < 5
     , attoparsec
-    , base64-bytestring == 1.0.*
+    , base64-bytestring >= 1.0 && < 1.2
     , concise >= 0.1
     , containers >= 0.5
     , cryptonite >= 0.7
