@@ -25,6 +25,7 @@ module Crypto.JOSE.Types
     Base64Integer(..)
   , _Base64Integer
   , SizedBase64Integer(..)
+  , makeSizedBase64Integer
   , genSizedBase64IntegerOf
   , checkSize
   , Base64Octets(..)
@@ -127,6 +128,14 @@ genByteStringOf n = B.pack <$> vectorOf n arbitrary
 genSizedBase64IntegerOf :: Int -> Gen SizedBase64Integer
 genSizedBase64IntegerOf n =
   SizedBase64Integer n . bsToInteger <$> genByteStringOf n
+
+-- | Create a 'SizedBase64Integer'' from an 'Integer'.  This is slow since it
+-- does an encoding of the 'Integer' to check the size, so it should be used
+-- with care.
+makeSizedBase64Integer :: Integer -> SizedBase64Integer
+makeSizedBase64Integer x =
+  let bytes = review base64url (integerToBS x) in
+  SizedBase64Integer (B.length bytes) x
 
 instance FromJSON SizedBase64Integer where
   parseJSON = withText "full size base64url integer" $ parseB64Url (\bytes ->

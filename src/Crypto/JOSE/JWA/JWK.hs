@@ -37,6 +37,7 @@ module Crypto.JOSE.JWA.JWK (
   , curve
   , point
   , ecPrivateKey
+  , ecParametersFromX509
 
   -- * Parameters for RSA Keys
   , RSAPrivateKeyOthElem(..)
@@ -100,6 +101,8 @@ import qualified Data.ByteString as B
 import qualified Data.HashMap.Strict as M
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Text as T
+import Data.X509 as X509
+import Data.X509.EC as X509.EC
 import Test.QuickCheck (Arbitrary(..), arbitrarySizedNatural, elements, oneof, vectorOf)
 
 import Crypto.JOSE.Error
@@ -296,10 +299,20 @@ verifyEC h k m s = ECDSA.verify h pubkey sig m
     $ B.splitAt (B.length s `div` 2) s
 
 curve :: Crv -> ECC.Curve
-curve = ECC.getCurveByName . curveName where
-  curveName P_256 = ECC.SEC_p256r1
-  curveName P_384 = ECC.SEC_p384r1
-  curveName P_521 = ECC.SEC_p521r1
+curve = ECC.getCurveByName . review fromCurveName
+
+-- | Conversion from known curves and back again.
+fromCurveName :: Prism' ECC.CurveName Crv
+fromCurveName = prism'
+  (\case
+    P_256 -> ECC.SEC_p256r1
+    P_384 -> ECC.SEC_p384r1
+    P_521 -> ECC.SEC_p521r1)
+  (\case
+    ECC.SEC_p256r1 -> Just P_256
+    ECC.SEC_p384r1 -> Just P_384
+    ECC.SEC_p521r1 -> Just P_521
+    _              -> Nothing)
 
 point :: ECKeyParameters -> ECC.Point
 point k = ECC.Point (f ecX) (f ecY) where
@@ -315,6 +328,17 @@ ecPrivateKey :: (MonadError e m, AsError e) => ECKeyParameters -> m Integer
 ecPrivateKey (ECKeyParameters _ _ _ (Just (Types.SizedBase64Integer _ d))) = pure d
 ecPrivateKey _ = throwing _KeyMismatch "Not an EC private key"
 
+ecParametersFromX509 :: X509.PubKeyEC -> Maybe ECKeyParameters
+ecParametersFromX509 pubKeyEC = do
+  ecCurve <- X509.EC.ecPubKeyCurve pubKeyEC
+  curveName <- X509.EC.ecPubKeyCurveName pubKeyEC
+  crv <- preview fromCurveName curveName
+  pt <- X509.EC.unserializePoint ecCurve (X509.pubkeyEC_pub pubKeyEC)
+  (x, y) <- case pt of
+    ECC.PointO    -> Nothing
+    ECC.Point x y ->
+      pure (Types.makeSizedBase64Integer x, Types.makeSizedBase64Integer y)
+  pure $ ECKeyParameters crv x y Nothing
 
 -- | Parameters for RSA Keys
 --

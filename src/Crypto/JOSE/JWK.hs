@@ -255,6 +255,12 @@ fromRSA = fromKeyMaterial . RSAKeyMaterial . toRSAKeyParameters
 fromRSAPublic :: RSA.PublicKey -> JWK
 fromRSAPublic = fromKeyMaterial . RSAKeyMaterial . toRSAPublicKeyParameters
 
+-- | Convert an EC public key into a JWK
+--
+fromECPublic :: X509.PubKeyEC -> Maybe JWK
+fromECPublic = fmap (fromKeyMaterial . ECKeyMaterial) . ecParametersFromX509
+
+
 -- | Convert octet string into a JWK
 --
 fromOctets :: Cons s s Word8 Word8 => s -> JWK
@@ -281,7 +287,8 @@ fromX509CertificateMaybe :: X509.SignedCertificate -> Maybe JWK
 fromX509CertificateMaybe cert = do
   k <- case (X509.certPubKey . X509.signedObject . X509.getSigned) cert of
     X509.PubKeyRSA k -> pure (fromRSAPublic k)
-    _ -> {- TODO EC -} Nothing
+    X509.PubKeyEC k -> fromECPublic k
+    _ -> Nothing
   pure $ k & set jwkX5cRaw (Just (pure cert))
 
 
