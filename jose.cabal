@@ -101,6 +101,7 @@ test-suite tests
   main-is:        Test.hs
   other-modules:
     AESKW
+    Examples
     JWK
     JWS
     JWT
@@ -128,6 +129,7 @@ test-suite tests
     , network-uri
     , vector
     , x509
+    , pem
 
     , concise
     , jose
