@@ -17,6 +17,7 @@ import Test.Tasty.Hspec
 import Test.Tasty.QuickCheck
 
 import AESKW
+import Examples
 import JWK
 import JWS
 import JWT
@@ -35,4 +36,5 @@ unitTestsIO = do
   jwk <- testSpec "JWK" JWK.spec
   jws <- testSpec "JWS" JWS.spec
   jwt <- testSpec "JWT" JWT.spec
-  return $ testGroup "Unit tests" [types, jwk, jws, jwt]
+  examples <- testSpec "Examples" Examples.spec
+  return $ testGroup "Unit tests" [types, jwk, jws, jwt, examples]
