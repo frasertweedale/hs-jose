@@ -31,7 +31,7 @@ copyright:           Copyright (C) 2013-2018  Fraser Tweedale
 category:            Cryptography
 build-type:          Simple
 tested-with:
-  GHC==7.10.3, GHC==8.0.2, GHC==8.2.2, GHC==8.4.4, GHC==8.6.5, GHC==8.8.1
+  GHC==7.10.3, GHC==8.0.2, GHC==8.2.2, GHC==8.4.4, GHC==8.6.5, GHC==8.8.4, GHC==8.10.2
 
 flag demos
   description: Build demonstration programs
