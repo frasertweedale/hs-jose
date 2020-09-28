@@ -28,8 +28,6 @@ module Crypto.JOSE.Types.Internal
   , parseB64
   , encodeB64Url
   , parseB64Url
-  , pad
-  , unpad
   , bsToInteger
   , integerToBS
   , intBytes
@@ -38,7 +36,6 @@ module Crypto.JOSE.Types.Internal
   ) where
 
 import Data.Bifunctor (first)
-import Data.Char (ord)
 import Data.Monoid ((<>))
 import Data.Tuple (swap)
 import Data.Word (Word8)
@@ -48,7 +45,6 @@ import Control.Lens.Cons.Extras
 import Crypto.Number.Basic (log2)
 import Data.Aeson.Types
 import qualified Data.ByteString as B
-import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Base64.URL as B64U
 import qualified Data.HashMap.Strict as M
@@ -74,62 +70,6 @@ parseB64 f = either fail f . decodeB64
 encodeB64 :: B.ByteString -> Value
 encodeB64 = String . E.decodeUtf8 . B64.encode
 
-class IsChar a where
-  fromChar :: Char -> a
-
-instance IsChar Char where
-  fromChar = id
-
-instance IsChar Word8 where
-  fromChar = fromIntegral . ord
-
--- | Add appropriate base64 '=' padding.
---
-pad :: (Snoc s s a a, IsChar a) => s -> s
-pad = rpad 4 (fromChar '=')
-{-# INLINE [2] pad #-}
-
-rpad :: (Snoc s s a a) => Int -> a -> s -> s
-rpad w a s =
-  let n = ((w - snocLength s `mod` w) `mod` w)
-  in foldr (.) id (replicate n (`snoc` a)) s
-{-# INLINE rpad #-}
-
-snocLength :: (Snoc s s a a) => s -> Int
-snocLength s = case unsnoc s of
-  Nothing -> 0
-  Just (s', _) -> 1 + snocLength s'
-{-# INLINE snocLength #-}
-
-padB :: B.ByteString -> B.ByteString
-padB s = s <> B.replicate ((4 - B.length s `mod` 4) `mod` 4) 61
-{-# RULES "pad/padB" pad = padB #-}
-
-padL :: L.ByteString -> L.ByteString
-padL s = s <> L.replicate ((4 - L.length s `mod` 4) `mod` 4) 61
-{-# RULES "pad/padL" pad = padL #-}
-
-
--- | Strip base64 '=' padding.
---
-unpad :: (Snoc s s a a, IsChar a, Eq a) => s -> s
-unpad = rstrip (== fromChar '=')
-{-# INLINE [2] unpad #-}
-
-rstrip :: (Snoc s s a a) => (a -> Bool) -> s -> s
-rstrip p s = case unsnoc s of
-  Nothing -> s
-  Just (s', a) -> if p a then rstrip p s' else s
-{-# INLINE rstrip #-}
-
-unpadB :: B.ByteString -> B.ByteString
-unpadB = B.reverse . B.dropWhile (== 61) . B.reverse
-{-# RULES "unpad/unpadB" unpad = unpadB #-}
-
-unpadL :: L.ByteString -> L.ByteString
-unpadL = L.reverse . L.dropWhile (== 61) . L.reverse
-{-# RULES "unpad/unpadL" unpad = unpadL #-}
-
 
 -- | Prism for encoding / decoding base64url.
 --
@@ -143,10 +83,9 @@ base64url ::
   , Cons s1 s1 Word8 Word8
   , Cons s2 s2 Word8 Word8
   ) => Prism' s1 s2
-base64url = reconsIso . padder . b64u . reconsIso
+base64url = reconsIso . b64u . reconsIso
   where
-    padder = iso pad unpad
-    b64u = prism B64U.encode (\s -> first (const s) (B64U.decode s))
+    b64u = prism B64U.encodeUnpadded (\s -> first (const s) (B64U.decodeUnpadded s))
     reconsIso = iso (view recons) (view recons)
 
 

@@ -67,10 +67,9 @@ import Data.List.NonEmpty (NonEmpty)
 import Data.Monoid ((<>))
 import Data.Proxy (Proxy(..))
 
-import Control.Lens (Lens', Getter, to)
+import Control.Lens (Lens', Getter, review, to)
 import Data.Aeson (FromJSON(..), Object, Value, encode, object)
 import Data.Aeson.Types (Pair, Parser)
-import qualified Data.ByteString.Base64.URL.Lazy as B64UL
 import qualified Data.ByteString.Lazy as L
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
@@ -78,7 +77,7 @@ import qualified Data.Text as T
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import Crypto.JOSE.JWK (JWK)
 import Crypto.JOSE.Types.Orphans ()
-import Crypto.JOSE.Types.Internal (unpad)
+import Crypto.JOSE.Types.Internal (base64url)
 import qualified Crypto.JOSE.Types as Types
 
 
@@ -125,7 +124,7 @@ protectedParamsEncoded
   :: (HasParams a, ProtectionIndicator p)
   => a p -> L.ByteString
 protectedParamsEncoded =
-  maybe mempty (unpad . B64UL.encode . encode) . protectedParams
+  maybe mempty (review base64url . encode) . protectedParams
 
 -- | Return unprotected params as a JSON 'Value' (always an object)
 --
