@@ -118,7 +118,7 @@ protectedParams h =
     [] -> Nothing
     xs -> Just (object xs)
 
--- | Return the encoded protected parameters
+-- | Return the base64url-encoded protected parameters
 --
 protectedParamsEncoded
   :: (HasParams a, ProtectionIndicator p)

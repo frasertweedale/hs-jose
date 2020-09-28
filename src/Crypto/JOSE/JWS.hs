@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015, 2016  Fraser Tweedale
+-- Copyright (C) 2013, 2014, 2015, 2016, 2020  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -73,6 +73,7 @@ module Crypto.JOSE.JWS
   , Signature
   , header
   , signature
+  , rawProtectedHeader
 
   -- * JWS headers
   , Alg(..)
@@ -313,9 +314,9 @@ instance (HasParams a, ProtectionIndicator p) => FromJSON (Signature p a) where
     )
 
 instance (HasParams a, ProtectionIndicator p) => ToJSON (Signature p a) where
-  toJSON (Signature _ h sig) =
+  toJSON s@(Signature _ h sig) =
     let
-      pro = case protectedParamsEncoded h of
+      pro = case rawProtectedHeader s of
         "" -> id
         bs -> ("protected" .= String (T.decodeUtf8 (view recons bs)) :)
       unp = case unprotectedParams h of
@@ -430,13 +431,23 @@ instance (HasParams a, ProtectionIndicator p) => ToJSON (JWS Identity p a) where
 
 signingInput
   :: (HasParams a, ProtectionIndicator p)
-  => Either T.Text (a p)
+  => Signature p a
+  -> Types.Base64Octets
   -> B.ByteString
-  -> B.ByteString
-signingInput h p = B.intercalate "."
-  [ either T.encodeUtf8 (view recons . protectedParamsEncoded) h
-  , review Types.base64url p
-  ]
+signingInput sig (Types.Base64Octets p) =
+  rawProtectedHeader sig <> "." <> review Types.base64url p
+
+-- | Return the raw base64url-encoded protected header value.
+-- If the Signature was decoded from JSON, this returns the
+-- original string value as-is.
+--
+-- Application code should never need to use this.  It is exposed
+-- for testing purposes.
+rawProtectedHeader
+  :: (HasParams a, ProtectionIndicator p)
+  => Signature p a -> B.ByteString
+rawProtectedHeader (Signature raw h _) =
+  maybe (view recons $ protectedParamsEncoded h) T.encodeUtf8 raw
 
 -- Convert JWS to compact serialization.
 --
@@ -444,8 +455,8 @@ signingInput h p = B.intercalate "."
 -- signature and returns Nothing otherwise
 --
 instance HasParams a => ToCompact (JWS Identity () a) where
-  toCompact (JWS (Types.Base64Octets p) (Identity (Signature raw h (Types.Base64Octets sig)))) =
-    [ view recons $ signingInput (maybe (Right h) Left raw) p
+  toCompact (JWS p (Identity s@(Signature _ _ (Types.Base64Octets sig)))) =
+    [ view recons $ signingInput s p
     , review Types.base64url sig
     ]
 
@@ -487,8 +498,14 @@ mkSignature
      )
   => B.ByteString -> a p -> JWK -> m (Signature p a)
 mkSignature p h k =
-  Signature Nothing h . Types.Base64Octets
-  <$> sign (view (alg . param) h) (k ^. jwkMaterial) (signingInput (Right h) p)
+  let
+    almostSig = Signature Nothing h . Types.Base64Octets
+  in
+    almostSig
+    <$> sign
+          (view (alg . param) h)
+          (k ^. jwkMaterial)
+          (signingInput (almostSig "") (Types.Base64Octets p))
 
 
 -- | Validation policy.
@@ -633,7 +650,7 @@ verifySig
   -> Signature p a
   -> JWK
   -> Either Error Bool
-verifySig (Types.Base64Octets m) (Signature raw h (Types.Base64Octets s)) k =
+verifySig msg sig@(Signature _ h (Types.Base64Octets s)) k =
   verify (view (alg . param) h) (view jwkMaterial k) tbs s
   where
-  tbs = signingInput (maybe (Right h) Left raw) m
+  tbs = signingInput sig msg

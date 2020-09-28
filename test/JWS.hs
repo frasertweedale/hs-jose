@@ -51,6 +51,7 @@ spec = do
   appendixA6Spec
   cfrgSpec
   base64urlSpec
+  reserialiseSpec
 
 
 -- Extension of JWSHeader to test "crit" behaviour
@@ -531,3 +532,37 @@ base64urlSpec = describe "base64url-decoding behaviour" $
     in
       (eitherDecode inJws :: Either String (FlattenedJWS JWSHeader))
         `shouldSatisfy` is _Left
+
+reserialiseSpec :: Spec
+reserialiseSpec = describe "reserialisation of JWS" $
+  it "preserves raw protected header value" $ do
+    -- https://github.com/frasertweedale/hs-jose/issues/98
+    --
+    -- Test two different JWKs with same protected header fields
+    -- but different order.  For each input parse then reserialise,
+    -- then parse again and ensure that the raw protected header
+    -- string is the same for both parses.
+    --
+    -- The two strings with different orders are needed to test
+    -- that we preserve and use the recorded raw protected header
+    -- when reserialising the object.  (We don't know what order
+    -- the keys will be in the aeson object hashmap, so we test
+    -- with two different orders to avoid a false success).
+    let
+      -- {"kid":"0","alg":"RS256"}
+      s1 = "{\"protected\":\"eyJraWQiOiIwIiwiYWxnIjoiUlMyNTYifQ\",\"payload\":\"\",\"signature\":\"\"}"
+      -- {"alg":"RS256","kid":"0"}
+      s2 = "{\"signature\":\"\",\"protected\":\"eyJhbGciOiJSUzI1NiIsImtpZCI6IjAifQ\",\"payload\":\"\"}"
+
+      check s = do
+        let
+          jws = eitherDecode s :: Either String (FlattenedJWS JWSHeader)
+          s' = encode <$> jws
+          jws' = s' >>= eitherDecode :: Either String (FlattenedJWS JWSHeader)
+        jws `shouldSatisfy` is _Right
+        toListOf (signatures . to rawProtectedHeader) <$> jws
+          `shouldBe`
+          toListOf (signatures . to rawProtectedHeader) <$> jws'
+
+    check s1
+    check s2
