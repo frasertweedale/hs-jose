@@ -23,6 +23,8 @@ import Data.Monoid ((<>))
 
 import Control.Lens
 import Control.Lens.Extras (is)
+import Control.Monad.Except (runExceptT)
+import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Reader (MonadReader(..), ReaderT, runReaderT)
 import Control.Monad.State (execState)
 import Control.Monad.Time (MonadTime(..))
@@ -70,6 +72,14 @@ spec = do
           <> "\"http://example.com/is_root\":true}"
       in
         decode claimsJSON `shouldBe` Just exampleClaimsSet
+
+    it "JWT compact round-trip" $ do
+      jwk <- genJWK $ RSAGenParam 256
+      res <- runExceptT $ do
+        token <- signClaims jwk (newJWSHeader ((), RS512)) emptyClaimsSet
+        token' <- decodeCompact . encodeCompact $ token
+        liftIO $ token' `shouldBe` token
+      either (error . show) return (res :: Either JWTError ()) :: IO ()
 
     it "formats to a parsable and equal value" $
       decode (encode exampleClaimsSet) `shouldBe` Just exampleClaimsSet
