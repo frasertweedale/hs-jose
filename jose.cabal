@@ -43,7 +43,7 @@ common common
 
   build-depends:
     base >= 4.8 && < 5
-    , aeson >= 0.8.0.1
+    , aeson >= 0.11.0.0
     , bytestring == 0.10.*
     , lens >= 4.16
     , mtl >= 2
