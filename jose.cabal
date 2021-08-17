@@ -90,7 +90,7 @@ library
     , unordered-containers == 0.2.*
     , time >= 1.5
     , network-uri >= 2.6
-    , QuickCheck >= 2
+    , QuickCheck >= 2.9
     , quickcheck-instances
     , x509 >= 1.4
     , vector
@@ -141,7 +141,7 @@ test-suite tests
     , tasty-hspec >= 1.0
     , tasty-quickcheck
     , hspec
-    , QuickCheck
+    , QuickCheck >= 2.9
     , quickcheck-instances
 
 executable jose-example

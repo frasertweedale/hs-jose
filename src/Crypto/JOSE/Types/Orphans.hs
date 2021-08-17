@@ -12,7 +12,6 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# LANGUAGE CPP #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Crypto.JOSE.Types.Orphans where
@@ -20,7 +19,6 @@ module Crypto.JOSE.Types.Orphans where
 import Data.Aeson
 import qualified Data.Text as T
 import Network.URI (URI, parseURI)
-import Test.QuickCheck
 
 
 instance FromJSON URI where
@@ -29,9 +27,3 @@ instance FromJSON URI where
 
 instance ToJSON URI where
   toJSON = String . T.pack . show
-
-
-#if ! MIN_VERSION_QuickCheck(2,9,0)
-instance Arbitrary a => Arbitrary (NonEmpty a) where
-  arbitrary = (:|) <$> arbitrary <*> arbitrary
-#endif
