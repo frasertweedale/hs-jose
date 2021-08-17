@@ -24,7 +24,7 @@ import Data.Monoid ((<>))
 import Control.Lens
 import Control.Lens.Extras (is)
 import Control.Monad.Except (runExceptT)
-import Control.Monad.IO.Class (liftIO)
+import Control.Monad.Trans (liftIO)
 import Control.Monad.Reader (MonadReader(..), ReaderT, runReaderT)
 import Control.Monad.State (execState)
 import Control.Monad.Time (MonadTime(..))
