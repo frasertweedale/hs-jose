@@ -12,7 +12,7 @@ description:
   .
   EdDSA signatures (RFC 8037) are supported (Ed25519 only).
   .
-  JWK Thumbprint (RFC 7638) is supported (requires /aeson/ >= 0.10).
+  JWK Thumbprint (RFC 7638) is supported.
   .
   JSON Web Encryption (JWE; RFC 7516) is not yet implemented.
   .
@@ -43,7 +43,7 @@ common common
 
   build-depends:
     base >= 4.8 && < 5
-    , aeson >= 0.11.0.0
+    , aeson >= 0.11.1.0
     , bytestring == 0.10.*
     , lens >= 4.16
     , mtl >= 2

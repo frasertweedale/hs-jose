@@ -12,7 +12,6 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -72,13 +71,11 @@ module Crypto.JOSE.JWK
   , fromOctets
   , fromX509Certificate
 
-#if MIN_VERSION_aeson(0,10,0)
   -- * JWK Thumbprint
   , thumbprint
   , digest
   , Types.base64url
   , module Crypto.Hash
-#endif
 
   -- * JWK Set
   , JWKSet(..)
@@ -336,7 +333,6 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
   OKPKeyMaterial _ -> throwing _KeyMismatch "Cannot sign with OKP ECDH key"
 
 
-#if MIN_VERSION_aeson(0,10,0)
 -- | Compute the JWK Thumbprint of a JWK
 --
 thumbprint :: HashAlgorithm a => Getter JWK (Digest a)
@@ -369,4 +365,3 @@ thumbprintRepr k = Builder.toLazyByteString . fromEncoding . pairs $
     b64 = Types.Base64Octets . BA.convert
     okpSeries crv pk =
       "crv" .= (crv :: T.Text) <> "kty" .= ("OKP" :: T.Text) <> "x" .= b64 pk
-#endif

@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 
 import Data.Maybe (fromJust)
@@ -29,9 +28,7 @@ main = do
     "jws-verify" -> doJwsVerify (tail args)
     "jwt-sign" -> doJwtSign (tail args)
     "jwt-verify" -> doJwtVerify (tail args)
-#if MIN_VERSION_aeson(0,10,0)
     "jwk-thumbprint" -> doThumbprint (tail args)
-#endif
 
 doGen :: [String] -> IO ()
 doGen [kty] = do
@@ -40,14 +37,10 @@ doGen [kty] = do
                   "rsa" -> RSAGenParam 256
                   "ec" -> ECGenParam P_256
                   "eddsa" -> OKPGenParam Ed25519
-#if MIN_VERSION_aeson(0,10,0)
   let
     h = view thumbprint k :: Digest SHA256
     kid' = view (re (base64url . digest) . utf8) h
     k' = set jwkKid (Just kid') k
-#else
-  let k' = k
-#endif
   L.putStr (encode k')
 
 -- | Mint a JWT.  Args are:
@@ -102,7 +95,6 @@ rightOrDie :: (Show e) => String -> Either e a -> IO a
 rightOrDie s = either (die . (\e -> s <> ": " <> show e)) pure
 
 
-#if MIN_VERSION_aeson(0,10,0)
 -- | Print a base64url-encoded SHA-256 JWK Thumbprint.  Args are:
 --
 -- 1. filename of JWK
@@ -112,4 +104,3 @@ doThumbprint (jwkFilename : _) = do
   Just k <- decode <$> L.readFile jwkFilename
   let h = view thumbprint k :: Digest SHA256
   L.putStr $ review (base64url . digest) h
-#endif

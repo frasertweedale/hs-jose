@@ -12,7 +12,6 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module JWK where
@@ -41,9 +40,7 @@ spec = do
   jwkAppendixC1Spec
   jwsAppendixA1Spec
   cfrgSpec
-#if MIN_VERSION_aeson(0,10,0)
   thumbprintSpec
-#endif
 
 jwsAppendixA1Spec :: Spec
 jwsAppendixA1Spec = describe "RFC 7515 A.1.1.  JWK" $ do
@@ -307,7 +304,6 @@ rfc8037_A1_jwkJson = ""
   <> "\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
 
 
-#if MIN_VERSION_aeson(0,10,0)
 thumbprintSpec :: Spec
 thumbprintSpec = describe "JWK Thumbprint" $ do
   describe "RFC 7638 §3.1.  Example JWK Thumbprint Computation" $ do
@@ -333,4 +329,3 @@ thumbprintSpec = describe "JWK Thumbprint" $ do
     it "correctly computes thumbprint of Ed25519 key" $
       review (base64url . digest) (view thumbprint k :: Digest SHA256)
         `shouldBe` ("kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k" :: B.ByteString)
-#endif
