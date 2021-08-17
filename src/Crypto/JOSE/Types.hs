@@ -96,8 +96,8 @@ arbitraryBigInteger = do
     go :: Integer -> Integer -> Gen Integer
     go 0 n = pure n
     go k n =
-      (n * 256 +) . fromIntegral <$> (arbitraryBoundedIntegral :: Gen Word8)
-      >>= go (k - 1)
+      (arbitraryBoundedIntegral :: Gen Word8)
+      >>= go (k - 1) . (n * 256 +) . fromIntegral
 
 
 instance Arbitrary Base64Integer where

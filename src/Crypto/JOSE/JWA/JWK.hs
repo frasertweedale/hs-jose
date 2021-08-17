@@ -77,7 +77,7 @@ import Control.Monad (guard)
 import Control.Monad.Except (MonadError)
 import Data.Bifunctor
 import Data.Foldable (toList)
-import Data.Maybe (fromMaybe, isJust)
+import Data.Maybe (isJust)
 import Data.Monoid ((<>))
 
 import Control.Lens hiding ((.=), elements)
@@ -444,7 +444,7 @@ rsaPrivateKey (RSAKeyParameters
     RSA.PrivateKey (RSA.PublicKey (Types.intBytes n) n e) d
       (opt' rsaP) (opt' rsaQ) (opt' rsaDp) (opt' rsaDq) (opt' rsaQi)
     where
-      opt' f = fromMaybe 0 (unB64I . f <$> opt)
+      opt' f = maybe 0 (unB64I . f) opt
       unB64I (Types.Base64Integer x) = x
 rsaPrivateKey _ = throwing _KeyMismatch "not an RSA private key"
 
@@ -710,9 +710,8 @@ instance AsPublicKey OKPKeyParameters where
     X25519Key pk _  -> Just (X25519Key pk Nothing)
 
 instance AsPublicKey KeyMaterial where
-  asPublicKey = to (\x -> case x of
+  asPublicKey = to $ \case
     OctKeyMaterial _  -> Nothing
     RSAKeyMaterial k  -> RSAKeyMaterial  <$> view asPublicKey k
     ECKeyMaterial k   -> ECKeyMaterial   <$> view asPublicKey k
     OKPKeyMaterial k  -> OKPKeyMaterial  <$> view asPublicKey k
-    )

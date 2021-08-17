@@ -236,7 +236,7 @@ instance HasJWSHeader a => HasCrit a where
 -- | Construct a minimal header with the given algorithm and
 -- protection indicator for the /alg/ header.
 --
-newJWSHeader :: (p, Alg) -> (JWSHeader p)
+newJWSHeader :: (p, Alg) -> JWSHeader p
 newJWSHeader a = JWSHeader (uncurry HeaderParam a) z z z z z z z z z z
   where z = Nothing
 
@@ -323,7 +323,7 @@ instance (HasParams a, ProtectionIndicator p) => ToJSON (Signature p a) where
         Nothing -> id
         Just o -> ("header" .= o :)
     in
-      object $ (pro . unp) [("signature" .= sig)]
+      object $ (pro . unp) ["signature" .= sig]
 
 
 instance HasParams JWSHeader where
@@ -333,8 +333,8 @@ instance HasParams JWSHeader where
     <*> headerOptional "jwk" hp hu
     <*> headerOptional "kid" hp hu
     <*> headerOptional "x5u" hp hu
-    <*> ((fmap . fmap . fmap . fmap)
-          (\(Types.Base64X509 cert) -> cert) (headerOptional "x5c" hp hu))
+    <*> (fmap . fmap . fmap . fmap)
+          (\(Types.Base64X509 cert) -> cert) (headerOptional "x5c" hp hu)
     <*> headerOptional "x5t" hp hu
     <*> headerOptional "x5t#S256" hp hu
     <*> headerOptional "typ" hp hu
@@ -344,7 +344,7 @@ instance HasParams JWSHeader where
         (fromMaybe mempty hp <> fromMaybe mempty hu))
   params h =
     catMaybes
-      [ Just (view (alg . isProtected) h, "alg" .= (view (alg . param) h))
+      [ Just (view (alg . isProtected) h, "alg" .= view (alg . param) h)
       , fmap (\p -> (view isProtected p, "jku" .= view param p)) (view jku h)
       , fmap (\p -> (view isProtected p, "jwk" .= view param p)) (view jwk h)
       , fmap (\p -> (view isProtected p, "kid" .= view param p)) (view kid h)
@@ -486,7 +486,7 @@ signJWS
      , ProtectionIndicator p
      )
   => s          -- ^ Payload
-  -> t ((a p), JWK) -- ^ Traversable of header, key pairs
+  -> t (a p, JWK) -- ^ Traversable of header, key pairs
   -> m (JWS t p a)
 signJWS s =
   let s' = view recons s
@@ -533,12 +533,12 @@ class HasValidationSettings a where
   validationSettingsAlgorithms :: Lens' a (S.Set Alg)
   validationSettingsAlgorithms = validationSettings . go where
     go f (ValidationSettings algs pol) =
-      (\algs' -> ValidationSettings algs' pol) <$> f algs
+      (`ValidationSettings` pol) <$> f algs
 
   validationSettingsValidationPolicy :: Lens' a ValidationPolicy
   validationSettingsValidationPolicy = validationSettings . go where
     go f (ValidationSettings algs pol) =
-      (\pol' -> ValidationSettings algs pol') <$> f pol
+      ValidationSettings algs <$> f pol
 
 instance HasValidationSettings ValidationSettings where
   validationSettings = id

@@ -48,4 +48,4 @@ class ToCompact a where
 -- | Encode data to a compact representation.
 --
 encodeCompact :: (ToCompact a) => a -> L.ByteString
-encodeCompact = (L.intercalate ".") . toCompact
+encodeCompact = L.intercalate "." . toCompact

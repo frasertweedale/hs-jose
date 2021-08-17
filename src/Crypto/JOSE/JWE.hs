@@ -96,8 +96,8 @@ instance HasParams JWEHeader where
     <*> headerOptional "jwk" hp hu
     <*> headerOptional "kid" hp hu
     <*> headerOptional "x5u" hp hu
-    <*> ((fmap . fmap . fmap . fmap)
-          (\(Types.Base64X509 cert) -> cert) (headerOptional "x5c" hp hu))
+    <*> (fmap . fmap . fmap . fmap)
+          (\(Types.Base64X509 cert) -> cert) (headerOptional "x5c" hp hu)
     <*> headerOptional "x5t" hp hu
     <*> headerOptional "x5t#S256" hp hu
     <*> headerOptional "typ" hp hu
@@ -145,7 +145,7 @@ parseRecipient hp hu = withObject "JWE Recipient" $ \o -> do
 -- parseParamsFor :: HasParams b => Proxy b -> Maybe Object -> Maybe Object -> Parser a
 
 data JWE a p = JWE
-  { _protectedRaw :: (Maybe T.Text)      -- ^ Encoded protected header, if available
+  { _protectedRaw :: Maybe T.Text       -- ^ Encoded protected header, if available
   , _jweIv :: Maybe Types.Base64Octets  -- ^ JWE Initialization Vector
   , _jweAad :: Maybe Types.Base64Octets -- ^ JWE AAD
   , _jweCiphertext :: Types.Base64Octets  -- ^ JWE Ciphertext

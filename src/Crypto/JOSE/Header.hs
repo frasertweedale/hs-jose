@@ -169,10 +169,12 @@ instance Functor (HeaderParam p) where
 -- | Lens for the 'Protection' of a 'HeaderParam'
 protection :: Lens' (HeaderParam p a) p
 protection f (HeaderParam p v) = fmap (\p' -> HeaderParam p' v) (f p)
+{-# ANN protection "HLint: ignore Avoid lambda using `infix`" #-}
 
 -- | Lens for a 'HeaderParam' value
 param :: Lens' (HeaderParam p a) a
 param f (HeaderParam p v) = fmap (\v' -> HeaderParam p v') (f v)
+{-# ANN param "HLint: ignore Avoid lambda" #-}
 
 -- | Getter for whether a parameter is protected
 isProtected :: (ProtectionIndicator p) => Getter (HeaderParam p a) Bool

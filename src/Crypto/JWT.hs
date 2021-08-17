@@ -130,7 +130,7 @@ import Control.Lens (
 import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Error.Lens (throwing, throwing_)
 import Control.Monad.Except (MonadError)
-import Control.Monad.Reader (ReaderT, ask, runReaderT)
+import Control.Monad.Reader (ReaderT, asks, runReaderT)
 import Data.Aeson
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
@@ -436,14 +436,13 @@ validateClaimsSet
   -> ClaimsSet
   -> m ClaimsSet
 validateClaimsSet conf claims =
-  traverse_ (($ claims) . ($ conf))
+  claims <$ traverse_ (($ claims) . ($ conf))
     [ validateExpClaim
     , validateIatClaim
     , validateNbfClaim
     , validateIssClaim
     , validateAudClaim
     ]
-  *> pure claims
 
 validateExpClaim
   :: (MonadTime m, HasAllowedSkew a, AsJWTError e, MonadError e m)
@@ -511,7 +510,7 @@ type SignedJWT = CompactJWS JWSHeader
 newtype WrappedUTCTime = WrappedUTCTime { getUTCTime :: UTCTime }
 
 instance Monad m => MonadTime (ReaderT WrappedUTCTime m) where
-  currentTime = getUTCTime <$> ask
+  currentTime = asks getUTCTime
 
 
 -- | Cryptographically verify a JWS JWT, then validate the
