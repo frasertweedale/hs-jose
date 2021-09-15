@@ -541,7 +541,7 @@ verifyClaims conf k jws =
   -- verified before the claims.
   verifyJWSWithPayload f conf k jws >>= validateClaimsSet conf
   where
-    f = either (throwing _JWTClaimsSetDecodeError) pure . eitherDecode
+    f = either (throwing _JWTClaimsSetDecodeError) pure . eitherDecodeStrict
 
 
 -- | Cryptographically verify a JWS JWT, then validate the

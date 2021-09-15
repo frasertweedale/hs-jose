@@ -575,14 +575,13 @@ defaultValidationSettings = ValidationSettings
 --
 verifyJWS'
   ::  ( AsError e, MonadError e m , HasJWSHeader h, HasParams h
-      , VerificationKeyStore m (h p) s k
-      , Cons s s Word8 Word8, AsEmpty s
+      , VerificationKeyStore m (h p) B.ByteString k
       , Foldable t
       , ProtectionIndicator p
       )
   => k      -- ^ key or key store
   -> JWS t p h  -- ^ JWS
-  -> m s
+  -> m B.ByteString
 verifyJWS' = verifyJWS defaultValidationSettings
 
 -- | Verify a JWS.
@@ -598,26 +597,24 @@ verifyJWS' = verifyJWS defaultValidationSettings
 verifyJWS
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
-      , VerificationKeyStore m (h p) s k
-      , Cons s s Word8 Word8, AsEmpty s
+      , VerificationKeyStore m (h p) B.ByteString k
       , Foldable t
       , ProtectionIndicator p
       )
   => a        -- ^ validation settings
   -> k        -- ^ key or key store
   -> JWS t p h  -- ^ JWS
-  -> m s
+  -> m B.ByteString
 verifyJWS = verifyJWSWithPayload pure
 
 verifyJWSWithPayload
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
       , VerificationKeyStore m (h p) payload k
-      , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
       , ProtectionIndicator p
       )
-  => (s -> m payload)  -- ^ payload decoder
+  => (B.ByteString -> m payload)  -- ^ payload decoder
   -> a                 -- ^ validation settings
   -> k                 -- ^ key or key store
   -> JWS t p h         -- ^ JWS
@@ -640,7 +637,7 @@ verifyJWSWithPayload dec conf k (JWS p@(Types.Base64Octets p') sigs) =
         then throwing_ _NoUsableKeys
         else pure $ any ((== Right True) . verifySig p sig) keys
   in do
-    payload <- (dec . view recons) p'
+    payload <- dec p'
     results <- traverse (validate payload) $ filter shouldValidateSig $ toList sigs
     payload <$ applyPolicy policy results
 
