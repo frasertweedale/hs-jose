@@ -292,6 +292,7 @@ header = to (\(Signature _ h _) -> h)
 -- | Getter for signature bytes
 signature :: (Cons s s Word8 Word8, AsEmpty s) => Getter (Signature p a) s
 signature = to (\(Signature _ _ (Types.Base64Octets s)) -> s) . recons
+{-# INLINE signature #-}
 
 instance (Eq (a p)) => Eq (Signature p a) where
   Signature _ h s == Signature _ h' s' = h == h' && s == s'
@@ -491,6 +492,7 @@ signJWS
 signJWS s =
   let s' = view recons s
   in fmap (JWS (Types.Base64Octets s')) . traverse (uncurry (mkSignature s'))
+{-# INLINE signJWS #-}
 
 mkSignature
   :: ( HasJWSHeader a, HasParams a, MonadRandom m, AsError e, MonadError e m
@@ -584,6 +586,7 @@ verifyJWS'
   -> JWS t p h  -- ^ JWS
   -> m s
 verifyJWS' = verifyJWS defaultValidationSettings
+{-# INLINE verifyJWS' #-}
 
 -- | Verify a JWS.
 --
@@ -608,6 +611,7 @@ verifyJWS
   -> JWS t p h  -- ^ JWS
   -> m s
 verifyJWS = verifyJWSWithPayload pure
+{-# INLINE verifyJWS #-}
 
 verifyJWSWithPayload
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
@@ -643,6 +647,7 @@ verifyJWSWithPayload dec conf k (JWS p@(Types.Base64Octets p') sigs) =
     payload <- (dec . view recons) p'
     results <- traverse (validate payload) $ filter shouldValidateSig $ toList sigs
     payload <$ applyPolicy policy results
+{-# INLINE verifyJWSWithPayload #-}
 
 verifySig
   :: (HasJWSHeader a, HasParams a, ProtectionIndicator p)

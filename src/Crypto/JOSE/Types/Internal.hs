@@ -87,6 +87,7 @@ base64url = reconsIso . b64u . reconsIso
   where
     b64u = prism B64U.encodeUnpadded (\s -> first (const s) (B64U.decodeUnpadded s))
     reconsIso = iso (view recons) (view recons)
+{-# INLINE base64url #-}
 
 
 -- | Produce a parser of base64url encoded text from a bytestring parser.

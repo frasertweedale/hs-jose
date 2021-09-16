@@ -183,6 +183,7 @@ stringOrUri = iso (view recons) (view recons) . prism' rev fwd
   fwd s
     | T.any (== ':') s = OrURI <$> parseURI (T.unpack s)
     | otherwise = pure (Arbitrary s)
+{-# INLINE stringOrUri #-}
 
 string :: Prism' StringOrURI T.Text
 string = prism' Arbitrary f where

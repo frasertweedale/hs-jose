@@ -264,6 +264,7 @@ fromOctets :: Cons s s Word8 Word8 => s -> JWK
 fromOctets =
   fromKeyMaterial . OctKeyMaterial . OctKeyParameters . Types.Base64Octets
   . view recons
+{-# INLINE fromOctets #-}
 
 
 -- | Convert an X.509 certificate into a JWK.
