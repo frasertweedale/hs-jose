@@ -25,6 +25,7 @@ license:             Apache-2.0
 license-file:        LICENSE
 extra-source-files:
   README.md
+  test/data/fido.jwt
 author:              Fraser Tweedale
 maintainer:          frase@frase.id.au
 copyright:           Copyright (C) 2013-2018  Fraser Tweedale
@@ -143,6 +144,14 @@ test-suite tests
     , hspec
     , QuickCheck >= 2.9
     , quickcheck-instances
+
+test-suite perf
+  import: common
+  type:           exitcode-stdio-1.0
+  hs-source-dirs: test
+  main-is:        Perf.hs
+  build-depends:
+    jose
 
 executable jose-example
   import: common
