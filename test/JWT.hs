@@ -34,7 +34,6 @@ import Data.HashMap.Strict (insert)
 import qualified Data.Set as S
 import Data.Time
 import Network.URI (parseURI)
-import Safe (headMay)
 import Test.Hspec
 
 import Crypto.JWT
@@ -62,6 +61,8 @@ spec :: Spec
 spec = do
   let conf = set algorithms (S.singleton None)
               (defaultJWTValidationSettings (const False))
+      headMay []    = Nothing
+      headMay (h:_) = Just h
 
   describe "JWT Claims Set" $ do
     it "parses from JSON correctly" $
