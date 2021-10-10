@@ -45,10 +45,10 @@ import Control.Lens
 import Control.Lens.Cons.Extras
 import Crypto.Number.Basic (log2)
 import Data.Aeson.Types
+import qualified Data.Aeson.KeyMap as M
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Base64.URL as B64U
-import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 
@@ -56,7 +56,7 @@ import qualified Data.Text.Encoding as E
 -- is expected to be an @Object@.  If the value is not an @Object@,
 -- this is a no-op.
 --
-insertToObject :: ToJSON v => T.Text -> v -> Value -> Value
+insertToObject :: ToJSON v => Key -> v -> Value -> Value
 insertToObject k v (Object o) = Object $ M.insert k (toJSON v) o
 insertToObject _ _ v          = v
 

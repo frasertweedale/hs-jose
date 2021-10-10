@@ -70,8 +70,9 @@ import Data.Proxy (Proxy(..))
 import Control.Lens (Lens', Getter, review, to)
 import Data.Aeson (FromJSON(..), Object, Value, encode, object)
 import Data.Aeson.Types (Pair, Parser)
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as M
 import qualified Data.ByteString.Lazy as L
-import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
@@ -228,14 +229,16 @@ headerOptional
   -> Maybe Object
   -> Maybe Object
   -> Parser (Maybe (HeaderParam p a))
-headerOptional k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
-  (Just _, Just _)    -> fail $ "duplicate header " ++ show k
+headerOptional kText hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
+  (Just _, Just _)    -> fail $ "duplicate header " ++ show kText
   (Just v, Nothing)   -> Just . HeaderParam getProtected <$> parseJSON v
   (Nothing, Just v)   -> maybe
     (fail "unprotected header not supported")
     (\p -> Just . HeaderParam p <$> parseJSON v)
     getUnprotected
   (Nothing, Nothing)  -> pure Nothing
+  where
+    k = Key.fromText kText
 
 -- | Parse an optional parameter that, if present, MUST be carried
 -- in the protected header.
@@ -246,11 +249,13 @@ headerOptionalProtected
   -> Maybe Object
   -> Maybe Object
   -> Parser (Maybe a)
-headerOptionalProtected k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
-  (Just _, Just _)    -> fail $ "duplicate header " ++ show k
-  (_, Just _) -> fail $ "header must be protected: " ++ show k
+headerOptionalProtected kText hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
+  (Just _, Just _)    -> fail $ "duplicate header " ++ show kText
+  (_, Just _) -> fail $ "header must be protected: " ++ show kText
   (Just v, _) -> Just <$> parseJSON v
   _           -> pure Nothing
+  where
+    k = Key.fromText kText
 
 -- | Parse a required parameter that may be carried in either
 -- the protected or the unprotected header.
@@ -261,14 +266,16 @@ headerRequired
   -> Maybe Object
   -> Maybe Object
   -> Parser (HeaderParam p a)
-headerRequired k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
-  (Just _, Just _)    -> fail $ "duplicate header " ++ show k
+headerRequired kText hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
+  (Just _, Just _)    -> fail $ "duplicate header " ++ show kText
   (Just v, Nothing)   -> HeaderParam getProtected <$> parseJSON v
   (Nothing, Just v)   -> maybe
     (fail "unprotected header not supported")
     (\p -> HeaderParam p <$> parseJSON v)
     getUnprotected
   (Nothing, Nothing)  -> fail $ "missing required header " ++ show k
+  where
+    k = Key.fromText kText
 
 -- | Parse a required parameter that MUST be carried
 -- in the protected header.
@@ -279,11 +286,13 @@ headerRequiredProtected
   -> Maybe Object
   -> Maybe Object
   -> Parser a
-headerRequiredProtected k hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
-  (Just _, Just _)    -> fail $ "duplicate header " ++ show k
-  (_, Just _) -> fail $ "header must be protected: " <> show k
+headerRequiredProtected kText hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
+  (Just _, Just _)    -> fail $ "duplicate header " ++ show kText
+  (_, Just _) -> fail $ "header must be protected: " <> show kText
   (Just v, _) -> parseJSON v
-  _           -> fail $ "missing required protected header: " <> show k
+  _           -> fail $ "missing required protected header: " <> show kText
+  where
+    k = Key.fromText kText
 
 
 critObjectParser
@@ -292,7 +301,7 @@ critObjectParser
 critObjectParser reserved exts o s
   | s `elem` reserved         = Fail.fail "crit key is reserved"
   | s `notElem` exts          = Fail.fail "crit key is not understood"
-  | not (s `M.member` o)      = Fail.fail "crit key is not present in headers"
+  | not (Key.fromText s `M.member` o) = Fail.fail "crit key is not present in headers"
   | otherwise                 = pure s
 
 -- | Parse a "crit" header param

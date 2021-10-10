@@ -96,9 +96,9 @@ import qualified Crypto.PubKey.Ed25519 as Ed25519
 import qualified Crypto.PubKey.Curve25519 as Curve25519
 import Crypto.Random
 import Data.Aeson
+import qualified Data.Aeson.KeyMap as M
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
-import qualified Data.HashMap.Strict as M
 import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Text as T
 import Data.X509 as X509

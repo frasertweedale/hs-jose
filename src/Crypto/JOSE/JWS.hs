@@ -98,8 +98,8 @@ import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Error.Lens (throwing, throwing_)
 import Control.Monad.Except (MonadError, unless)
 import Data.Aeson
+import qualified Data.Aeson.KeyMap as M
 import qualified Data.ByteString as B
-import qualified Data.HashMap.Strict as M
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T

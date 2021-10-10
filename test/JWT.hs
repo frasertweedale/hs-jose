@@ -30,7 +30,6 @@ import Control.Monad.State (execState)
 import Control.Monad.Time (MonadTime(..))
 import Data.Aeson hiding ((.=))
 import Data.Functor.Identity (runIdentity)
-import Data.HashMap.Strict (insert)
 import qualified Data.Set as S
 import Data.Time
 import Network.URI (parseURI)
@@ -49,7 +48,6 @@ exampleClaimsSet :: ClaimsSet
 exampleClaimsSet = emptyClaimsSet
   & claimIss .~ preview stringOrUri ("joe" :: String)
   & claimExp .~ intDate "2011-03-22 18:43:00"
-  & over unregisteredClaims (insert "http://example.com/is_root" (Bool True))
   & addClaim "http://example.com/is_root" (Bool True)
 
 #if ! MIN_VERSION_monad_time(0,3,0)

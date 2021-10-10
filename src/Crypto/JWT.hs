@@ -122,6 +122,7 @@ import Data.Foldable (traverse_)
 import Data.Functor.Identity
 import Data.Maybe
 import qualified Data.String
+import Data.Semigroup ((<>))
 
 import Control.Lens (
   makeClassy, makeClassyPrisms, makePrisms,
@@ -132,7 +133,10 @@ import Control.Monad.Error.Lens (throwing, throwing_)
 import Control.Monad.Except (MonadError)
 import Control.Monad.Reader (ReaderT, asks, runReaderT)
 import Data.Aeson
-import qualified Data.HashMap.Strict as M
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as KeyMap
+import qualified Data.Map as M
+import qualified Data.Set as S
 import qualified Data.Text as T
 import Data.Time (NominalDiffTime, UTCTime, addUTCTime)
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
@@ -251,7 +255,7 @@ data ClaimsSet = ClaimsSet
   , _claimNbf :: Maybe NumericDate
   , _claimIat :: Maybe NumericDate
   , _claimJti :: Maybe T.Text
-  , _unregisteredClaims :: M.HashMap T.Text Value
+  , _unregisteredClaims :: M.Map T.Text Value
   }
   deriving (Eq, Show)
 
@@ -320,7 +324,7 @@ claimJti f h@ClaimsSet{ _claimJti = a} =
   fmap (\a' -> h { _claimJti = a' }) (f a)
 
 -- | Claim Names can be defined at will by those using JWTs.
-unregisteredClaims :: Lens' ClaimsSet (M.HashMap T.Text Value)
+unregisteredClaims :: Lens' ClaimsSet (M.Map T.Text Value)
 unregisteredClaims f h@ClaimsSet{ _unregisteredClaims = a} =
   fmap (\a' -> h { _unregisteredClaims = a' }) (f a)
 
@@ -333,9 +337,30 @@ emptyClaimsSet = ClaimsSet n n n n n n n M.empty where n = Nothing
 addClaim :: T.Text -> Value -> ClaimsSet -> ClaimsSet
 addClaim k v = over unregisteredClaims (M.insert k v)
 
-filterUnregistered :: M.HashMap T.Text Value -> M.HashMap T.Text Value
-filterUnregistered = M.filterWithKey (\k _ -> k `notElem` registered) where
-  registered = ["iss", "sub", "aud", "exp", "nbf", "iat", "jti"]
+registeredClaims :: S.Set T.Text
+registeredClaims = S.fromDistinctAscList
+  [ "aud"
+  , "exp"
+  , "iat"
+  , "iss"
+  , "jti"
+  , "nbf"
+  , "sub"
+  ]
+
+filterUnregistered :: M.Map T.Text Value -> M.Map T.Text Value
+filterUnregistered m =
+#if MIN_VERSION_containers(0,5,8)
+  m `M.withoutKeys` registeredClaims
+#else
+  m `M.difference` M.fromSet (const ()) registeredClaims
+#endif
+
+toKeyMap :: M.Map T.Text Value -> KeyMap.KeyMap Value
+toKeyMap = KeyMap.fromMap . M.mapKeysMonotonic Key.fromText
+
+fromKeyMap :: KeyMap.KeyMap Value -> M.Map T.Text Value
+fromKeyMap = M.mapKeysMonotonic Key.toText . KeyMap.toMap
 
 instance FromJSON ClaimsSet where
   parseJSON = withObject "JWT Claims Set" (\o -> ClaimsSet
@@ -346,18 +371,22 @@ instance FromJSON ClaimsSet where
     <*> o .:? "nbf"
     <*> o .:? "iat"
     <*> o .:? "jti"
-    <*> pure (filterUnregistered o))
+    <*> pure (filterUnregistered . fromKeyMap $ o)
+    )
 
 instance ToJSON ClaimsSet where
-  toJSON (ClaimsSet iss sub aud exp' nbf iat jti o) = object $ catMaybes [
-    fmap ("iss" .=) iss
-    , fmap ("sub" .=) sub
-    , fmap ("aud" .=) aud
-    , fmap ("exp" .=) exp'
-    , fmap ("nbf" .=) nbf
-    , fmap ("iat" .=) iat
-    , fmap ("jti" .=) jti
-    ] ++ M.toList (filterUnregistered o)
+  toJSON (ClaimsSet iss sub aud exp' nbf iat jti o) = Object $
+    ( KeyMap.fromMap . M.fromDistinctAscList $ catMaybes
+      [ fmap ("aud" .=) aud
+      , fmap ("exp" .=) exp'
+      , fmap ("iat" .=) iat
+      , fmap ("iss" .=) iss
+      , fmap ("jti" .=) jti
+      , fmap ("nbf" .=) nbf
+      , fmap ("sub" .=) sub
+      ]
+    )
+    <> toKeyMap (filterUnregistered o)
 
 
 data JWTValidationSettings = JWTValidationSettings

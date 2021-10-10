@@ -24,14 +24,13 @@ module Crypto.JOSE.JWA.JWE where
 
 import Data.Maybe (catMaybes)
 
-import qualified Data.HashMap.Strict as M
-
 import Crypto.JOSE.JWK
 import Crypto.JOSE.TH
 import Crypto.JOSE.Types
 import Crypto.JOSE.Types.Internal (insertToObject)
 
 import Data.Aeson
+import qualified Data.Aeson.KeyMap as M
 
 
 -- | RFC 7518 §4.  Cryptographic Algorithms for Key Management
