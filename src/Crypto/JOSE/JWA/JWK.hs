@@ -200,8 +200,9 @@ instance FromJSON RSAPrivateKeyParameters where
       else pure Nothing)
 
 instance ToJSON RSAPrivateKeyParameters where
-  toJSON RSAPrivateKeyParameters {..} = object $
-    ("d" .= rsaD) : maybe [] (Types.objectPairs . toJSON) rsaOptionalParameters
+  toJSON RSAPrivateKeyParameters {..} =
+    Types.insertToObject "d" rsaD
+      $ maybe (Object mempty) toJSON rsaOptionalParameters
 
 instance Arbitrary RSAPrivateKeyParameters where
   arbitrary = RSAPrivateKeyParameters <$> arbitrary <*> arbitrary
@@ -361,11 +362,13 @@ instance FromJSON RSAKeyParameters where
         else pure Nothing
 
 instance ToJSON RSAKeyParameters where
-  toJSON RSAKeyParameters {..} = object $
-      ("kty" .= ("RSA" :: T.Text))
-    : ("n" .= _rsaN)
-    : ("e" .= _rsaE)
-    : maybe [] (Types.objectPairs . toJSON) _rsaPrivateKeyParameters
+  toJSON RSAKeyParameters {..} =
+    Types.insertManyToObject
+      [ "kty" .= ("RSA" :: T.Text)
+      , "n" .= _rsaN
+      , "e" .= _rsaE
+      ]
+      $ maybe (Object mempty) toJSON _rsaPrivateKeyParameters
 
 instance Arbitrary RSAKeyParameters where
   arbitrary = RSAKeyParameters
@@ -602,10 +605,10 @@ instance FromJSON KeyMaterial where
       Just s      -> fail $ "unsupported \"kty\": " <> show s
 
 instance ToJSON KeyMaterial where
-  toJSON (ECKeyMaterial p)  = object $ Types.objectPairs (toJSON p)
-  toJSON (RSAKeyMaterial p) = object $ Types.objectPairs (toJSON p)
-  toJSON (OctKeyMaterial p) = object $ Types.objectPairs (toJSON p)
-  toJSON (OKPKeyMaterial p) = object $ Types.objectPairs (toJSON p)
+  toJSON (ECKeyMaterial p)  = toJSON p
+  toJSON (RSAKeyMaterial p) = toJSON p
+  toJSON (OctKeyMaterial p) = toJSON p
+  toJSON (OKPKeyMaterial p) = toJSON p
 
 -- | Keygen parameters.
 --

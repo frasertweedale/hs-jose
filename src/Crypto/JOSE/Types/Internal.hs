@@ -23,7 +23,8 @@ Internal utility functions for encoding/decoding JOSE types.
 -}
 module Crypto.JOSE.Types.Internal
   (
-    objectPairs
+    insertToObject
+  , insertManyToObject
   , encodeB64
   , parseB64
   , encodeB64Url
@@ -51,12 +52,21 @@ import qualified Data.HashMap.Strict as M
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
 
--- | Convert a JSON object into a list of pairs or the empty list
--- if the JSON value is not an object.
+-- | Insert the given key and value into the given @Value@, which
+-- is expected to be an @Object@.  If the value is not an @Object@,
+-- this is a no-op.
 --
-objectPairs :: Value -> [Pair]
-objectPairs (Object o) = M.toList o
-objectPairs _ = []
+insertToObject :: ToJSON v => T.Text -> v -> Value -> Value
+insertToObject k v (Object o) = Object $ M.insert k (toJSON v) o
+insertToObject _ _ v          = v
+
+-- | Insert several key/value pairs to the given @Value@, which
+-- is expected to be an @Object@.  If the value is not an @Object@,
+-- this is a no-op.
+--
+insertManyToObject :: [Pair] -> Value -> Value
+insertManyToObject kvs (Object o) = Object $ foldr (uncurry M.insert) o kvs
+insertManyToObject _ v            = v
 
 -- | Produce a parser of base64 encoded text from a bytestring parser.
 --

@@ -209,17 +209,18 @@ instance FromJSON JWK where
       | otherwise = pure k
 
 instance ToJSON JWK where
-  toJSON JWK{..} = object $ catMaybes
-    [ fmap ("alg" .=) _jwkAlg
-    , fmap ("use" .=) _jwkUse
-    , fmap ("key_ops" .=) _jwkKeyOps
-    , fmap ("kid" .=) _jwkKid
-    , fmap ("x5u" .=) _jwkX5u
-    , fmap (("x5c" .=) . fmap Types.Base64X509) _jwkX5cRaw
-    , fmap ("x5t" .=) _jwkX5t
-    , fmap ("x5t#S256" .=) _jwkX5tS256
-    ]
-    ++ Types.objectPairs (toJSON _jwkMaterial)
+  toJSON JWK{..} = Types.insertManyToObject kvs (toJSON _jwkMaterial)
+    where
+      kvs = catMaybes
+        [ fmap ("alg" .=) _jwkAlg
+        , fmap ("use" .=) _jwkUse
+        , fmap ("key_ops" .=) _jwkKeyOps
+        , fmap ("kid" .=) _jwkKid
+        , fmap ("x5u" .=) _jwkX5u
+        , fmap (("x5c" .=) . fmap Types.Base64X509) _jwkX5cRaw
+        , fmap ("x5t" .=) _jwkX5t
+        , fmap ("x5t#S256" .=) _jwkX5tS256
+        ]
 
 -- | Generate a JWK.  Apart from key parameters, no other parameters are set.
 --

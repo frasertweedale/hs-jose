@@ -29,7 +29,7 @@ import qualified Data.HashMap.Strict as M
 import Crypto.JOSE.JWK
 import Crypto.JOSE.TH
 import Crypto.JOSE.Types
-import Crypto.JOSE.Types.Internal (objectPairs)
+import Crypto.JOSE.Types.Internal (insertToObject)
 
 import Data.Aeson
 
@@ -84,7 +84,7 @@ algObject :: Value -> Value
 algObject s = object [("alg", s)]
 
 algWithParamsObject :: ToJSON a => a -> Value -> Value
-algWithParamsObject a s = object $ ("alg", s) : objectPairs (toJSON a)
+algWithParamsObject a s = insertToObject "alg" s (toJSON a)
 
 instance ToJSON AlgWithParams where
   toJSON RSA1_5       = algObject "RSA1_5"

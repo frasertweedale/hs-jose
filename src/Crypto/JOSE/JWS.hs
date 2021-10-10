@@ -423,11 +423,11 @@ instance (HasParams a, ProtectionIndicator p) => FromJSON (JWS Identity p a) whe
       else (\p s -> JWS p (pure s)) <$> o .: "payload" <*> parseJSON (Object o)
 
 instance (HasParams a, ProtectionIndicator p) => ToJSON (JWS [] p a) where
-  toJSON (JWS p [s]) = object $ "payload" .= p : Types.objectPairs (toJSON s)
+  toJSON (JWS p [s]) = Types.insertToObject "payload" p (toJSON s)
   toJSON (JWS p ss) = object ["payload" .= p, "signatures" .= ss]
 
 instance (HasParams a, ProtectionIndicator p) => ToJSON (JWS Identity p a) where
-  toJSON (JWS p (Identity s)) = object $ "payload" .= p : Types.objectPairs (toJSON s)
+  toJSON (JWS p (Identity s)) = Types.insertToObject "payload" p (toJSON s)
 
 
 signingInput
