@@ -19,7 +19,8 @@ Prelude for the  library.
 -}
 module Crypto.JOSE
   (
-    module Crypto.JOSE.Compact
+    vulnerableToHashFlood
+  , module Crypto.JOSE.Compact
   , module Crypto.JOSE.Error
   , module Crypto.JOSE.JWK
   , module Crypto.JOSE.JWK.Store
@@ -33,4 +34,21 @@ import Crypto.JOSE.JWK.Store
 import Crypto.JOSE.JWS
 import Crypto.JOSE.Types (base64url)
 
+import qualified Data.Aeson.KeyMap as KeyMap
+
 {-# ANN module ("HLint: ignore Use import/export shortcut" :: String) #-}
+
+-- | /aeson/ supports multiple map implementations.  The
+-- implementation using @Data.HashMap@ from *unordered-containers*
+-- is vulnerable to hash-flooding DoS attacks.  If your program
+-- processes JOSE objects from untrusted sources, you can check this
+-- value to find out if the *aeson* build uses a secure map
+-- implementation, or not.
+--
+vulnerableToHashFlood :: Bool
+vulnerableToHashFlood = case KeyMap.coercionToMap of
+  -- Don't check that the map implementation is NOT Data.HashMap, in
+  -- case some other insecure implementation emerges.  Instead,
+  -- check that the implementation IS known to be secure.
+  Just _  -> False
+  Nothing -> True

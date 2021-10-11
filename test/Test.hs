@@ -12,9 +12,12 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+import Test.Hspec
 import Test.Tasty
 import Test.Tasty.Hspec
 import Test.Tasty.QuickCheck
+
+import Crypto.JOSE (vulnerableToHashFlood)
 
 import AESKW
 import Examples
@@ -32,9 +35,18 @@ main = do
 
 unitTestsIO :: IO TestTree
 unitTestsIO = do
-  types <- testSpec "Types" Types.spec
-  jwk <- testSpec "JWK" JWK.spec
-  jws <- testSpec "JWS" JWS.spec
-  jwt <- testSpec "JWT" JWT.spec
-  examples <- testSpec "Examples" Examples.spec
-  return $ testGroup "Unit tests" [types, jwk, jws, jwt, examples]
+  testGroup "Unit tests" <$> sequenceA specs
+  where
+    specs =
+      [ testSpec "Types" Types.spec
+      , testSpec "JWK" JWK.spec
+      , testSpec "JWS" JWS.spec
+      , testSpec "JWT" JWT.spec
+      , testSpec "Examples" Examples.spec
+      , testSpec "Security" securitySpec
+      ]
+
+securitySpec :: Spec
+securitySpec = describe "security characteristics" $
+  it "not vulnerable to hash-flood" $
+    vulnerableToHashFlood `shouldBe` False
