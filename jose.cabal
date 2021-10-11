@@ -32,7 +32,7 @@ copyright:           Copyright (C) 2013-2018  Fraser Tweedale
 category:            Cryptography
 build-type:          Simple
 tested-with:
-  GHC==7.10.3, GHC==8.0.2, GHC==8.2.2, GHC==8.4.4, GHC==8.6.5, GHC==8.8.4, GHC==8.10.4, GHC==9.0.1
+  GHC==8.0.2, GHC==8.2.2, GHC==8.4.4, GHC==8.6.5, GHC==8.8.4, GHC==8.10.4, GHC==9.0.1
 
 flag demos
   description: Build demonstration programs
@@ -43,15 +43,12 @@ common common
   ghc-options:    -Wall
 
   build-depends:
-    base >= 4.8 && < 5
+    base >= 4.9 && < 5
     , aeson >= 2.0.1.0 && < 3
     , bytestring == 0.10.*
     , lens >= 4.16
     , mtl >= 2
     , text >= 1.1
-  if impl(ghc < 8.0)
-    build-depends:
-      semigroups >= 0.15
 
 library
   import: common
@@ -85,15 +82,12 @@ library
     , cryptonite >= 0.7
     , memory >= 0.7
     , monad-time >= 0.1
-    , template-haskell >= 2.4
+    , template-haskell >= 2.11
     , time >= 1.5
     , network-uri >= 2.6
     , QuickCheck >= 2.9
     , quickcheck-instances
     , x509 >= 1.4
-
-  if impl(ghc<8)
-    build-depends: fail
 
   hs-source-dirs: src
 

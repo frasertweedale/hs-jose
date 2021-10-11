@@ -100,9 +100,7 @@ deriveJOSEType s vs = sequenceQ [
   let
     derive = map mkName ["Eq", "Ord", "Show"]
   in
-#if ! MIN_VERSION_template_haskell(2,11,0)
-    dataD (cxt []) (mkName s) [] (map conQ vs) derive
-#elif ! MIN_VERSION_template_haskell(2,12,0)
+#if ! MIN_VERSION_template_haskell(2,12,0)
     dataD (cxt []) (mkName s) [] Nothing (map conQ vs) (mapM conT derive)
 #else
     dataD (cxt []) (mkName s) [] Nothing (map conQ vs) [return (DerivClause Nothing (map ConT derive))]
