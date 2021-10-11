@@ -14,8 +14,6 @@
 
 module AESKW where
 
-import Control.Applicative ((<$>), pure)
-
 import qualified Data.ByteString as B
 import Crypto.Cipher.AES
 import Crypto.Cipher.Types
@@ -28,6 +26,7 @@ import Test.Tasty.QuickCheck
 import Crypto.JOSE.AESKW
 
 
+aeskwProperties :: TestTree
 aeskwProperties = testGroup "AESKW"
   [ testProperty "AESKW round-trip" prop_roundTrip
   ]
@@ -52,3 +51,4 @@ prop_roundTrip = monadicIO $ do
     16 -> assert $ check (cipherInit kek :: CryptoFailable AES128)
     24 -> assert $ check (cipherInit kek :: CryptoFailable AES192)
     32 -> assert $ check (cipherInit kek :: CryptoFailable AES256)
+    _  -> assert False  -- can't happen

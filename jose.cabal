@@ -81,7 +81,7 @@ library
     , containers >= 0.5
     , cryptonite >= 0.7
     , memory >= 0.7
-    , monad-time >= 0.1
+    , monad-time >= 0.3
     , template-haskell >= 2.11
     , time >= 1.5
     , network-uri >= 2.6
@@ -113,8 +113,6 @@ test-suite tests
     , base64-bytestring
     , containers
     , cryptonite
-    , memory
-    , monad-time
     , time
     , network-uri
     , x509

@@ -12,7 +12,6 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -25,11 +24,8 @@ import Control.Lens
 import Control.Lens.Extras (is)
 import Control.Monad.Except (runExceptT)
 import Control.Monad.Trans (liftIO)
-import Control.Monad.Reader (MonadReader(..), ReaderT, runReaderT)
-import Control.Monad.State (execState)
-import Control.Monad.Time (MonadTime(..))
+import Control.Monad.Reader (runReaderT)
 import Data.Aeson hiding ((.=))
-import Data.Functor.Identity (runIdentity)
 import qualified Data.Set as S
 import Data.Time
 import Network.URI (parseURI)
@@ -50,11 +46,6 @@ exampleClaimsSet = emptyClaimsSet
   & claimExp .~ intDate "2011-03-22 18:43:00"
   & addClaim "http://example.com/is_root" (Bool True)
 
-#if ! MIN_VERSION_monad_time(0,3,0)
-instance Monad m => MonadTime (ReaderT UTCTime m) where
-  currentTime = ask
-#endif
-
 spec :: Spec
 spec = do
   let conf = set algorithms (S.singleton None)
@@ -73,9 +64,9 @@ spec = do
         decode claimsJSON `shouldBe` Just exampleClaimsSet
 
     it "JWT compact round-trip" $ do
-      jwk <- genJWK $ RSAGenParam 256
+      k <- genJWK $ RSAGenParam 256
       res <- runExceptT $ do
-        token <- signClaims jwk (newJWSHeader ((), RS512)) emptyClaimsSet
+        token <- signClaims k (newJWSHeader ((), RS512)) emptyClaimsSet
         token' <- decodeCompact . encodeCompact $ token
         liftIO $ token' `shouldBe` token
       either (error . show) return (res :: Either JWTError ()) :: IO ()

@@ -90,7 +90,6 @@ import Data.Foldable (toList)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
 import Data.List.NonEmpty (NonEmpty)
-import Data.Traversable (traverse)
 import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))

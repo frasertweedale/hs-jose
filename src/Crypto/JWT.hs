@@ -115,9 +115,6 @@ module Crypto.JWT
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Time (MonadTime(..))
-#if ! MIN_VERSION_monad_time(0,2,0)
-import Control.Monad.Time.Instances ()
-#endif
 import Data.Foldable (traverse_)
 import Data.Functor.Identity
 import Data.Maybe

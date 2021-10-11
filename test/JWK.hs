@@ -21,7 +21,6 @@ import Data.Monoid ((<>))
 import Control.Lens (_Left, _Right, review, view)
 import Control.Lens.Extras (is)
 import Data.Aeson
-import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import Test.Hspec
@@ -298,8 +297,9 @@ cfrgSpec = describe "RFC 8037 test vectors" $ do
       pk <- _A2_result
       pure $ view asPublicKey sk == Just pk
 
-rfc8037_A1_jwkJson = ""
-  <> "{\"kty\":\"OKP\",\"crv\":\"Ed25519\","
+rfc8037_A1_jwkJson :: L.ByteString
+rfc8037_A1_jwkJson =
+     "{\"kty\":\"OKP\",\"crv\":\"Ed25519\","
   <> "\"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\","
   <> "\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
 

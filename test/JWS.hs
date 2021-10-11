@@ -25,12 +25,10 @@ import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Except (runExceptT)
 import Data.Aeson
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Lazy as L
 import qualified Data.ByteString.Base64.URL as B64U
 import Test.Hspec
 
 import Crypto.JOSE.Compact
-import Crypto.JOSE.Error (Error)
 import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
@@ -224,11 +222,11 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
 
   it "computes the HMAC correctly" $
     fst (withDRG drg $
-      runExceptT (sign alg (jwk ^. jwkMaterial) (signingInput' ^. recons)))
+      runExceptT (sign alg_ (k ^. jwkMaterial) (signingInput' ^. recons)))
       `shouldBe` (Right mac :: Either Error BS.ByteString)
 
   it "validates the JWS correctly" $
-    (jws >>= verifyJWS defaultValidationSettings jwk)
+    (jws >>= verifyJWS defaultValidationSettings k)
     `shouldBe` Right examplePayloadBytes
 
   where
@@ -239,14 +237,14 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
     compactJWS = signingInput' <> ".dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     jws = decodeCompact compactJWS :: Either Error (CompactJWS JWSHeader)
-    alg = JWA.JWS.HS256
-    h = newJWSHeader ((), alg)
+    alg_ = JWA.JWS.HS256
+    h = newJWSHeader ((), alg_)
         & typ .~ Just (HeaderParam () "JWT")
     mac = view recons
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
       187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
       132, 141, 121]
-    jwk = fromOctets
+    k = fromOctets
       [3,35,53,75,43,15,165,188,131,126,6,101,119,123,166,143,90,179,40,
        230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
        210,6,71,239,150,138,180,195,119,98,61,34,61,46,33,114,5,46,79,8,
@@ -277,11 +275,11 @@ jwkRSA1024 = fromJust $ decode $
 appendixA2Spec :: Spec
 appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
-    fst (withDRG drg $ runExceptT (sign JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput'))
+    fst (withDRG drg $ runExceptT (sign JWA.JWS.RS256 (k ^. jwkMaterial) signingInput'))
       `shouldBe` (Right sig :: Either Error BS.ByteString)
 
   it "validates the signature correctly" $
-    verify JWA.JWS.RS256 (jwk ^. jwkMaterial) signingInput' sig
+    verify JWA.JWS.RS256 (k ^. jwkMaterial) signingInput' sig
       `shouldBe` (Right True :: Either Error Bool)
 
   it "prohibits signing with 1024-bit key" $
@@ -295,7 +293,7 @@ appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
-    jwk = fromJust $ decode "\
+    k = fromJust $ decode "\
       \{\"kty\":\"RSA\",\
       \ \"n\":\"ofgWCuLjybRlzo0tZWJjNiuSfb4p4fAkd_wWJcyQoTbji9k0l8W26mPddx\
             \HmfHQp-Vaw-4qPCJrcS2mJPMEzP1Pt0Bm4d4QlL-yRT-SFd2lZS-pCgNMs\
@@ -336,7 +334,7 @@ appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-
 appendixA3Spec :: Spec
 appendixA3Spec = describe "RFC 7515 A.3.  Example JWS using ECDSA P-256 SHA-256" $
   it "validates the signature correctly" $
-    verify JWA.JWS.ES256 (jwk ^. jwkMaterial) signingInput' sig
+    verify JWA.JWS.ES256 (k ^. jwkMaterial) signingInput' sig
     `shouldBe` (Right True :: Either Error Bool)
   where
     signingInput' = "\
@@ -344,7 +342,7 @@ appendixA3Spec = describe "RFC 7515 A.3.  Example JWS using ECDSA P-256 SHA-256"
       \.\
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
-    jwk = fromJust $ decode "\
+    k = fromJust $ decode "\
       \{\"kty\":\"EC\",\
       \ \"crv\":\"P-256\",\
       \ \"x\":\"f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU\",\
@@ -504,7 +502,7 @@ appendixA6Spec = describe "RFC 7515 A.6.  Example JWS Using General JSON Seriali
 cfrgSpec :: Spec
 cfrgSpec = describe "RFC 8037 signature/validation test vectors" $ do
   let
-    jwk = fromJust $ decode "\
+    k = fromJust $ decode "\
       \{\"kty\":\"OKP\",\"crv\":\"Ed25519\",\
       \\"d\":\"nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A\",\
       \\"x\":\"11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo\"}"
@@ -516,10 +514,10 @@ cfrgSpec = describe "RFC 8037 signature/validation test vectors" $ do
     sig = BS.pack sigOctets
     signingInput = "eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc"
   it "computes the correct signature" $
-    fst (withDRG drg $ runExceptT (sign JWA.JWS.EdDSA (view jwkMaterial jwk) signingInput))
+    fst (withDRG drg $ runExceptT (sign JWA.JWS.EdDSA (view jwkMaterial k) signingInput))
       `shouldBe` (Right sig :: Either Error BS.ByteString)
   it "validates signatures correctly" $
-    verify JWA.JWS.EdDSA (view jwkMaterial jwk) signingInput sig
+    verify JWA.JWS.EdDSA (view jwkMaterial k) signingInput sig
       `shouldBe` (Right True :: Either Error Bool)
 
 base64urlSpec :: Spec

@@ -63,6 +63,7 @@ module Crypto.JOSE.Header
 
 
 import qualified Control.Monad.Fail as Fail
+import Data.Kind (Type)
 import Data.List.NonEmpty (NonEmpty)
 import Data.Monoid ((<>))
 import Data.Proxy (Proxy(..))
@@ -84,7 +85,7 @@ import qualified Crypto.JOSE.Types as Types
 
 -- | A thing with parameters.
 --
-class HasParams (a :: * -> *) where
+class HasParams (a :: Type -> Type) where
   -- | Return a list of parameters,
   -- each paired with whether it is protected or not.
   params :: ProtectionIndicator p => a p -> [(Bool, Pair)]

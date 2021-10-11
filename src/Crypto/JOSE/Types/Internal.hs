@@ -37,7 +37,6 @@ module Crypto.JOSE.Types.Internal
   ) where
 
 import Data.Bifunctor (first)
-import Data.Monoid ((<>))
 import Data.Tuple (swap)
 import Data.Word (Word8)
 
