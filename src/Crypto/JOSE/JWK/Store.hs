@@ -31,19 +31,19 @@ for keys based on either the JWS Header's @"kid"@ parameter, or the
 -- | A KeyDB is just a filesystem directory
 newtype KeyDB = KeyDB FilePath
 
-instance (MonadIO m, HasKid h)
-    => VerificationKeyStore m (h p) ClaimsSet KeyDB where
-  getVerificationKeys h claims (KeyDB dir) = liftIO $
+instance (MonadIO m, t'Crypto.JOSE.Header.HasKid' h)
+    => VerificationKeyStore m (h p) t'Crypto.JWT.ClaimsSet' KeyDB where
+  'getVerificationKeys' h claims (KeyDB dir) = liftIO $
     fmap catMaybes . traverse findKey $ catMaybes
-      [ preview (kid . _Just . param) h
-      , preview (claimIss . _Just . string) claims]
+      [ preview ('Crypto.JOSE.Header.kid' . _Just . 'Crypto.JOSE.Header.param') h
+      , preview ('Crypto.JWT.claimIss' . _Just . 'Crypto.JWT.string') claims]
     where
     findKey :: T.Text -> IO (Maybe JWK)
     findKey s =
       let path = dir <> "/" <> T.unpack s <> ".jwk"
       in handle
-        (\(_ :: IOException) -> pure Nothing)
-        (decode <$> L.readFile path)
+        (\\(_ :: IOException) -> pure Nothing)
+        (decode \<$> L.readFile path)
 @
 
 The next example shows how to retrieve public keys from a JWK Set
