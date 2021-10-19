@@ -46,6 +46,29 @@ instance (MonadIO m, HasKid h)
         (decode <$> L.readFile path)
 @
 
+The next example shows how to retrieve public keys from a JWK Set
+(@\/.well-known\/jwks.json@) resource.  For production use, it would
+be a good idea to cache the HTTP response.  Thanks to Steve Mao for
+this example.
+
+@
+-- | URI of JWK Set
+newtype JWKsURI = JWKsURI String
+
+instance (MonadIO m, t'Crypto.JOSE.Header.HasKid' h)
+    => 'VerificationKeyStore' m (h p) t'Crypto.JWT.ClaimsSet' JWKsURI where
+  'getVerificationKeys' h claims (JWKsURI url) = liftIO $
+    maybe [] (:[]) . join
+      \<$> traverse findKey (preview ('Crypto.JOSE.Header.kid' . _Just . 'Crypto.JOSE.Header.param') h)
+    where
+    findKey :: T.Text -> IO (Maybe JWK)
+    findKey kid' =
+      handle (\\(_ :: SomeException) -> pure Nothing) $ do
+        request \<- setRequestCheckStatus \<$> parseRequest url
+        response \<- getResponseBody \<$> httpJSON request
+        keys \<- getVerificationKeys h claims response
+        pure $ find (\\j -> view 'Crypto.JOSE.JWK.jwkKid' j == Just kid') keys
+@
 -}
 module Crypto.JOSE.JWK.Store
   (
