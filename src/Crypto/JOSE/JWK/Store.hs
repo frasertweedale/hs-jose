@@ -46,6 +46,40 @@ instance (MonadIO m, HasKid h)
         (decode <$> L.readFile path)
 @
 
+@
+Example of retrieving RSA public keys from a JWKS (/.well-known/jwks.json) endpoint.
+@
+
+@
+-- | The URI of the JWK set
+newtype JWKsURI
+  = JWKsURI String
+
+instance (MonadIO m, HasKid h)
+    => VerificationKeyStore m (h p) ClaimsSet JWKsURI where
+  getVerificationKeys h claims (JWKsURI url) = liftIO $
+    traverse findKey (preview (kid . _Just . param) h) >>=
+      (return . maybe [] pure) . join
+    where
+    findKey :: T.Text -> IO (Maybe JWK)
+    findKey kid' = handle
+        (\(_ :: SomeException) -> pure Nothing)
+        $ do
+            response <- getKeys url
+            keys <- getVerificationKeys h claims response
+
+            return $ find (\j -> j ^. jwkKid == Just kid') keys
+
+getKeys :: String -> IO JWKSet
+getKeys url = do
+    r <- parseRequest url
+
+    let request = setRequestCheckStatus r
+
+    eresponse <- httpJSON request
+
+    return $ getResponseBody eresponse
+@
 -}
 module Crypto.JOSE.JWK.Store
   (
