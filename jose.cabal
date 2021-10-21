@@ -2,7 +2,7 @@ cabal-version:       2.2
 name:                jose
 version:             0.8.5
 synopsis:
-  Javascript Object Signing and Encryption and JSON Web Token library
+  JSON Object Signing and Encryption (JOSE) and JSON Web Token (JWT) library
 description:
   .
   An implementation of the Javascript Object Signing and Encryption
