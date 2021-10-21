@@ -5,8 +5,8 @@ synopsis:
   JSON Object Signing and Encryption (JOSE) and JSON Web Token (JWT) library
 description:
   .
-  An implementation of the Javascript Object Signing and Encryption
-  (JOSE) and JSON Web Token (JWT; RFC 7519) formats.
+  Implementation of JSON Object Signing and Encryption
+  (JOSE) and JSON Web Token (JWT; RFC 7519).
   .
   The JSON Web Signature (JWS; RFC 7515) implementation is complete.
   .

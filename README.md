@@ -1,8 +1,8 @@
-# jose - Javascript Object Signing and Encryption & JWT (JSON Web Token)
+# jose - JSON Object Signing and Encryption & JWT (JSON Web Token)
 
-*jose* is a Haskell implementation of [Javascript Object Signing and
-Encryption](https://datatracker.ietf.org/wg/jose/) and [JSON Web
-Token](https://tools.ietf.org/html/rfc7519).
+*jose* is a Haskell implementation of [JSON Object Signing and
+Encryption (JOSE)](https://datatracker.ietf.org/wg/jose/) and [JSON
+Web Token (JWT)](https://tools.ietf.org/html/rfc7519).
 
 The JSON Web Signature (JWS; RFC 7515) implementation is complete.
 JSON Web Encryption (JWE; RFC 7516) is not yet implemented.
