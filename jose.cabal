@@ -122,8 +122,10 @@ test-suite tests
     , jose
 
     , tasty
+    , tasty-hedgehog
     , tasty-hspec >= 1.0
     , tasty-quickcheck
+    , hedgehog
     , hspec
     , QuickCheck >= 2.9
     , quickcheck-instances

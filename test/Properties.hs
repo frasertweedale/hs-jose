@@ -12,19 +12,20 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Properties where
 
-import Control.Monad.Except (runExceptT)
+import Control.Applicative (liftA2)
+import Control.Monad.Except (ExceptT)
 
-import Data.Aeson
+import Crypto.Number.Basic (log2)
+import Data.Aeson (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString as B
 
+import Hedgehog
+import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
 import Test.Tasty
-import Test.Tasty.QuickCheck
-import Test.QuickCheck.Monadic
-import Test.QuickCheck.Instances ()
+import Test.Tasty.Hedgehog
 
 import Crypto.JOSE.Types
 import Crypto.JOSE.JWK
@@ -32,50 +33,73 @@ import Crypto.JOSE.JWS
 
 properties :: TestTree
 properties = testGroup "Properties"
-  [ testProperty "SizedBase64Integer round-trip"
-    (prop_roundTrip :: SizedBase64Integer -> Property)
-  , testProperty "JWK round-trip" (prop_roundTrip :: JWK -> Property)
+  [ testProperty "SizedBase64Integer round-trip" (prop_roundTrip genSizedBase64Integer)
+  --, testProperty "JWK round-trip" (prop_roundTrip :: JWK -> Property)  FIXME
   , testProperty "RSA gen, sign and verify" prop_rsaSignAndVerify
   , testProperty "gen, sign with best alg, verify" prop_bestJWSAlg
   ]
 
-prop_roundTrip :: (Eq a, Show a, ToJSON a, FromJSON a) => a -> Property
-prop_roundTrip a = decode (encode [a]) === Just [a]
+genBigInteger :: Gen Integer
+genBigInteger = Gen.integral $ Range.exponential 0 (2 ^ (4096 :: Integer))
 
-debugRoundTrip
-  :: (Show a, Arbitrary a, ToJSON a, FromJSON a)
-  => (a -> Bool)
-  -> Property
-debugRoundTrip f = monadicIO $ do
-  a :: a <- pick arbitrary
-  let encoded = encode [a]
-  monitor $ counterexample $
-    "JSON: \n" ++ show encoded ++ "\n\nDecoded: \n" ++ show (decode encoded :: Maybe [a])
-  assert $ f a
+genBase64Integer :: Gen Base64Integer
+genBase64Integer = Base64Integer <$> genBigInteger
 
-prop_rsaSignAndVerify :: B.ByteString -> Property
-prop_rsaSignAndVerify msg = monadicIO $ do
-  keylen <- pick $ elements ((`div` 8) <$> [2048, 3072, 4096])
-  k :: JWK <- run $ genJWK (RSAGenParam keylen)
-  alg_ <- pick $ elements [RS256, RS384, RS512, PS256, PS384, PS512]
-  monitor (collect alg_)
-  wp (runExceptT (signJWS msg [(newJWSHeader (Protected, alg_), k)]
-    >>= verifyJWS defaultValidationSettings k)) (checkSignVerifyResult msg)
+genSizedBase64Integer :: Gen SizedBase64Integer
+genSizedBase64Integer = do
+  x <- genBigInteger
+  l <- Gen.element [0, 1, 2]  -- number of leading zero-bytes
+  pure $ SizedBase64Integer ((log2 x `div` 8) + 1 + l) x
 
-prop_bestJWSAlg :: B.ByteString -> Property
-prop_bestJWSAlg msg = monadicIO $ do
-  genParam <- pick arbitrary
-  k <- run $ genJWK genParam
+
+prop_roundTrip :: (Eq a, Show a, ToJSON a, FromJSON a) => Gen a -> Property
+prop_roundTrip gen = property $
+  forAll gen >>= \a -> decode (encode [a]) === Just [a]
+
+prop_rsaSignAndVerify :: Property
+prop_rsaSignAndVerify = property $ do
+  msg <- forAll $ Gen.bytes (Range.linear 0 100)
+  keylen <- forAll $ Gen.element ((`div` 8) <$> [2048, 3072, 4096])
+  k <- evalIO $ genJWK (RSAGenParam keylen)
+  alg_ <- forAll $ Gen.element [RS256, RS384, RS512, PS256, PS384, PS512]
+  collect alg_
+  msg' <- evalExceptT
+    ( signJWS msg [(newJWSHeader (Protected, alg_), k)]
+      >>= verifyJWS defaultValidationSettings k
+      :: ExceptT Error (PropertyT IO) B.ByteString
+    )
+  msg' === msg
+
+
+genCrv :: Gen Crv
+genCrv = Gen.element [P_256, P_384, P_521]
+
+genOKPCrv :: Gen OKPCrv
+genOKPCrv = Gen.element [Ed25519, X25519]
+
+genKeyMaterialGenParam :: Gen KeyMaterialGenParam
+genKeyMaterialGenParam = Gen.choice
+  [ ECGenParam <$> genCrv
+  , RSAGenParam <$> Gen.element ((`div` 8) <$> [2048, 3072, 4096])
+  , OctGenParam <$> liftA2 (+) (Gen.integral (Range.exponential 0 64)) (Gen.element [32, 48, 64])
+  , OKPGenParam <$> genOKPCrv
+  ]
+
+prop_bestJWSAlg :: Property
+prop_bestJWSAlg = property $ do
+  msg <- forAll $ Gen.bytes (Range.linear 0 100)
+
+  genParam <- forAll $ genKeyMaterialGenParam
+  k <- evalIO $ genJWK genParam
+
   case bestJWSAlg k of
-    Left (KeyMismatch _) -> pre False  -- skip non-signing keys
+    Left (KeyMismatch _) -> discard   -- skip non-signing keys
     Left _ -> assert False
     Right alg_ -> do
-      monitor (collect alg_)
-      let
-        go = do
-          jws <- signJWS msg [(newJWSHeader (Protected, alg_), k)]
-          verifyJWS defaultValidationSettings k jws
-      wp (runExceptT go) (checkSignVerifyResult msg)
-
-checkSignVerifyResult :: Monad m => B.ByteString -> Either Error B.ByteString -> PropertyM m ()
-checkSignVerifyResult msg = assert . either (const False) (== msg)
+      collect alg_
+      msg' <- evalExceptT
+        ( signJWS msg [(newJWSHeader (Protected, alg_), k)]
+          >>= verifyJWS defaultValidationSettings k
+          :: ExceptT Error (PropertyT IO) B.ByteString
+        )
+      msg' === msg
