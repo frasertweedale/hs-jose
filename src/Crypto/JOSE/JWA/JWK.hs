@@ -38,6 +38,7 @@ module Crypto.JOSE.JWA.JWK (
   , point
   , ecPrivateKey
   , ecParametersFromX509
+  , genEC
 
   -- * Parameters for RSA Keys
   , RSAPrivateKeyOthElem(..)
