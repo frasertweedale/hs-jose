@@ -122,10 +122,8 @@ test-suite tests
     , tasty
     , tasty-hedgehog
     , tasty-hspec >= 1.0
-    , tasty-quickcheck
     , hedgehog
     , hspec
-    , QuickCheck >= 2.9
 
 test-suite perf
   import: common

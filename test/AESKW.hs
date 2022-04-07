@@ -19,9 +19,11 @@ import Crypto.Cipher.AES
 import Crypto.Cipher.Types
 import Crypto.Error
 
-import Test.QuickCheck.Monadic
+import Hedgehog
+import qualified Hedgehog.Gen as Gen
+import qualified Hedgehog.Range as Range
 import Test.Tasty
-import Test.Tasty.QuickCheck
+import Test.Tasty.Hedgehog
 
 import Crypto.JOSE.AESKW
 
@@ -32,23 +34,24 @@ aeskwProperties = testGroup "AESKW"
   ]
 
 prop_roundTrip :: Property
-prop_roundTrip = monadicIO $ do
-  cekLen <- (* 8) . (+ 2) <$> pick arbitrarySizedNatural
-  cek <- pick $ B.pack <$> vectorOf cekLen arbitrary
-  kekLen <- pick $ oneof $ pure <$> [16, 24, 32]
-  kek <- pick $ B.pack <$> vectorOf kekLen arbitrary
+prop_roundTrip = property $ do
+  cekLen <- forAll $ (* 8) . (+ 2) <$> Gen.integral (Range.linear 0 16)
+  cek <- forAll $ Gen.bytes (Range.singleton cekLen)
+  kekLen <- forAll $ Gen.element [16, 24, 32]
+  kek <- forAll $ Gen.bytes (Range.singleton kekLen)
   let
-    check :: BlockCipher128 cipher => CryptoFailable cipher -> Bool
-    check cipher' = case cipher' of
-      CryptoFailed _ -> False
-      CryptoPassed cipher ->
+    go cipher' = case cipher' of
+      CryptoFailed _ -> do
+        annotate "cipherInit failed"
+        failure
+      CryptoPassed cipher -> do
         let
           c = aesKeyWrap cipher cek :: B.ByteString
           cek' = aesKeyUnwrap cipher c
-        in
-          B.length c == cekLen + 8 && cek' == Just cek
+        B.length c === cekLen + 8
+        cek' === Just cek
   case kekLen of
-    16 -> assert $ check (cipherInit kek :: CryptoFailable AES128)
-    24 -> assert $ check (cipherInit kek :: CryptoFailable AES192)
-    32 -> assert $ check (cipherInit kek :: CryptoFailable AES256)
-    _  -> assert False  -- can't happen
+    16 -> go (cipherInit kek :: CryptoFailable AES128)
+    24 -> go (cipherInit kek :: CryptoFailable AES192)
+    32 -> go (cipherInit kek :: CryptoFailable AES256)
+    _  -> annotate "the impossible happened" *> failure   -- can't happen
