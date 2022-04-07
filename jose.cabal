@@ -85,8 +85,6 @@ library
     , template-haskell >= 2.11
     , time >= 1.5
     , network-uri >= 2.6
-    , QuickCheck >= 2.9
-    , quickcheck-instances
     , x509 >= 1.4
 
   hs-source-dirs: src
@@ -128,7 +126,6 @@ test-suite tests
     , hedgehog
     , hspec
     , QuickCheck >= 2.9
-    , quickcheck-instances
 
 test-suite perf
   import: common

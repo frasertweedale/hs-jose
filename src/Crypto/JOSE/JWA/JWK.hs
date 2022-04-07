@@ -104,7 +104,6 @@ import Data.List.NonEmpty (NonEmpty)
 import qualified Data.Text as T
 import Data.X509 as X509
 import Data.X509.EC as X509.EC
-import Test.QuickCheck (Arbitrary(..), arbitrarySizedNatural, elements, oneof, vectorOf)
 
 import Crypto.JOSE.Error
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
@@ -117,9 +116,6 @@ import Crypto.JOSE.Types.Orphans ()
 -- | \"crv\" (Curve) Parameter
 --
 $(Crypto.JOSE.TH.deriveJOSEType "Crv" ["P-256", "P-384", "P-521"])
-
-instance Arbitrary Crv where
-  arbitrary = elements [P_256, P_384, P_521]
 
 
 -- | \"oth\" (Other Primes Info) Parameter
@@ -139,9 +135,6 @@ instance FromJSON RSAPrivateKeyOthElem where
 
 instance ToJSON RSAPrivateKeyOthElem where
   toJSON (RSAPrivateKeyOthElem r d t) = object ["r" .= r, "d" .= d, "t" .= t]
-
-instance Arbitrary RSAPrivateKeyOthElem where
-  arbitrary = RSAPrivateKeyOthElem <$> arbitrary <*> arbitrary <*> arbitrary
 
 
 -- | Optional parameters for RSA private keys
@@ -174,15 +167,6 @@ instance ToJSON RSAPrivateKeyOptionalParameters where
     , "qi" .= rsaQi
     ] ++ maybe [] ((:[]) . ("oth" .=)) rsaOth
 
-instance Arbitrary RSAPrivateKeyOptionalParameters where
-  arbitrary = RSAPrivateKeyOptionalParameters
-    <$> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-
 
 -- | RSA private key parameters
 --
@@ -204,9 +188,6 @@ instance ToJSON RSAPrivateKeyParameters where
   toJSON RSAPrivateKeyParameters {..} =
     Types.insertToObject "d" rsaD
       $ maybe (Object mempty) toJSON rsaOptionalParameters
-
-instance Arbitrary RSAPrivateKeyParameters where
-  arbitrary = RSAPrivateKeyParameters <$> arbitrary <*> arbitrary
 
 
 -- | Parameters for Elliptic Curve Keys
@@ -249,16 +230,6 @@ instance ToJSON ECKeyParameters where
     , "x" .= view ecX k
     , "y" .= view ecY k
     ] <> fmap ("d" .=) (toList (view ecD k))
-
-instance Arbitrary ECKeyParameters where
-  arbitrary = do
-    drg <- drgNewTest <$> arbitrary
-    crv <- arbitrary
-    let (params, _) = withDRG drg (genEC crv)
-    includePrivate <- arbitrary
-    if includePrivate
-      then pure params
-      else pure params { _ecD = Nothing }
 
 genEC :: MonadRandom m => Crv -> m ECKeyParameters
 genEC crv = do
@@ -371,12 +342,6 @@ instance ToJSON RSAKeyParameters where
       ]
       $ maybe (Object mempty) toJSON _rsaPrivateKeyParameters
 
-instance Arbitrary RSAKeyParameters where
-  arbitrary = RSAKeyParameters
-    <$> arbitrary
-    <*> arbitrary
-    <*> arbitrary
-
 genRSA :: MonadRandom m => Int -> m RSAKeyParameters
 genRSA size = toRSAKeyParameters . snd <$> RSA.generate size 65537
 
@@ -476,9 +441,6 @@ instance ToJSON OctKeyParameters where
     , "k" .= (view octK k :: Types.Base64Octets)
     ]
 
-instance Arbitrary OctKeyParameters where
-  arbitrary = OctKeyParameters <$> arbitrary
-
 signOct
   :: forall h e m. (HashAlgorithm h, MonadError e m, AsError e)
   => h
@@ -531,24 +493,8 @@ instance ToJSON OKPKeyParameters where
       b64 = Types.Base64Octets . BA.convert
       params pk sk = "x" .= b64 pk : (("d" .=) . b64 <$> toList sk)
 
-instance Arbitrary OKPKeyParameters where
-  arbitrary = oneof
-    [ Ed25519Key
-        <$> keyOfLen 32 Ed25519.publicKey
-        <*> oneof [pure Nothing, Just <$> keyOfLen 32 Ed25519.secretKey]
-    , X25519Key
-        <$> keyOfLen 32 Curve25519.publicKey
-        <*> oneof [pure Nothing, Just <$> keyOfLen 32 Curve25519.secretKey]
-    ]
-    where
-      bsOfLen n = B.pack <$> vectorOf n arbitrary
-      keyOfLen n con = onCryptoFailure (error . show) id . con <$> bsOfLen n
-
 data OKPCrv = Ed25519 | X25519
   deriving (Eq, Show)
-
-instance Arbitrary OKPCrv where
-  arbitrary = elements [Ed25519, X25519]
 
 genOKP :: MonadRandom m => OKPCrv -> m OKPKeyParameters
 genOKP = \case
@@ -624,14 +570,6 @@ data KeyMaterialGenParam
   -- ^ Generate an EdDSA or Edwards ECDH key with specified curve.
   deriving (Eq, Show)
 
-instance Arbitrary KeyMaterialGenParam where
-  arbitrary = oneof
-    [ ECGenParam <$> arbitrary
-    , RSAGenParam <$> elements ((`div` 8) <$> [2048, 3072, 4096])
-    , OctGenParam <$> liftA2 (+) arbitrarySizedNatural (elements [32, 48, 64])
-    , OKPGenParam <$> arbitrary
-    ]
-
 genKeyMaterial :: MonadRandom m => KeyMaterialGenParam -> m KeyMaterial
 genKeyMaterial (ECGenParam crv) = ECKeyMaterial <$> genEC crv
 genKeyMaterial (RSAGenParam size) = RSAKeyMaterial <$> genRSA size
@@ -685,14 +623,6 @@ verify JWA.JWS.HS512 (OctKeyMaterial k) = \m s -> BA.constEq s <$> signOct SHA51
 verify JWA.JWS.EdDSA (OKPKeyMaterial k) = verifyEdDSA k
 verify h k = \_ _ -> throwing _AlgorithmMismatch
   (show h <> " cannot be used with " <> showKeyType k <> " key")
-
-instance Arbitrary KeyMaterial where
-  arbitrary = oneof
-    [ ECKeyMaterial <$> arbitrary
-    , RSAKeyMaterial <$> arbitrary
-    , OctKeyMaterial <$> arbitrary
-    , OKPKeyMaterial <$> arbitrary
-    ]
 
 
 -- | Keys that may have have public material

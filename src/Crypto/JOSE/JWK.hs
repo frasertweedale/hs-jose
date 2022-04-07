@@ -108,8 +108,6 @@ import Data.List.NonEmpty
 import qualified Data.Text as T
 import qualified Data.X509 as X509
 
-import Test.QuickCheck
-
 import Crypto.JOSE.Error
 import qualified Crypto.JOSE.JWA.JWE.Alg as JWA.JWE
 import Crypto.JOSE.JWA.JWK
@@ -226,18 +224,6 @@ instance ToJSON JWK where
 --
 genJWK :: MonadRandom m => KeyMaterialGenParam -> m JWK
 genJWK p = fromKeyMaterial <$> genKeyMaterial p
-
-instance Arbitrary JWK where
-  arbitrary = JWK
-    <$> arbitrary
-    <*> pure Nothing
-    <*> pure Nothing
-    <*> pure Nothing
-    <*> arbitrary
-    <*> pure Nothing
-    <*> pure Nothing
-    <*> arbitrary
-    <*> arbitrary
 
 fromKeyMaterial :: KeyMaterial -> JWK
 fromKeyMaterial k = JWK k z z z z z z z z where z = Nothing
