@@ -1,4 +1,4 @@
--- Copyright (C) 2014  Fraser Tweedale
+-- Copyright (C) 2014-2022  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -13,9 +13,8 @@
 -- limitations under the License.
 
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 {-|
 
@@ -33,12 +32,16 @@ module Crypto.JOSE.Error
   , CompactDecodeError(..)
   , _CompactInvalidNumberOfParts
   , _CompactInvalidText
+
+  , JOSE
+  , runJOSE
+  , unwrapJOSE
   ) where
 
 import Data.Semigroup ((<>))
 import Numeric.Natural
 
-import Control.Monad.Trans (MonadTrans(..))
+import Control.Monad.Except
 import qualified Crypto.PubKey.RSA as RSA
 import Crypto.Error (CryptoError)
 import Crypto.Random (MonadRandom(..))
@@ -118,10 +121,39 @@ data Error
 makeClassyPrisms ''Error
 
 
-instance (
-    MonadRandom m
-  , MonadTrans t
-  , Functor (t m)
-  , Monad (t m)
-  ) => MonadRandom (t m) where
+newtype JOSE e m a = JOSE (ExceptT e m a)
+
+-- | Run the 'JOSE' computation.  Result is an @Either e a@
+-- where @e@ is the error type (typically 'Error' or 'JWTError')
+runJOSE :: JOSE e m a -> m (Either e a)
+runJOSE = runExceptT . (\(JOSE m) -> m)
+
+-- | Get the inner 'ExceptT' value of the 'JOSE' computation.
+-- Typically 'runJOSE' would be preferred, unless you specifically
+-- need an 'ExceptT' value.
+unwrapJOSE :: JOSE e m a -> ExceptT e m a
+unwrapJOSE (JOSE m) = m
+
+
+instance (Functor m) => Functor (JOSE e m) where
+  fmap f (JOSE ma) = JOSE (fmap f ma)
+
+instance (Monad m) => Applicative (JOSE e m) where
+  pure = JOSE . pure
+  JOSE mf <*> JOSE ma = JOSE (mf <*> ma)
+
+instance (Monad m) => Monad (JOSE e m) where
+  JOSE ma >>= f = JOSE (ma >>= unwrapJOSE . f)
+
+instance MonadTrans (JOSE e) where
+  lift = JOSE . lift
+
+instance (Monad m) => MonadError e (JOSE e m) where
+  throwError = JOSE . throwError
+  catchError (JOSE m) handle = JOSE (catchError m (unwrapJOSE . handle))
+
+instance (MonadIO m) => MonadIO (JOSE e m) where
+  liftIO = JOSE . liftIO
+
+instance (MonadRandom m) => MonadRandom (JOSE e m) where
     getRandomBytes = lift . getRandomBytes

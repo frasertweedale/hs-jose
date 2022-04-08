@@ -11,7 +11,6 @@ import Data.Aeson (decode, eitherDecode, encode)
 import Data.Text.Strict.Lens (utf8)
 import System.Posix.Files (getFileStatus, isDirectory)
 
-import Control.Monad.Except (runExceptT)
 import Control.Lens (preview, re, review, set, view)
 
 import Crypto.JWT
@@ -54,7 +53,7 @@ doJwtSign :: [String] -> IO ()
 doJwtSign [jwkFilename, claimsFilename] = do
   Just k <- decode <$> L.readFile jwkFilename
   Just claims <- decode <$> L.readFile claimsFilename
-  result <- runExceptT $ makeJWSHeader k >>= \h -> signClaims k h claims
+  result <- runJOSE $ makeJWSHeader k >>= \h -> signClaims k h claims
   case result of
     Left e -> print (e :: Error) >> exitFailure
     Right jwt -> L.putStr (encodeCompact jwt)
@@ -77,7 +76,7 @@ doJwtVerify [jwkFilename, jwtFilename, aud] = do
   let
     aud' = fromJust $ preview stringOrUri aud
     conf = defaultJWTValidationSettings (== aud')
-    go k = runExceptT (decodeCompact jwtData >>= verifyClaims conf k)
+    go k = runJOSE $ decodeCompact jwtData >>= verifyClaims conf k
 
   jwkDir <- isDirectory <$> getFileStatus jwkFilename
   result <-

@@ -14,11 +14,12 @@
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Properties where
 
 import Control.Applicative (liftA2)
-import Control.Monad.Except (ExceptT)
+import Control.Monad.IO.Class
 
 import Control.Lens ((&), set, view)
 import Crypto.Error (onCryptoFailure)
@@ -38,6 +39,10 @@ import Test.Tasty.Hedgehog
 import Crypto.JOSE.Types
 import Crypto.JOSE.JWK
 import Crypto.JOSE.JWS
+
+
+instance (MonadIO m) => MonadRandom (PropertyT m) where
+  getRandomBytes = liftIO . getRandomBytes
 
 properties :: TestTree
 properties = testGroup "Properties"
@@ -71,10 +76,10 @@ prop_rsaSignAndVerify = property $ do
   k <- evalIO $ genJWK (RSAGenParam keylen)
   alg_ <- forAll $ Gen.element [RS256, RS384, RS512, PS256, PS384, PS512]
   collect alg_
-  msg' <- evalExceptT
+  msg' <- evalExceptT $ unwrapJOSE
     ( signJWS msg [(newJWSHeader (Protected, alg_), k)]
       >>= verifyJWS defaultValidationSettings k
-      :: ExceptT Error (PropertyT IO) B.ByteString
+      :: JOSE Error (PropertyT IO) B.ByteString
     )
   msg' === msg
 
@@ -105,10 +110,10 @@ prop_bestJWSAlg = property $ do
     Left _ -> assert False
     Right alg_ -> do
       collect alg_
-      msg' <- evalExceptT
+      msg' <- evalExceptT $ unwrapJOSE
         ( signJWS msg [(newJWSHeader (Protected, alg_), k)]
           >>= verifyJWS defaultValidationSettings k
-          :: ExceptT Error (PropertyT IO) B.ByteString
+          :: JOSE Error (PropertyT IO) B.ByteString
         )
       msg' === msg
 

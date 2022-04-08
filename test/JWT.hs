@@ -22,7 +22,6 @@ import Data.Monoid ((<>))
 
 import Control.Lens
 import Control.Lens.Extras (is)
-import Control.Monad.Except (runExceptT)
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Reader (runReaderT)
 import Data.Aeson hiding ((.=))
@@ -65,7 +64,7 @@ spec = do
 
     it "JWT compact round-trip" $ do
       k <- genJWK $ RSAGenParam 256
-      res <- runExceptT $ do
+      res <- runJOSE $ do
         token <- signClaims k (newJWSHeader ((), RS512)) emptyClaimsSet
         token' <- decodeCompact . encodeCompact $ token
         liftIO $ token' `shouldBe` token

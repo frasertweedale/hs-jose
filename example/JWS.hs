@@ -2,7 +2,6 @@ module JWS where
 
 import System.Exit (exitFailure)
 
-import Control.Monad.Except (runExceptT)
 import Data.Aeson (decode, encode)
 import qualified Data.ByteString.Lazy as L
 
@@ -19,7 +18,7 @@ doJwsSign :: [String] -> IO ()
 doJwsSign [jwkFilename, payloadFilename] = do
   Just jwk <- decode <$> L.readFile jwkFilename
   payload <- L.readFile payloadFilename
-  result <- runExceptT $ do
+  result <- runJOSE $ do
     h <- makeJWSHeader jwk
     signJWS payload [(h :: JWSHeader Protection, jwk)]
   case result of
@@ -38,7 +37,7 @@ doJwsVerify :: [String] -> IO ()
 doJwsVerify [jwkFilename, jwsFilename] = do
   Just jwk <- decode <$> L.readFile jwkFilename
   Just jws <- decode <$> L.readFile jwsFilename
-  result <- runExceptT $ verifyJWS' (jwk :: JWK) (jws :: GeneralJWS JWSHeader)
+  result <- runJOSE $ verifyJWS' (jwk :: JWK) (jws :: GeneralJWS JWSHeader)
   case result of
     Left e -> print (e :: Error) >> exitFailure
     Right s -> L.putStr s

@@ -22,7 +22,6 @@ import Data.Monoid ((<>))
 import Control.Lens hiding ((.=))
 import Control.Lens.Extras (is)
 import Control.Lens.Cons.Extras (recons)
-import Control.Monad.Except (runExceptT)
 import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64.URL as B64U
@@ -221,8 +220,7 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
     fmap encodeCompact jws `shouldBe` Right compactJWS
 
   it "computes the HMAC correctly" $
-    fst (withDRG drg $
-      runExceptT (sign alg_ (k ^. jwkMaterial) (signingInput' ^. recons)))
+    fst (withDRG drg $ runJOSE $ (sign alg_ (k ^. jwkMaterial) (signingInput' ^. recons)))
       `shouldBe` (Right mac :: Either Error BS.ByteString)
 
   it "validates the JWS correctly" $
@@ -275,7 +273,7 @@ jwkRSA1024 = fromJust $ decode $
 appendixA2Spec :: Spec
 appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-256" $ do
   it "computes the signature correctly" $
-    fst (withDRG drg $ runExceptT (sign JWA.JWS.RS256 (k ^. jwkMaterial) signingInput'))
+    fst (withDRG drg $ runJOSE (sign JWA.JWS.RS256 (k ^. jwkMaterial) signingInput'))
       `shouldBe` (Right sig :: Either Error BS.ByteString)
 
   it "validates the signature correctly" $
@@ -283,7 +281,7 @@ appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-
       `shouldBe` (Right True :: Either Error Bool)
 
   it "prohibits signing with 1024-bit key" $
-    fst (withDRG drg (runExceptT $
+    fst (withDRG drg (runJOSE $
       signJWS signingInput' (Identity (newJWSHeader ((), JWA.JWS.RS256), jwkRSA1024))))
         `shouldBe` (Left KeySizeTooSmall :: Either Error (CompactJWS JWSHeader))
 
@@ -366,7 +364,7 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
     decodeCompact exampleJWS `shouldBe` jws
 
   where
-    jws = fst $ withDRG drg $ runExceptT $
+    jws = fst $ withDRG drg $ runJOSE $
       signJWS examplePayloadBytes (Identity (newJWSHeader ((), JWA.JWS.None), undefined))
       :: Either Error (CompactJWS JWSHeader)
     exampleJWS = "eyJhbGciOiJub25lIn0\
@@ -514,7 +512,7 @@ cfrgSpec = describe "RFC 8037 signature/validation test vectors" $ do
     sig = BS.pack sigOctets
     signingInput = "eyJhbGciOiJFZERTQSJ9.RXhhbXBsZSBvZiBFZDI1NTE5IHNpZ25pbmc"
   it "computes the correct signature" $
-    fst (withDRG drg $ runExceptT (sign JWA.JWS.EdDSA (view jwkMaterial k) signingInput))
+    fst (withDRG drg $ runJOSE (sign JWA.JWS.EdDSA (view jwkMaterial k) signingInput))
       `shouldBe` (Right sig :: Either Error BS.ByteString)
   it "validates signatures correctly" $
     verify JWA.JWS.EdDSA (view jwkMaterial k) signingInput sig
