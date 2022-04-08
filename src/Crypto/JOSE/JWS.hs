@@ -110,6 +110,7 @@ import Crypto.JOSE.JWK
 import Crypto.JOSE.JWK.Store
 import Crypto.JOSE.Header
 import qualified Crypto.JOSE.Types as Types
+import Crypto.JOSE.Types.URI
 import qualified Crypto.JOSE.Types.Internal as Types
 
 {- $extending
@@ -154,6 +155,7 @@ See also:
 - 'headerRequired'
 - 'headerRequiredProtected'
 - 'headerOptional'
+- 'headerOptional''
 - 'headerOptionalProtected'
 
 -}
@@ -329,10 +331,10 @@ instance (HasParams a, ProtectionIndicator p) => ToJSON (Signature p a) where
 instance HasParams JWSHeader where
   parseParamsFor proxy hp hu = JWSHeader
     <$> headerRequired "alg" hp hu
-    <*> headerOptional "jku" hp hu
+    <*> headerOptional' uriFromJSON "jku" hp hu
     <*> headerOptional "jwk" hp hu
     <*> headerOptional "kid" hp hu
-    <*> headerOptional "x5u" hp hu
+    <*> headerOptional' uriFromJSON "x5u" hp hu
     <*> (fmap . fmap . fmap . fmap)
           (\(Types.Base64X509 cert) -> cert) (headerOptional "x5c" hp hu)
     <*> headerOptional "x5t" hp hu
@@ -345,10 +347,10 @@ instance HasParams JWSHeader where
   params h =
     catMaybes
       [ Just (view (alg . isProtected) h, "alg" .= view (alg . param) h)
-      , fmap (\p -> (view isProtected p, "jku" .= view param p)) (view jku h)
+      , fmap (\p -> (view isProtected p, "jku" .= views param uriToJSON p)) (view jku h)
       , fmap (\p -> (view isProtected p, "jwk" .= view param p)) (view jwk h)
       , fmap (\p -> (view isProtected p, "kid" .= view param p)) (view kid h)
-      , fmap (\p -> (view isProtected p, "x5u" .= view param p)) (view x5u h)
+      , fmap (\p -> (view isProtected p, "x5u" .= views param uriToJSON p)) (view x5u h)
       , fmap (\p -> (view isProtected p, "x5c" .= fmap Types.Base64X509 (view param p))) (view x5c h)
       , fmap (\p -> (view isProtected p, "x5t" .= view param p)) (view x5t h)
       , fmap (\p -> (view isProtected p, "x5t#S256" .= view param p)) (view x5tS256 h)

@@ -19,7 +19,6 @@ module Types where
 import Data.Aeson
 import qualified Data.ByteString as BS
 import Data.List.NonEmpty
-import Network.URI (parseURI)
 import Test.Hspec
 
 import Crypto.JOSE.Types
@@ -27,7 +26,6 @@ import Crypto.JOSE.Types
 spec :: Spec
 spec = do
   base64OctetsSpec
-  uriSpec
   base64IntegerSpec
   sizedBase64IntegerSpec
   base64X509Spec
@@ -40,17 +38,6 @@ base64OctetsSpec = describe "Base64Octets" $
   where
     iv = BS.pack [3, 22, 60, 12, 43, 67, 104, 105, 108, 108, 105, 99, 111, 116, 104, 101]
     tag = BS.pack [246, 17, 244, 190, 4, 95, 98, 3, 231, 0, 115, 157, 242, 203, 100, 191]
-
-uriSpec :: Spec
-uriSpec = describe "URI typeclasses" $ do
-  it "gets parsed from JSON correctly" $ do
-    decode "[\"http://example.com\"]" `shouldBe`
-      fmap (fmap (:[])) parseURI "http://example.com"
-    decode "[\"foo\"]" `shouldBe` (Nothing :: Maybe [URI])
-
-  it "gets formatted to JSON correctly" $
-    fmap toJSON (Network.URI.parseURI "http://example.com")
-      `shouldBe` Just (String "http://example.com")
 
 base64IntegerSpec :: Spec
 base64IntegerSpec = describe "Base64Integer" $ do

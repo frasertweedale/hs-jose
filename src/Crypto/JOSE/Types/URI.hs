@@ -1,4 +1,4 @@
--- Copyright (C) 2014, 2015, 2016  Fraser Tweedale
+-- Copyright (C) 2014-2022  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -12,18 +12,18 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
-module Crypto.JOSE.Types.Orphans where
+module Crypto.JOSE.Types.URI
+  ( uriFromJSON
+  , uriToJSON
+  ) where
 
 import Data.Aeson
+import Data.Aeson.Types (Parser)
 import qualified Data.Text as T
 import Network.URI (URI, parseURI)
 
+uriFromJSON :: Value -> Parser URI
+uriFromJSON = withText "URI" $ maybe (fail "not a URI") pure . parseURI . T.unpack
 
-instance FromJSON URI where
-  parseJSON = withText "URI" $
-    maybe (fail "not a URI") return . parseURI . T.unpack
-
-instance ToJSON URI where
-  toJSON = String . T.pack . show
+uriToJSON :: URI -> Value
+uriToJSON = String . T.pack . show

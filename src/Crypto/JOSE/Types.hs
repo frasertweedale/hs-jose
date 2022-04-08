@@ -44,7 +44,6 @@ import Data.X509
 import Network.URI (URI)
 
 import Crypto.JOSE.Types.Internal
-import Crypto.JOSE.Types.Orphans ()
 
 
 -- | A base64url encoded octet sequence interpreted as an integer.

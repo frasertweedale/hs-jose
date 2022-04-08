@@ -29,7 +29,7 @@ import Data.Bifunctor (bimap)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
 
-import Control.Lens (view)
+import Control.Lens (view, views)
 import Data.Aeson
 import Data.Aeson.Types
 import qualified Data.ByteArray as BA
@@ -53,6 +53,7 @@ import Crypto.JOSE.Header
 import Crypto.JOSE.JWA.JWE
 import Crypto.JOSE.JWK
 import qualified Crypto.JOSE.Types as Types
+import Crypto.JOSE.Types.URI
 import qualified Crypto.JOSE.Types.Internal as Types
 
 
@@ -92,10 +93,10 @@ instance HasParams JWEHeader where
     <$> parseJSON (Object (fromMaybe mempty hp <> fromMaybe mempty hu))
     <*> headerRequired "enc" hp hu
     <*> headerOptionalProtected "zip" hp hu
-    <*> headerOptional "jku" hp hu
+    <*> headerOptional' uriFromJSON "jku" hp hu
     <*> headerOptional "jwk" hp hu
     <*> headerOptional "kid" hp hu
-    <*> headerOptional "x5u" hp hu
+    <*> headerOptional' uriFromJSON "x5u" hp hu
     <*> (fmap . fmap . fmap . fmap)
           (\(Types.Base64X509 cert) -> cert) (headerOptional "x5c" hp hu)
     <*> headerOptional "x5t" hp hu
@@ -110,10 +111,10 @@ instance HasParams JWEHeader where
       [ undefined -- TODO
       , Just (view isProtected enc,      "enc" .= view param enc)
       , fmap (\p -> (True, "zip" .= p)) zip'
-      , fmap (\p -> (view isProtected p, "jku" .= view param p)) jku
+      , fmap (\p -> (view isProtected p, "jku" .= views param uriToJSON p)) jku
       , fmap (\p -> (view isProtected p, "jwk" .= view param p)) jwk
       , fmap (\p -> (view isProtected p, "kid" .= view param p)) kid
-      , fmap (\p -> (view isProtected p, "x5u" .= view param p)) x5u
+      , fmap (\p -> (view isProtected p, "x5u" .= views param uriToJSON p)) x5u
       , fmap (\p -> (view isProtected p, "x5c" .= fmap Types.Base64X509 (view param p))) x5c
       , fmap (\p -> (view isProtected p, "x5t" .= view param p)) x5t
       , fmap (\p -> (view isProtected p, "x5t#S256" .= view param p)) x5tS256

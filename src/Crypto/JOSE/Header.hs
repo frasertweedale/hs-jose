@@ -36,6 +36,7 @@ module Crypto.JOSE.Header
   , headerRequired
   , headerRequiredProtected
   , headerOptional
+  , headerOptional'
   , headerOptionalProtected
 
   -- * Parsing headers
@@ -78,7 +79,6 @@ import qualified Data.Text as T
 
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import Crypto.JOSE.JWK (JWK)
-import Crypto.JOSE.Types.Orphans ()
 import Crypto.JOSE.Types.Internal (base64url)
 import qualified Crypto.JOSE.Types as Types
 
@@ -230,12 +230,25 @@ headerOptional
   -> Maybe Object
   -> Maybe Object
   -> Parser (Maybe (HeaderParam p a))
-headerOptional kText hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
+headerOptional = headerOptional' parseJSON
+
+-- | Parse an optional parameter that may be carried in either
+-- the protected or the unprotected header.  Like 'headerOptional',
+-- but with an explicit argument for the parser.
+--
+headerOptional'
+  :: (ProtectionIndicator p)
+  => (Value -> Parser a)
+  -> T.Text
+  -> Maybe Object
+  -> Maybe Object
+  -> Parser (Maybe (HeaderParam p a))
+headerOptional' parser kText hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k) of
   (Just _, Just _)    -> fail $ "duplicate header " ++ show kText
-  (Just v, Nothing)   -> Just . HeaderParam getProtected <$> parseJSON v
+  (Just v, Nothing)   -> Just . HeaderParam getProtected <$> parser v
   (Nothing, Just v)   -> maybe
     (fail "unprotected header not supported")
-    (\p -> Just . HeaderParam p <$> parseJSON v)
+    (\p -> Just . HeaderParam p <$> parser v)
     getUnprotected
   (Nothing, Nothing)  -> pure Nothing
   where

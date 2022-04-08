@@ -100,6 +100,7 @@ import Control.Monad.Error.Lens (throwing, throwing_)
 import Crypto.Hash
 import qualified Crypto.PubKey.RSA as RSA
 import Data.Aeson
+import Data.Aeson.Types (explicitParseFieldMaybe')
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
@@ -114,6 +115,7 @@ import Crypto.JOSE.JWA.JWK
 import qualified Crypto.JOSE.JWA.JWS as JWA.JWS
 import qualified Crypto.JOSE.TH
 import qualified Crypto.JOSE.Types as Types
+import Crypto.JOSE.Types.URI
 import qualified Crypto.JOSE.Types.Internal as Types
 
 
@@ -195,7 +197,7 @@ instance FromJSON JWK where
     <*> o .:? "key_ops"
     <*> o .:? "alg"
     <*> o .:? "kid"
-    <*> o .:? "x5u"
+    <*> explicitParseFieldMaybe' uriFromJSON o "x5u"
     <*> ((fmap . fmap) (\(Types.Base64X509 cert) -> cert) <$> o .:? "x5c")
     <*> o .:? "x5t"
     <*> o .:? "x5t#S256"
@@ -214,7 +216,7 @@ instance ToJSON JWK where
         , fmap ("use" .=) _jwkUse
         , fmap ("key_ops" .=) _jwkKeyOps
         , fmap ("kid" .=) _jwkKid
-        , fmap ("x5u" .=) _jwkX5u
+        , fmap ("x5u" .=) (uriToJSON <$> _jwkX5u)
         , fmap (("x5c" .=) . fmap Types.Base64X509) _jwkX5cRaw
         , fmap ("x5t" .=) _jwkX5t
         , fmap ("x5t#S256" .=) _jwkX5tS256

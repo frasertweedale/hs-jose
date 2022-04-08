@@ -73,7 +73,7 @@ library
   other-modules:
     Crypto.JOSE.TH
     Crypto.JOSE.Types.Internal
-    Crypto.JOSE.Types.Orphans
+    Crypto.JOSE.Types.URI
 
   build-depends:
     , base64-bytestring >= 1.2.1.0 && < 1.3
