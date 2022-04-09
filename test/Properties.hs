@@ -12,6 +12,9 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Properties where
 
 import Control.Applicative (liftA2)
@@ -38,10 +41,10 @@ import Crypto.JOSE.JWS
 
 properties :: TestTree
 properties = testGroup "Properties"
-  [ testProperty "SizedBase64Integer round-trip" (prop_roundTrip genSizedBase64Integer)
-  , testProperty "JWK round-trip" (prop_roundTrip genJWK')
-  , testProperty "RSA gen, sign and verify" prop_rsaSignAndVerify
-  , testProperty "gen, sign with best alg, verify" prop_bestJWSAlg
+  [ let n = "SizedBase64Integer round-trip" in testPropertyNamed n n (prop_roundTrip genSizedBase64Integer)
+  , let n = "JWK round-trip" in testPropertyNamed n n (prop_roundTrip genJWK')
+  , let n = "RSA gen, sign and verify" in testPropertyNamed n n prop_rsaSignAndVerify
+  , let n = "gen, sign with best alg, verify" in testPropertyNamed n n prop_bestJWSAlg
   ]
 
 genBigInteger :: Gen Integer

@@ -12,6 +12,9 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module AESKW where
 
 import qualified Data.ByteString as B
@@ -30,7 +33,7 @@ import Crypto.JOSE.AESKW
 
 aeskwProperties :: TestTree
 aeskwProperties = testGroup "AESKW"
-  [ testProperty "AESKW round-trip" prop_roundTrip
+  [ let n = "AESKW round-trip" in testPropertyNamed n n prop_roundTrip
   ]
 
 prop_roundTrip :: Property
