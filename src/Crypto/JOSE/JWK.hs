@@ -319,8 +319,11 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
     | B.length k >= 384 `div` 8 -> pure JWA.JWS.HS384
     | B.length k >= 256 `div` 8 -> pure JWA.JWS.HS256
     | otherwise -> throwing_ _KeySizeTooSmall
-  OKPKeyMaterial (Ed25519Key _ _) -> pure JWA.JWS.EdDSA
-  OKPKeyMaterial _ -> throwing _KeyMismatch "Cannot sign with OKP ECDH key"
+  OKPKeyMaterial k -> case k of
+    (Ed25519Key _ _)  -> pure JWA.JWS.EdDSA
+    (Ed448Key _ _)    -> pure JWA.JWS.EdDSA
+    (X25519Key _ _)   -> throwing _KeyMismatch "Cannot sign with X25519 key"
+    (X448Key _ _)     -> throwing _KeyMismatch "Cannot sign with X448 key"
 
 
 -- | Compute the JWK Thumbprint of a JWK
@@ -350,7 +353,9 @@ thumbprintRepr k = Builder.toLazyByteString . fromEncoding . pairs $
     OctKeyMaterial (OctKeyParameters k') ->
       "k" .= k' <> "kty" .= ("oct" :: T.Text)
     OKPKeyMaterial (Ed25519Key pk _) -> okpSeries "Ed25519" pk
+    OKPKeyMaterial (Ed448Key pk _) -> okpSeries "Ed448" pk
     OKPKeyMaterial (X25519Key pk _) -> okpSeries "X25519" pk
+    OKPKeyMaterial (X448Key pk _) -> okpSeries "X448" pk
   where
     b64 = Types.Base64Octets . BA.convert
     okpSeries crv pk =

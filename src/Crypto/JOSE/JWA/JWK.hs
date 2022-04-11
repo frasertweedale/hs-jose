@@ -60,6 +60,7 @@ module Crypto.JOSE.JWA.JWK (
   -- * Parameters for CFRG EC keys (RFC 8037)
   , OKPKeyParameters(..)
   , OKPCrv(..)
+  , genOKP
 
   -- * Key generation
   , KeyMaterialGenParam(..)
@@ -94,7 +95,9 @@ import qualified Crypto.PubKey.RSA.PKCS15 as PKCS15
 import qualified Crypto.PubKey.RSA.PSS as PSS
 import qualified Crypto.PubKey.ECC.Types as ECC
 import qualified Crypto.PubKey.Ed25519 as Ed25519
+import qualified Crypto.PubKey.Ed448 as Ed448
 import qualified Crypto.PubKey.Curve25519 as Curve25519
+import qualified Crypto.PubKey.Curve448 as Curve448
 import Crypto.Random
 import Data.Aeson
 import qualified Data.Aeson.KeyMap as M
@@ -456,13 +459,17 @@ signOct h (OctKeyParameters (Types.Base64Octets k)) m =
 --
 data OKPKeyParameters
   = Ed25519Key Ed25519.PublicKey (Maybe Ed25519.SecretKey)
+  | Ed448Key Ed448.PublicKey (Maybe Ed448.SecretKey)
   | X25519Key Curve25519.PublicKey (Maybe Curve25519.SecretKey)
+  | X448Key Curve448.PublicKey (Maybe Curve448.SecretKey)
   deriving (Eq)
 
 instance Show OKPKeyParameters where
   show = \case
       Ed25519Key pk sk  -> "Ed25519 " <> showKeys pk sk
+      Ed448Key pk sk  -> "Ed448 " <> showKeys pk sk
       X25519Key pk sk   -> "X25519 " <> showKeys pk sk
+      X448Key pk sk   -> "X448 " <> showKeys pk sk
     where
       showKeys pk sk = show pk <> " " <> show (("SECRET" :: String) <$ sk)
 
@@ -473,8 +480,8 @@ instance FromJSON OKPKeyParameters where
     case (crv :: T.Text) of
       "Ed25519" -> parseOKPKey Ed25519Key Ed25519.publicKey Ed25519.secretKey o
       "X25519"  -> parseOKPKey X25519Key Curve25519.publicKey Curve25519.secretKey o
-      "Ed448"   -> fail "Ed448 keys not implemented"
-      "X448"    -> fail "X448 not implemented"
+      "Ed448"   -> parseOKPKey Ed448Key Ed448.publicKey Ed448.secretKey o
+      "X448"    -> parseOKPKey X448Key Curve448.publicKey Curve448.secretKey o
       _         -> fail "unrecognised OKP key subtype"
     where
       bs (Types.Base64Octets k) = k
@@ -487,23 +494,22 @@ instance ToJSON OKPKeyParameters where
   toJSON x = object $
     "kty" .= ("OKP" :: T.Text) : case x of
       Ed25519Key pk sk -> "crv" .= ("Ed25519" :: T.Text) : params pk sk
+      Ed448Key pk sk -> "crv" .= ("Ed448" :: T.Text) : params pk sk
       X25519Key pk sk  -> "crv" .= ("X25519" :: T.Text) : params pk sk
+      X448Key pk sk  -> "crv" .= ("X448" :: T.Text) : params pk sk
     where
       b64 = Types.Base64Octets . BA.convert
       params pk sk = "x" .= b64 pk : (("d" .=) . b64 <$> toList sk)
 
-data OKPCrv = Ed25519 | X25519
+data OKPCrv = Ed25519 | Ed448 | X25519 | X448
   deriving (Eq, Show)
 
 genOKP :: MonadRandom m => OKPCrv -> m OKPKeyParameters
 genOKP = \case
-  Ed25519 -> go 32 Ed25519Key Ed25519.secretKey Ed25519.toPublic
-  X25519 -> go 32 X25519Key Curve25519.secretKey Curve25519.toPublic
-  where
-    go len con skCon toPub = do
-      (bs :: B.ByteString) <- getRandomBytes len
-      let sk = onCryptoFailure (error . show) id (skCon bs)
-      pure $ con (toPub sk) (Just sk)
+  Ed25519 -> Ed25519.generateSecretKey >>= \k -> pure (Ed25519Key (Ed25519.toPublic k) (Just k))
+  Ed448 -> Ed448.generateSecretKey >>= \k -> pure (Ed448Key (Ed448.toPublic k) (Just k))
+  X25519 -> Curve25519.generateSecretKey >>= \k -> pure (X25519Key (Curve25519.toPublic k) (Just k))
+  X448 -> Curve448.generateSecretKey >>= \k -> pure (X448Key (Curve448.toPublic k) (Just k))
 
 signEdDSA
   :: (MonadError e m, AsError e)
@@ -511,8 +517,11 @@ signEdDSA
   -> B.ByteString
   -> m B.ByteString
 signEdDSA (Ed25519Key pk (Just sk)) m = pure . BA.convert $ Ed25519.sign sk pk m
-signEdDSA (Ed25519Key _ Nothing) _ = throwing _KeyMismatch "not a private key"
-signEdDSA _ _ = throwing _KeyMismatch "not an EdDSA key"
+signEdDSA (Ed25519Key _   Nothing)  _ = throwing _KeyMismatch "not a private key"
+signEdDSA (Ed448Key pk (Just sk))   m = pure . BA.convert $ Ed448.sign sk pk m
+signEdDSA (Ed448Key _   Nothing)    _ = throwing _KeyMismatch "not a private key"
+signEdDSA (X25519Key _ _) _ = throwing _KeyMismatch "not an EdDSA key"
+signEdDSA (X448Key _ _)   _ = throwing _KeyMismatch "not an EdDSA key"
 
 verifyEdDSA
   :: (BA.ByteArrayAccess msg, BA.ByteArrayAccess sig, MonadError e m, AsError e)
@@ -522,7 +531,13 @@ verifyEdDSA (Ed25519Key pk _) m s =
     (throwing _CryptoError)
     (pure . Ed25519.verify pk m)
     (Ed25519.signature s)
-verifyEdDSA _ _ _ = throwing _AlgorithmMismatch "not an EdDSA key"
+verifyEdDSA (Ed448Key pk _) m s =
+  onCryptoFailure
+    (throwing _CryptoError)
+    (pure . Ed448.verify pk m)
+    (Ed448.signature s)
+verifyEdDSA (X25519Key _ _) _ _ = throwing _AlgorithmMismatch "not an EdDSA key"
+verifyEdDSA (X448Key _ _)   _ _ = throwing _AlgorithmMismatch "not an EdDSA key"
 
 
 -- | Key material sum type.
@@ -639,8 +654,10 @@ instance AsPublicKey ECKeyParameters where
 
 instance AsPublicKey OKPKeyParameters where
   asPublicKey = to $ \case
-    Ed25519Key pk _ -> Just (Ed25519Key pk Nothing)
-    X25519Key pk _  -> Just (X25519Key pk Nothing)
+    Ed25519Key  pk _  -> Just (Ed25519Key pk Nothing)
+    Ed448Key    pk _  -> Just (Ed448Key pk Nothing)
+    X25519Key   pk _  -> Just (X25519Key pk Nothing)
+    X448Key     pk _  -> Just (X448Key pk Nothing)
 
 instance AsPublicKey KeyMaterial where
   asPublicKey = to $ \case

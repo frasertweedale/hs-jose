@@ -22,10 +22,7 @@ import Control.Applicative (liftA2)
 import Control.Monad.IO.Class
 
 import Control.Lens ((&), set, view)
-import Crypto.Error (onCryptoFailure)
 import Crypto.Number.Basic (log2)
-import qualified Crypto.PubKey.Ed25519 as Ed25519
-import qualified Crypto.PubKey.Curve25519 as Curve25519
 import Crypto.Random
 import Data.Aeson (FromJSON, ToJSON, decode, encode)
 import qualified Data.ByteString as B
@@ -88,7 +85,7 @@ genCrv :: Gen Crv
 genCrv = Gen.element [P_256, P_384, P_521]
 
 genOKPCrv :: Gen OKPCrv
-genOKPCrv = Gen.element [Ed25519, X25519]
+genOKPCrv = Gen.element [Ed25519, Ed448, X25519, X448]
 
 genKeyMaterialGenParam :: Gen KeyMaterialGenParam
 genKeyMaterialGenParam = Gen.choice
@@ -147,11 +144,15 @@ genRSAKeyParameters =
     <*> genBase64Integer
     <*> Gen.maybe (genRSAPrivateKeyParameters)
 
+genDRG :: Gen ChaChaDRG
+genDRG = do
+  let word64 = Gen.word64 Range.constantBounded
+  seed <- (,,,,) <$> word64 <*> word64 <*> word64 <*> word64 <*> word64
+  pure $ drgNewTest seed
+
 genECKeyParameters :: Gen ECKeyParameters
 genECKeyParameters = do
-    let word64 = Gen.word64 Range.constantBounded
-    seed <- (,,,,) <$> word64 <*> word64 <*> word64 <*> word64 <*> word64
-    let drg = drgNewTest seed
+    drg <- genDRG
     crv <- genCrv
     let (k, _) = withDRG drg (genEC crv)
     includePrivate <- Gen.bool
@@ -163,17 +164,14 @@ genOctKeyParameters :: Gen OctKeyParameters
 genOctKeyParameters = OctKeyParameters . Base64Octets <$> Gen.bytes (Range.linear 16 128)
 
 genOKPKeyParameters :: Gen OKPKeyParameters
-genOKPKeyParameters = Gen.choice
-  [ Ed25519Key
-    <$> keyOfLen 32 Ed25519.publicKey
-    <*> Gen.maybe (keyOfLen 32 Ed25519.secretKey)
-  , X25519Key
-    <$> keyOfLen 32 Curve25519.publicKey
-    <*> Gen.maybe (keyOfLen 32 Curve25519.secretKey)
-  ]
-  where
-    bsOfLen n = Gen.bytes (Range.singleton n)
-    keyOfLen n con = onCryptoFailure (error . show) id . con <$> bsOfLen n
+genOKPKeyParameters = do
+  drg <- genDRG
+  crv <- genOKPCrv
+  let (k, _) = withDRG drg (genOKP crv)
+  includePrivate <- Gen.bool
+  pure $ if includePrivate
+    then k
+    else (let Just a = view asPublicKey k in a)
 
 genKeyMaterial' :: Gen KeyMaterial
 genKeyMaterial' = Gen.choice

@@ -10,7 +10,7 @@ description:
   .
   The JSON Web Signature (JWS; RFC 7515) implementation is complete.
   .
-  EdDSA signatures (RFC 8037) are supported (Ed25519 only).
+  EdDSA signatures (RFC 8037) are supported.
   .
   JWK Thumbprint (RFC 7638) is supported.
   .
@@ -79,7 +79,7 @@ library
     , base64-bytestring >= 1.2.1.0 && < 1.3
     , concise >= 0.1
     , containers >= 0.5
-    , cryptonite >= 0.7
+    , cryptonite >= 0.24
     , memory >= 0.7
     , monad-time >= 0.3
     , template-haskell >= 2.11
