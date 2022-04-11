@@ -569,6 +569,7 @@ defaultValidationSettings = ValidationSettings
     , ES256, ES384, ES512
     , PS256, PS384, PS512
     , EdDSA
+    , ES256K
     ] )
   AllValidated
 

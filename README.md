@@ -7,7 +7,8 @@ Web Token (JWT)](https://tools.ietf.org/html/rfc7519).
 The JSON Web Signature (JWS; RFC 7515) implementation is complete.
 JSON Web Encryption (JWE; RFC 7516) is not yet implemented.
 
-**EdDSA** signatures (RFC 8037) are supported.
+**EdDSA** signatures (RFC 8037) and secp256k1 signatures (RFC 8812)
+are supported.
 
 JWK Thumbprint (RFC 7638) is supported.
 

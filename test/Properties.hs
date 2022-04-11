@@ -82,7 +82,7 @@ prop_rsaSignAndVerify = property $ do
 
 
 genCrv :: Gen Crv
-genCrv = Gen.element [P_256, P_384, P_521]
+genCrv = Gen.element [P_256, P_384, P_521, Secp256k1]
 
 genOKPCrv :: Gen OKPCrv
 genOKPCrv = Gen.element [Ed25519, Ed448, X25519, X448]

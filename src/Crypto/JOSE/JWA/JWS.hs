@@ -37,6 +37,7 @@ $(Crypto.JOSE.TH.deriveJOSEType "Alg" [
   , "ES256" -- ECDSA P curve and SHA ; RECOMMENDED+
   , "ES384" -- ECDSA P curve and SHA ; OPTIONAL
   , "ES512" -- ECDSA P curve and SHA ; OPTIONAL
+  , "ES256K" -- ECDSA using secp256k1 curve and SHA-256
   , "PS256" -- RSASSA-PSS SHA ; OPTIONAL
   , "PS384" -- RSASSA-PSS SHA ; OPTIONAL
   , "PS512" -- RSSSSA-PSS SHA ; OPTIONAL

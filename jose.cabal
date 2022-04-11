@@ -10,7 +10,7 @@ description:
   .
   The JSON Web Signature (JWS; RFC 7515) implementation is complete.
   .
-  EdDSA signatures (RFC 8037) are supported.
+  EdDSA signatures (RFC 8037) and secp256k1 (RFC 8812) are supported.
   .
   JWK Thumbprint (RFC 7638) is supported.
   .

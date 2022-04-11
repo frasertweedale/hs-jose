@@ -307,6 +307,7 @@ bestJWSAlg jwk = case view jwkMaterial jwk of
     P_256 -> JWA.JWS.ES256
     P_384 -> JWA.JWS.ES384
     P_521 -> JWA.JWS.ES512
+    Secp256k1 -> JWA.JWS.ES256K
   RSAKeyMaterial k ->
     let
       Types.Base64Integer n = view rsaN k

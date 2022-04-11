@@ -117,7 +117,7 @@ import qualified Crypto.JOSE.Types.Internal as Types
 
 -- | \"crv\" (Curve) Parameter
 --
-$(Crypto.JOSE.TH.deriveJOSEType "Crv" ["P-256", "P-384", "P-521"])
+$(Crypto.JOSE.TH.deriveJOSEType "Crv" ["P-256", "P-384", "P-521", "secp256k1"])
 
 
 -- | \"oth\" (Other Primes Info) Parameter
@@ -282,11 +282,13 @@ fromCurveName = prism'
   (\case
     P_256 -> ECC.SEC_p256r1
     P_384 -> ECC.SEC_p384r1
-    P_521 -> ECC.SEC_p521r1)
+    P_521 -> ECC.SEC_p521r1
+    Secp256k1 -> ECC.SEC_p256k1)
   (\case
     ECC.SEC_p256r1 -> Just P_256
     ECC.SEC_p384r1 -> Just P_384
     ECC.SEC_p521r1 -> Just P_521
+    ECC.SEC_p256k1 -> Just Secp256k1
     _              -> Nothing)
 
 point :: ECKeyParameters -> ECC.Point
@@ -298,6 +300,7 @@ ecCoordBytes :: Integral a => Crv -> a
 ecCoordBytes P_256 = 32
 ecCoordBytes P_384 = 48
 ecCoordBytes P_521 = 66
+ecCoordBytes Secp256k1 = 32
 
 ecPrivateKey :: (MonadError e m, AsError e) => ECKeyParameters -> m Integer
 ecPrivateKey (ECKeyParameters _ _ _ (Just (Types.SizedBase64Integer _ d))) = pure d
@@ -601,6 +604,7 @@ sign JWA.JWS.None _ = \_ -> return ""
 sign JWA.JWS.ES256 (ECKeyMaterial k@ECKeyParameters{ _ecCrv = P_256 }) = signEC SHA256 k
 sign JWA.JWS.ES384 (ECKeyMaterial k@ECKeyParameters{ _ecCrv = P_384 }) = signEC SHA384 k
 sign JWA.JWS.ES512 (ECKeyMaterial k@ECKeyParameters{ _ecCrv = P_521 }) = signEC SHA512 k
+sign JWA.JWS.ES256K (ECKeyMaterial k@ECKeyParameters{ _ecCrv = Secp256k1 }) = signEC SHA256 k
 sign JWA.JWS.RS256 (RSAKeyMaterial k) = signPKCS15 SHA256 k
 sign JWA.JWS.RS384 (RSAKeyMaterial k) = signPKCS15 SHA384 k
 sign JWA.JWS.RS512 (RSAKeyMaterial k) = signPKCS15 SHA512 k
@@ -625,6 +629,7 @@ verify JWA.JWS.None _ = \_ s -> pure $ s == ""
 verify JWA.JWS.ES256 (ECKeyMaterial k) = fmap pure . verifyEC SHA256 k
 verify JWA.JWS.ES384 (ECKeyMaterial k) = fmap pure . verifyEC SHA384 k
 verify JWA.JWS.ES512 (ECKeyMaterial k) = fmap pure . verifyEC SHA512 k
+verify JWA.JWS.ES256K (ECKeyMaterial k) = fmap pure . verifyEC SHA256 k
 verify JWA.JWS.RS256 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA256 k
 verify JWA.JWS.RS384 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA384 k
 verify JWA.JWS.RS512 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA512 k
