@@ -18,8 +18,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeFamilies #-}
 
 {-|
 
@@ -74,7 +72,6 @@ module Crypto.JOSE.JWA.JWK (
   , module Crypto.Random
   ) where
 
-import Control.Applicative
 import Control.Monad (guard)
 import Control.Monad.Except (MonadError)
 import Data.Bifunctor
