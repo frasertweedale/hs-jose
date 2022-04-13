@@ -626,10 +626,10 @@ verify
   -> B.ByteString
   -> m Bool
 verify JWA.JWS.None _ = \_ s -> pure $ s == ""
-verify JWA.JWS.ES256 (ECKeyMaterial k) = fmap pure . verifyEC SHA256 k
-verify JWA.JWS.ES384 (ECKeyMaterial k) = fmap pure . verifyEC SHA384 k
-verify JWA.JWS.ES512 (ECKeyMaterial k) = fmap pure . verifyEC SHA512 k
-verify JWA.JWS.ES256K (ECKeyMaterial k) = fmap pure . verifyEC SHA256 k
+verify JWA.JWS.ES256 (ECKeyMaterial k@ECKeyParameters{ _ecCrv = P_256 }) = fmap pure . verifyEC SHA256 k
+verify JWA.JWS.ES384 (ECKeyMaterial k@ECKeyParameters{ _ecCrv = P_384 }) = fmap pure . verifyEC SHA384 k
+verify JWA.JWS.ES512 (ECKeyMaterial k@ECKeyParameters{ _ecCrv = P_521 }) = fmap pure . verifyEC SHA512 k
+verify JWA.JWS.ES256K (ECKeyMaterial k@ECKeyParameters{ _ecCrv = Secp256k1 }) = fmap pure . verifyEC SHA256 k
 verify JWA.JWS.RS256 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA256 k
 verify JWA.JWS.RS384 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA384 k
 verify JWA.JWS.RS512 (RSAKeyMaterial k) = fmap pure . verifyPKCS15 SHA512 k
