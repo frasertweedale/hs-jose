@@ -303,14 +303,14 @@ ecPrivateKey :: (MonadError e m, AsError e) => ECKeyParameters -> m Integer
 ecPrivateKey (ECKeyParameters _ _ _ (Just (Types.SizedBase64Integer _ d))) = pure d
 ecPrivateKey _ = throwing _KeyMismatch "Not an EC private key"
 
-ecParametersFromX509 :: X509.PubKeyEC -> Maybe ECKeyParameters
+ecParametersFromX509 :: (MonadError e m, AsError e) => X509.PubKeyEC -> m ECKeyParameters
 ecParametersFromX509 pubKeyEC = do
-  ecCurve <- X509.EC.ecPubKeyCurve pubKeyEC
-  curveName <- X509.EC.ecPubKeyCurveName pubKeyEC
-  crv <- preview fromCurveName curveName
-  pt <- X509.EC.unserializePoint ecCurve (X509.pubkeyEC_pub pubKeyEC)
+  ecCurve <- maybe (throwing _KeyMismatch "Invalid EC point") pure $ X509.EC.ecPubKeyCurve pubKeyEC
+  curveName <- maybe (throwing _KeyMismatch "Unknown curve") pure $ X509.EC.ecPubKeyCurveName pubKeyEC
+  crv <- maybe (throwing _KeyMismatch "Unsupported curve TODO ") pure $ preview fromCurveName curveName
+  pt <- maybe (throwing _KeyMismatch "Invalid EC point") pure $ X509.EC.unserializePoint ecCurve (X509.pubkeyEC_pub pubKeyEC)
   (x, y) <- case pt of
-    ECC.PointO    -> Nothing
+    ECC.PointO    -> throwing _KeyMismatch "Cannot use point at infinity"
     ECC.Point x y ->
       pure (Types.makeSizedBase64Integer x, Types.makeSizedBase64Integer y)
   pure $ ECKeyParameters crv x y Nothing

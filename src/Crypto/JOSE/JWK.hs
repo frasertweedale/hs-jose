@@ -97,7 +97,7 @@ import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))
 import Control.Lens.Cons.Extras (recons)
-import Control.Monad.Except (MonadError)
+import Control.Monad.Except (MonadError, runExcept)
 import Control.Monad.Error.Lens (throwing, throwing_)
 import Crypto.Hash
 import qualified Crypto.PubKey.RSA as RSA
@@ -245,7 +245,7 @@ fromRSAPublic = fromKeyMaterial . RSAKeyMaterial . toRSAPublicKeyParameters
 
 -- | Convert an EC public key into a JWK
 --
-fromECPublic :: X509.PubKeyEC -> Maybe JWK
+fromECPublic :: (AsError e, MonadError e m) => X509.PubKeyEC -> m JWK
 fromECPublic = fmap (fromKeyMaterial . ECKeyMaterial) . ecParametersFromX509
 
 
@@ -260,26 +260,27 @@ fromOctets =
 
 -- | Convert an X.509 certificate into a JWK.
 --
--- Only RSA keys are supported.  Other key types will throw
--- 'KeyMismatch'.
+-- Supports RSA and ECDSA (when the curve is supported).  Other key types
+-- will throw 'AlgorithmNotImplemented'.
 --
 -- The @"x5c"@ field of the resulting JWK contains the certificate.
 --
 fromX509Certificate
   :: (AsError e, MonadError e m)
   => X509.SignedCertificate -> m JWK
-fromX509Certificate =
-  maybe (throwing _KeyMismatch "X.509 key type not supported") pure
-  . fromX509CertificateMaybe
-
-fromX509CertificateMaybe :: X509.SignedCertificate -> Maybe JWK
-fromX509CertificateMaybe cert = do
+fromX509Certificate cert = do
   k <- case (X509.certPubKey . X509.signedObject . X509.getSigned) cert of
     X509.PubKeyRSA k -> pure (fromRSAPublic k)
     X509.PubKeyEC k -> fromECPublic k
-    _ -> Nothing
+    _ -> throwing _KeyMismatch "X.509 key type not supported"
   pure $ k & set jwkX5cRaw (Just (pure cert))
 
+fromX509CertificateMaybe :: X509.SignedCertificate -> Maybe JWK
+fromX509CertificateMaybe = f . runExcept . fromX509Certificate
+  where
+    f :: Either Error JWK -> Maybe JWK
+    f (Left _) = Nothing
+    f (Right jwk) = Just jwk
 
 
 instance AsPublicKey JWK where
