@@ -70,13 +70,16 @@ verify k s = 'runJOSE' $ do
 module Crypto.JWT
   (
   -- * Creating a JWT
-    signClaims
-  , SignedJWT
+    SignedJWT
+  , signClaims
+  , signJWT
 
   -- * Validating a JWT and extracting claims
   , defaultJWTValidationSettings
   , verifyClaims
   , verifyClaimsAt
+  , verifyJWT
+  , verifyJWTAt
   , HasAllowedSkew(..)
   , HasAudiencePredicate(..)
   , HasIssuerPredicate(..)
@@ -568,14 +571,43 @@ instance Monad m => MonadTime (ReaderT WrappedUTCTime m) where
 
 
 -- | Cryptographically verify a JWS JWT, then validate the
--- Claims Set, returning it if valid.
+-- Claims Set, returning it if valid.  The claims are validated
+-- at the current system time.
 --
 -- This is the only way to get at the claims of a JWS JWT,
 -- enforcing that the claims are cryptographically and
 -- semantically valid before the application can use them.
 --
+-- This function is abstracted over any payload type with 'HasClaimsSet' and
+-- 'FromJSON' instances.  The 'verifyClaims' variant uses 'ClaimsSet' as the
+-- payload type.
+--
 -- See also 'verifyClaimsAt' which allows you to explicitly specify
--- the time.
+-- the time of validation (against which time-related claims will be
+-- validated).
+--
+verifyJWT
+  ::
+    ( MonadTime m, HasAllowedSkew a, HasAudiencePredicate a
+    , HasIssuerPredicate a
+    , HasCheckIssuedAt a
+    , HasValidationSettings a
+    , AsError e, AsJWTError e, MonadError e m
+    , VerificationKeyStore m (JWSHeader ()) payload k
+    , HasClaimsSet payload, FromJSON payload
+    )
+  => a
+  -> k
+  -> SignedJWT
+  -> m payload
+verifyJWT conf k jws =
+  -- It is important, for security reasons, that the signature get
+  -- verified before the claims.
+  verifyJWSWithPayload f conf k jws >>= claimsSet (validateClaimsSet conf)
+  where
+    f = either (throwing _JWTClaimsSetDecodeError) pure . eitherDecode
+
+-- | Variant of 'verifyJWT' that uses 'ClaimsSet' as the payload type.
 --
 verifyClaims
   ::
@@ -590,20 +622,31 @@ verifyClaims
   -> k
   -> SignedJWT
   -> m ClaimsSet
-verifyClaims conf k jws =
-  -- It is important, for security reasons, that the signature get
-  -- verified before the claims.
-  verifyJWSWithPayload f conf k jws >>= validateClaimsSet conf
-  where
-    f = either (throwing _JWTClaimsSetDecodeError) pure . eitherDecode
+verifyClaims = verifyJWT
 
-
--- | Cryptographically verify a JWS JWT, then validate the
--- Claims Set, returning it if valid.
+-- | Variant of 'verifyJWT' where the validation time is provided by
+-- caller.  If you process many tokens per second
+-- this lets you avoid unnecessary repeat system calls.
 --
--- This is the same as 'verifyClaims' except that the time is
--- explicitly provided.  If you process many requests per second
--- this will allow you to avoid unnecessary repeat system calls.
+verifyJWTAt
+  ::
+    ( HasAllowedSkew a, HasAudiencePredicate a
+    , HasIssuerPredicate a
+    , HasCheckIssuedAt a
+    , HasValidationSettings a
+    , AsError e, AsJWTError e, MonadError e m
+    , VerificationKeyStore (ReaderT WrappedUTCTime m) (JWSHeader ()) payload k
+    , HasClaimsSet payload, FromJSON payload
+    )
+  => a
+  -> k
+  -> UTCTime
+  -> SignedJWT
+  -> m payload
+verifyJWTAt a k t jwt = runReaderT (verifyJWT a k jwt) (WrappedUTCTime t)
+
+-- | Variant of 'verifyJWT' that uses 'ClaimsSet' as the payload type and
+-- where validation time is provided by caller.
 --
 verifyClaimsAt
   ::
@@ -619,9 +662,30 @@ verifyClaimsAt
   -> UTCTime
   -> SignedJWT
   -> m ClaimsSet
-verifyClaimsAt a k t jwt = runReaderT (verifyClaims a k jwt) (WrappedUTCTime t)
+verifyClaimsAt = verifyJWTAt
 
--- | Create a JWS JWT
+
+-- | Create a JWS JWT.  The payload can be any type with a 'ToJSON'
+-- instance.  See also 'signClaims' which uses 'ClaimsSet' as the
+-- payload type.
+--
+-- __Does not set any fields in the Claims Set__, such as @"iat"@
+-- ("Issued At") Claim.  The payload is encoded as-is.
+--
+signJWT
+  :: ( MonadRandom m, MonadError e m, AsError e
+     , ToJSON payload )
+  => JWK
+  -> JWSHeader ()
+  -> payload
+  -> m SignedJWT
+signJWT k h c = signJWS (encode c) (Identity (h, k))
+
+-- | Create a JWS JWT.  Specialisation of 'signJWT' with payload type fixed
+-- at 'ClaimsSet'.
+--
+-- __Does not set any fields in the Claims Set__, such as @"iat"@
+-- ("Issued At") Claim.  The payload is encoded as-is.
 --
 signClaims
   :: (MonadRandom m, MonadError e m, AsError e)
@@ -629,4 +693,4 @@ signClaims
   -> JWSHeader ()
   -> ClaimsSet
   -> m SignedJWT
-signClaims k h c = signJWS (encode c) (Identity (h, k))
+signClaims = signJWT

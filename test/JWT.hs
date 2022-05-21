@@ -20,11 +20,13 @@ module JWT where
 import Data.Maybe
 import Data.Monoid ((<>))
 
+import qualified Data.ByteString.Lazy as L
 import Control.Lens
 import Control.Lens.Extras (is)
 import Control.Monad.Trans (liftIO)
 import Control.Monad.Reader (runReaderT)
 import Data.Aeson hiding ((.=))
+import qualified Data.Aeson.KeyMap as M
 import qualified Data.Set as S
 import Data.Time
 import Network.URI (parseURI)
@@ -38,6 +40,40 @@ intDate = fmap NumericDate . parseTimeM True defaultTimeLocale "%F %T"
 
 utcTime :: String -> UTCTime
 utcTime = fromJust . parseTimeM True defaultTimeLocale "%F %T"
+
+--
+-- example extended JWT payload type
+--
+
+data Super = Super { jwtClaims :: ClaimsSet, isRoot :: Bool }
+  deriving (Eq, Show)
+
+instance HasClaimsSet Super where
+  claimsSet f s = fmap (\a' -> s { jwtClaims = a' }) (f (jwtClaims s))
+
+instance FromJSON Super where
+  parseJSON = withObject "Super" $ \o -> Super
+    <$> parseJSON (Object o)
+    <*> o .: "http://example.com/is_root"
+
+instance ToJSON Super where
+  toJSON s =
+    ins "http://example.com/is_root" (isRoot s) (toJSON (jwtClaims s))
+    where
+      ins k v (Object o) = Object $ M.insert k (toJSON v) o
+      ins _ _ a = a
+
+super :: Super
+super = Super
+  { jwtClaims = exampleClaimsSet
+  , isRoot = True
+  }
+
+claimsJSON :: L.ByteString
+claimsJSON =
+  "{\"iss\":\"joe\",\r\n"
+  <> "\"exp\":1300819380,\r\n"
+  <> "\"http://example.com/is_root\":true}"
 
 exampleClaimsSet :: ClaimsSet
 exampleClaimsSet = emptyClaimsSet
@@ -53,25 +89,40 @@ spec = do
       headMay (h:_) = Just h
 
   describe "JWT Claims Set" $ do
-    it "parses from JSON correctly" $
-      let
-        claimsJSON =
-          "{\"iss\":\"joe\",\r\n"
-          <> "\"exp\":1300819380,\r\n"
-          <> "\"http://example.com/is_root\":true}"
-      in
-        decode claimsJSON `shouldBe` Just exampleClaimsSet
+    it "parses from JSON correctly" $ do
+      decode claimsJSON `shouldBe` Just exampleClaimsSet
+      decode claimsJSON `shouldBe` Just super
 
-    it "JWT compact round-trip" $ do
+    it "JWT round-trip (sign, serialise, decode, verify)" $ do
+      let
+        claims = emptyClaimsSet
+        valConf = defaultJWTValidationSettings (const True)
       k <- genJWK $ RSAGenParam 256
       res <- runJOSE $ do
-        token <- signClaims k (newJWSHeader ((), RS512)) emptyClaimsSet
+        token <- signClaims k (newJWSHeader ((), RS512)) claims
         token' <- decodeCompact . encodeCompact $ token
         liftIO $ token' `shouldBe` token
+        claims' <- verifyClaims valConf k token'
+        liftIO $ claims' `shouldBe` claims
       either (error . show) return (res :: Either JWTError ()) :: IO ()
 
-    it "formats to a parsable and equal value" $
+    it "JWT round-trip (sign, serialise, decode, verify) [extended payload type]" $ do
+      let
+        claims = emptyClaimsSet
+        valConf = defaultJWTValidationSettings (const True)
+        now = utcTime "2010-01-01 00:00:00"
+      k <- genJWK $ RSAGenParam 256
+      res <- runJOSE $ do
+        token <- signJWT k (newJWSHeader ((), RS512)) super
+        token' <- decodeCompact . encodeCompact $ token
+        liftIO $ token' `shouldBe` token
+        claims' <- runReaderT (verifyJWT valConf k token') now
+        liftIO $ claims' `shouldBe` super
+      either (error . show) return (res :: Either JWTError ()) :: IO ()
+
+    it "formats to a parsable and equal value" $ do
       decode (encode exampleClaimsSet) `shouldBe` Just exampleClaimsSet
+      decode (encode super) `shouldBe` Just super
 
     describe "with an Expiration Time claim" $ do
       describe "when the current time is prior to the Expiration Time" $ do
@@ -268,6 +319,28 @@ spec = do
       decode "[0]"          `shouldBe` fmap (:[]) (intDate "1970-01-01 00:00:00")
       decode "[1382245921]" `shouldBe` fmap (:[]) (intDate "2013-10-20 05:12:01")
       decode "[\"notnum\"]"       `shouldBe` (Nothing :: Maybe [NumericDate])
+
+  describe "RFC 7519 §3.1.  Example JWT" $
+    it "verifies JWT" $ do
+      let
+        exampleJWT =
+          "eyJ0eXAiOiJKV1QiLA0KICJhbGciOiJIUzI1NiJ9"
+          <> "."
+          <> "eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt"
+          <> "cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
+          <> "."
+          <> "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+        k = fromOctets
+          [3,35,53,75,43,15,165,188,131,126,6,101,119,123,166,143,90,179,40,
+           230,240,84,201,40,169,15,132,178,210,80,46,191,211,251,90,146,
+           210,6,71,239,150,138,180,195,119,98,61,34,61,46,33,114,5,46,79,8,
+           192,205,154,245,103,208,128,163]
+        now = utcTime "2010-01-01 00:00:00"
+        settings = defaultJWTValidationSettings (const True)
+      runReaderT (decodeCompact exampleJWT >>= verifyClaims settings k) now
+        `shouldBe` (Right exampleClaimsSet :: Either JWTError ClaimsSet)
+      runReaderT (decodeCompact exampleJWT >>= verifyJWT settings k) now
+        `shouldBe` (Right super :: Either JWTError Super)
 
   describe "RFC 7519 §6.1.  Example Unsecured JWT" $ do
     let
