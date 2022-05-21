@@ -85,15 +85,8 @@ module Crypto.JWT
   , HasJWTValidationSettings(..)
 
   -- * Claims Set
+  , HasClaimsSet(..)
   , ClaimsSet
-  , claimAud
-  , claimExp
-  , claimIat
-  , claimIss
-  , claimJti
-  , claimNbf
-  , claimSub
-  , unregisteredClaims
   , addClaim
   , emptyClaimsSet
   , validateClaimsSet
@@ -258,74 +251,106 @@ data ClaimsSet = ClaimsSet
   }
   deriving (Eq, Show)
 
--- | The issuer claim identifies the principal that issued the
--- JWT.  The processing of this claim is generally application
--- specific.
-claimIss :: Lens' ClaimsSet (Maybe StringOrURI)
-claimIss f h@ClaimsSet{ _claimIss = a} =
-  fmap (\a' -> h { _claimIss = a' }) (f a)
+class HasClaimsSet a where
+  claimsSet :: Lens' a ClaimsSet
 
--- | The subject claim identifies the principal that is the
--- subject of the JWT.  The Claims in a JWT are normally
--- statements about the subject.  The subject value MAY be scoped
--- to be locally unique in the context of the issuer or MAY be
--- globally unique.  The processing of this claim is generally
--- application specific.
-claimSub :: Lens' ClaimsSet (Maybe StringOrURI)
-claimSub f h@ClaimsSet{ _claimSub = a} =
-  fmap (\a' -> h { _claimSub = a' }) (f a)
+  -- | The issuer claim identifies the principal that issued the
+  -- JWT.  The processing of this claim is generally application
+  -- specific.
+  claimIss :: Lens' a (Maybe StringOrURI)
+  {-# INLINE claimIss #-}
 
--- | The audience claim identifies the recipients that the JWT is
--- intended for.  Each principal intended to process the JWT MUST
--- identify itself with a value in the audience claim.  If the
--- principal processing the claim does not identify itself with a
--- value in the /aud/ claim when this claim is present, then the
--- JWT MUST be rejected.
-claimAud :: Lens' ClaimsSet (Maybe Audience)
-claimAud f h@ClaimsSet{ _claimAud = a} =
-  fmap (\a' -> h { _claimAud = a' }) (f a)
+  -- | The subject claim identifies the principal that is the
+  -- subject of the JWT.  The Claims in a JWT are normally
+  -- statements about the subject.  The subject value MAY be scoped
+  -- to be locally unique in the context of the issuer or MAY be
+  -- globally unique.  The processing of this claim is generally
+  -- application specific.
+  claimSub :: Lens' a (Maybe StringOrURI)
+  {-# INLINE claimSub #-}
 
--- | The expiration time claim identifies the expiration time on
--- or after which the JWT MUST NOT be accepted for processing.
--- The processing of /exp/ claim requires that the current
--- date\/time MUST be before expiration date\/time listed in the
--- /exp/ claim.  Implementers MAY provide for some small leeway,
--- usually no more than a few minutes, to account for clock skew.
-claimExp :: Lens' ClaimsSet (Maybe NumericDate)
-claimExp f h@ClaimsSet{ _claimExp = a} =
-  fmap (\a' -> h { _claimExp = a' }) (f a)
+  -- | The audience claim identifies the recipients that the JWT is
+  -- intended for.  Each principal intended to process the JWT MUST
+  -- identify itself with a value in the audience claim.  If the
+  -- principal processing the claim does not identify itself with a
+  -- value in the /aud/ claim when this claim is present, then the
+  -- JWT MUST be rejected.
+  claimAud :: Lens' a (Maybe Audience)
+  {-# INLINE claimAud #-}
 
--- | The not before claim identifies the time before which the JWT
--- MUST NOT be accepted for processing.  The processing of the
--- /nbf/ claim requires that the current date\/time MUST be after
--- or equal to the not-before date\/time listed in the /nbf/
--- claim.  Implementers MAY provide for some small leeway, usually
--- no more than a few minutes, to account for clock skew.
-claimNbf :: Lens' ClaimsSet (Maybe NumericDate)
-claimNbf f h@ClaimsSet{ _claimNbf = a} =
-  fmap (\a' -> h { _claimNbf = a' }) (f a)
+  -- | The expiration time claim identifies the expiration time on
+  -- or after which the JWT MUST NOT be accepted for processing.
+  -- The processing of /exp/ claim requires that the current
+  -- date\/time MUST be before expiration date\/time listed in the
+  -- /exp/ claim.  Implementers MAY provide for some small leeway,
+  -- usually no more than a few minutes, to account for clock skew.
+  claimExp :: Lens' a (Maybe NumericDate)
+  {-# INLINE claimExp #-}
 
--- | The issued at claim identifies the time at which the JWT was
--- issued.  This claim can be used to determine the age of the
--- JWT.
-claimIat :: Lens' ClaimsSet (Maybe NumericDate)
-claimIat f h@ClaimsSet{ _claimIat = a} =
-  fmap (\a' -> h { _claimIat = a' }) (f a)
+  -- | The not before claim identifies the time before which the JWT
+  -- MUST NOT be accepted for processing.  The processing of the
+  -- /nbf/ claim requires that the current date\/time MUST be after
+  -- or equal to the not-before date\/time listed in the /nbf/
+  -- claim.  Implementers MAY provide for some small leeway, usually
+  -- no more than a few minutes, to account for clock skew.
+  claimNbf :: Lens' a (Maybe NumericDate)
+  {-# INLINE claimNbf #-}
 
--- | The JWT ID claim provides a unique identifier for the JWT.
--- The identifier value MUST be assigned in a manner that ensures
--- that there is a negligible probability that the same value will
--- be accidentally assigned to a different data object.  The /jti/
--- claim can be used to prevent the JWT from being replayed.  The
--- /jti/ value is a case-sensitive string.
-claimJti :: Lens' ClaimsSet (Maybe T.Text)
-claimJti f h@ClaimsSet{ _claimJti = a} =
-  fmap (\a' -> h { _claimJti = a' }) (f a)
+  -- | The issued at claim identifies the time at which the JWT was
+  -- issued.  This claim can be used to determine the age of the
+  -- JWT.
+  claimIat :: Lens' a (Maybe NumericDate)
+  {-# INLINE claimIat #-}
 
--- | Claim Names can be defined at will by those using JWTs.
-unregisteredClaims :: Lens' ClaimsSet (M.Map T.Text Value)
-unregisteredClaims f h@ClaimsSet{ _unregisteredClaims = a} =
-  fmap (\a' -> h { _unregisteredClaims = a' }) (f a)
+  -- | The JWT ID claim provides a unique identifier for the JWT.
+  -- The identifier value MUST be assigned in a manner that ensures
+  -- that there is a negligible probability that the same value will
+  -- be accidentally assigned to a different data object.  The /jti/
+  -- claim can be used to prevent the JWT from being replayed.  The
+  -- /jti/ value is a case-sensitive string.
+  claimJti :: Lens' a (Maybe T.Text)
+  {-# INLINE claimJti #-}
+
+  -- | Claim Names can be defined at will by those using JWTs.
+  unregisteredClaims :: Lens' a (M.Map T.Text Value)
+  {-# INLINE unregisteredClaims #-}
+
+  claimAud = ((.) claimsSet) claimAud
+  claimExp = ((.) claimsSet) claimExp
+  claimIat = ((.) claimsSet) claimIat
+  claimIss = ((.) claimsSet) claimIss
+  claimJti = ((.) claimsSet) claimJti
+  claimNbf = ((.) claimsSet) claimNbf
+  claimSub = ((.) claimsSet) claimSub
+  unregisteredClaims = ((.) claimsSet) unregisteredClaims
+
+instance HasClaimsSet ClaimsSet where
+  claimsSet = id
+
+  claimIss f h@ClaimsSet{ _claimIss = a} = fmap (\a' -> h { _claimIss = a' }) (f a)
+  {-# INLINE claimIss #-}
+
+  claimSub f h@ClaimsSet{ _claimSub = a} = fmap (\a' -> h { _claimSub = a' }) (f a)
+  {-# INLINE claimSub #-}
+
+  claimAud f h@ClaimsSet{ _claimAud = a} = fmap (\a' -> h { _claimAud = a' }) (f a)
+  {-# INLINE claimAud #-}
+
+  claimExp f h@ClaimsSet{ _claimExp = a} = fmap (\a' -> h { _claimExp = a' }) (f a)
+  {-# INLINE claimExp #-}
+
+  claimNbf f h@ClaimsSet{ _claimNbf = a} = fmap (\a' -> h { _claimNbf = a' }) (f a)
+  {-# INLINE claimNbf #-}
+
+  claimIat f h@ClaimsSet{ _claimIat = a} = fmap (\a' -> h { _claimIat = a' }) (f a)
+  {-# INLINE claimIat #-}
+
+  claimJti f h@ClaimsSet{ _claimJti = a} = fmap (\a' -> h { _claimJti = a' }) (f a)
+  {-# INLINE claimJti #-}
+
+  unregisteredClaims f h@ClaimsSet{ _unregisteredClaims = a} =
+    fmap (\a' -> h { _unregisteredClaims = a' }) (f a)
+  {-# INLINE unregisteredClaims #-}
 
 
 -- | Return an empty claims set.
