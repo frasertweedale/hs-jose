@@ -120,9 +120,9 @@ module Crypto.JWT
   -- * Claims Set
   , HasClaimsSet(..)
   , ClaimsSet
+  , emptyClaimsSet
   , addClaim
   , unregisteredClaims
-  , emptyClaimsSet
   , validateClaimsSet
 
   -- * JWT errors
@@ -270,7 +270,9 @@ instance ToJSON Audience where
 
 
 -- | The JWT Claims Set represents a JSON object whose members are
--- the registered claims defined by RFC 7519.
+-- the registered claims defined by RFC 7519.  To construct a
+-- @ClaimsSet@ use 'emptyClaimsSet' then use the lenses from this
+-- class to set relevant claims.
 --
 -- For applications that use additional claims beyond those defined
 -- by RFC 7519, define a new data type and instance 'HasClaimsSet'.
@@ -381,6 +383,8 @@ instance HasClaimsSet ClaimsSet where
   {-# INLINE claimJti #-}
 
 -- | Claim Names can be defined at will by those using JWTs.
+-- Use this lens to access a map non-RFC 7519 claims in the
+-- Claims Set object.
 unregisteredClaims :: Lens' ClaimsSet (M.Map T.Text Value)
 unregisteredClaims f h@ClaimsSet{ _unregisteredClaims = a} =
   fmap (\a' -> h { _unregisteredClaims = a' }) (f a)
@@ -392,6 +396,9 @@ unregisteredClaims f h@ClaimsSet{ _unregisteredClaims = a} =
 emptyClaimsSet :: ClaimsSet
 emptyClaimsSet = ClaimsSet n n n n n n n M.empty where n = Nothing
 
+-- | Add a __non-RFC 7519__ claim.  Use the lenses from the
+-- 'HasClaimsSet' class for setting registered claims.
+--
 addClaim :: T.Text -> Value -> ClaimsSet -> ClaimsSet
 addClaim k v = over unregisteredClaims (M.insert k v)
 {-# DEPRECATED addClaim "'unregisteredClaims' is deprecated; use a sub-type" #-}
@@ -510,9 +517,9 @@ defaultJWTValidationSettings p = JWTValidationSettings
 
 -- | Validate the claims made by a ClaimsSet.
 --
--- These checks are performed by 'verifyClaims', which also
--- validates any signatures, so you shouldn't need to use this
--- function directly.
+-- __You should never need to use this function directly.__
+-- These checks are always performed by 'verifyClaims' and 'verifyJWT'.
+-- The function is exported mainly for testing purposes.
 --
 validateClaimsSet
   ::
