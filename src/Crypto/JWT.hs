@@ -31,6 +31,8 @@ JWTs use the JWS /compact serialisation/.
 See "Crypto.JOSE.Compact" for details.
 
 @
+import Crypto.JWT
+
 mkClaims :: IO 'ClaimsSet'
 mkClaims = do
   t <- 'currentTime'
@@ -40,12 +42,12 @@ mkClaims = do
     & 'claimIat' ?~ 'NumericDate' t
 
 doJwtSign :: 'JWK' -> 'ClaimsSet' -> IO (Either 'JWTError' 'SignedJWT')
-doJwtSign jwk claims = runExceptT $ do
+doJwtSign jwk claims = 'runJOSE' $ do
   alg \<- 'bestJWSAlg' jwk
   'signClaims' jwk ('newJWSHeader' ((), alg)) claims
 
 doJwtVerify :: 'JWK' -> 'SignedJWT' -> IO (Either 'JWTError' 'ClaimsSet')
-doJwtVerify jwk jwt = runExceptT $ do
+doJwtVerify jwk jwt = 'runJOSE' $ do
   let config = 'defaultJWTValidationSettings' (== "bob")
   'verifyClaims' config jwk jwt
 @
@@ -56,12 +58,12 @@ achieves the same:
 
 @
 verify :: L.ByteString -> L.ByteString -> IO (Either 'JWTError' 'ClaimsSet')
-verify k s = runExceptT $ do
+verify k s = 'runJOSE' $ do
   let
     k' = 'fromOctets' k      -- turn raw secret into symmetric JWK
     audCheck = const True  -- should be a proper audience check
-  s' <- 'decodeCompact' s    -- decode JWT
-  'verifyClaims' ('defaultJWTValidationSettings' audCheck) k' s'
+  jwt <- 'decodeCompact' s    -- decode JWT
+  'verifyClaims' ('defaultJWTValidationSettings' audCheck) k' jwt
 @
 
 -}

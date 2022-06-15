@@ -18,12 +18,18 @@
 
 {-|
 
-JOSE error types.
+JOSE error types and helpers.
 
 -}
 module Crypto.JOSE.Error
   (
-    Error(..)
+  -- * Running JOSE computations
+    runJOSE
+  , unwrapJOSE
+  , JOSE(..)
+
+  -- * Base error type and class
+  , Error(..)
   , AsError(..)
 
   -- * JOSE compact serialisation errors
@@ -33,9 +39,6 @@ module Crypto.JOSE.Error
   , _CompactInvalidNumberOfParts
   , _CompactInvalidText
 
-  , JOSE
-  , runJOSE
-  , unwrapJOSE
   ) where
 
 import Data.Semigroup ((<>))
@@ -124,7 +127,7 @@ makeClassyPrisms ''Error
 newtype JOSE e m a = JOSE (ExceptT e m a)
 
 -- | Run the 'JOSE' computation.  Result is an @Either e a@
--- where @e@ is the error type (typically 'Error' or 'JWTError')
+-- where @e@ is the error type (typically 'Error' or 'Crypto.JWT.JWTError')
 runJOSE :: JOSE e m a -> m (Either e a)
 runJOSE = runExceptT . (\(JOSE m) -> m)
 

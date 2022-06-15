@@ -33,10 +33,10 @@ representing a set of JWKs.
 --
 doGen :: IO JWK
 doGen = do
-  jwk <- 'genJWK' (RSAGenParam (4096 \`div` 8))
+  jwk <- 'genJWK' ('RSAGenParam' (4096 \`div` 8))
   let
     h = view 'thumbprint' jwk :: Digest SHA256
-    kid = view (re ('base64url' . 'digest') . utf8) h
+    kid = view (re ('Types.base64url' . 'digest') . utf8) h
   pure $ set 'jwkKid' (Just kid) jwk
 @
 

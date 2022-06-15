@@ -20,13 +20,16 @@ Object Notation (JSON) based data structures.  It is defined in
 <https://tools.ietf.org/html/rfc7515 RFC 7515>.
 
 @
+import Crypto.JOSE
+
 doJwsSign :: 'JWK' -> L.ByteString -> IO (Either 'Error' ('GeneralJWS' 'JWSHeader'))
-doJwsSign jwk payload = runExceptT $ do
+doJwsSign jwk payload = 'runJOSE' $ do
   alg \<- 'bestJWSAlg' jwk
   'signJWS' payload [('newJWSHeader' ('Protected', alg), jwk)]
 
 doJwsVerify :: 'JWK' -> 'GeneralJWS' 'JWSHeader' -> IO (Either 'Error' ())
-doJwsVerify jwk jws = runExceptT $ 'verifyJWS'' jwk jws
+doJwsVerify jwk jws = 'runJOSE' $
+  'verifyJWS'' jwk jws
 @
 
 -}
