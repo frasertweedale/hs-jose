@@ -66,6 +66,36 @@ verify k s = 'runJOSE' $ do
   'verifyClaims' ('defaultJWTValidationSettings' audCheck) k' jwt
 @
 
+For applications that use __additional claims__, define a data type that wraps
+'ClaimsSet' and includes fields for the additional claims.  You will also need
+to define 'FromJSON' if verifying JWTs, and 'ToJSON' if producing JWTs.  The
+following example is taken from
+<https://datatracker.ietf.org/doc/html/rfc7519#section-3.1 RFC 7519 §3.1>.
+
+@
+import qualified Data.Aeson.KeyMap as M
+
+data Super = Super { jwtClaims :: 'ClaimsSet', isRoot :: Bool }
+
+instance 'HasClaimsSet' Super where
+  'claimsSet' f s = fmap (\\a' -> s { jwtClaims = a' }) (f (jwtClaims s))
+
+instance FromJSON Super where
+  parseJSON = withObject "Super" $ \\o -> Super
+    \<$\> parseJSON (Object o)
+    \<*\> o .: "http://example.com/is_root"
+
+instance ToJSON Super where
+  toJSON s =
+    ins "http://example.com/is_root" (isRoot s) (toJSON (jwtClaims s))
+    where
+      ins k v (Object o) = Object $ M.insert k (toJSON v) o
+      ins _ _ a = a
+@
+
+__Use 'signJWT' and 'verifyJWT' when using custom payload types__ (instead of
+'signClaims' and 'verifyClaims' which are specialised to 'ClaimsSet').
+
 -}
 module Crypto.JWT
   (
@@ -239,8 +269,11 @@ instance ToJSON Audience where
 
 
 -- | The JWT Claims Set represents a JSON object whose members are
--- the registered claims defined by RFC 7519.  Unrecognised
--- claims are gathered into the 'unregisteredClaims' map.
+-- the registered claims defined by RFC 7519.
+--
+-- For applications that use additional claims beyond those defined
+-- by RFC 7519, define a new data type and instance 'HasClaimsSet'.
+-- See the module synopsis for more details and an example.
 --
 data ClaimsSet = ClaimsSet
   { _claimIss :: Maybe StringOrURI
