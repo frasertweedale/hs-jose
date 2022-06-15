@@ -121,6 +121,7 @@ module Crypto.JWT
   , HasClaimsSet(..)
   , ClaimsSet
   , addClaim
+  , unregisteredClaims
   , emptyClaimsSet
   , validateClaimsSet
 
@@ -347,10 +348,6 @@ class HasClaimsSet a where
   claimJti :: Lens' a (Maybe T.Text)
   {-# INLINE claimJti #-}
 
-  -- | Claim Names can be defined at will by those using JWTs.
-  unregisteredClaims :: Lens' a (M.Map T.Text Value)
-  {-# INLINE unregisteredClaims #-}
-
   claimAud = ((.) claimsSet) claimAud
   claimExp = ((.) claimsSet) claimExp
   claimIat = ((.) claimsSet) claimIat
@@ -358,7 +355,6 @@ class HasClaimsSet a where
   claimJti = ((.) claimsSet) claimJti
   claimNbf = ((.) claimsSet) claimNbf
   claimSub = ((.) claimsSet) claimSub
-  unregisteredClaims = ((.) claimsSet) unregisteredClaims
 
 instance HasClaimsSet ClaimsSet where
   claimsSet = id
@@ -384,10 +380,12 @@ instance HasClaimsSet ClaimsSet where
   claimJti f h@ClaimsSet{ _claimJti = a} = fmap (\a' -> h { _claimJti = a' }) (f a)
   {-# INLINE claimJti #-}
 
-  unregisteredClaims f h@ClaimsSet{ _unregisteredClaims = a} =
-    fmap (\a' -> h { _unregisteredClaims = a' }) (f a)
-  {-# INLINE unregisteredClaims #-}
-
+-- | Claim Names can be defined at will by those using JWTs.
+unregisteredClaims :: Lens' ClaimsSet (M.Map T.Text Value)
+unregisteredClaims f h@ClaimsSet{ _unregisteredClaims = a} =
+  fmap (\a' -> h { _unregisteredClaims = a' }) (f a)
+{-# INLINE unregisteredClaims #-}
+{-# DEPRECATED unregisteredClaims "use a sub-type" #-}
 
 -- | Return an empty claims set.
 --
@@ -396,6 +394,7 @@ emptyClaimsSet = ClaimsSet n n n n n n n M.empty where n = Nothing
 
 addClaim :: T.Text -> Value -> ClaimsSet -> ClaimsSet
 addClaim k v = over unregisteredClaims (M.insert k v)
+{-# DEPRECATED addClaim "'unregisteredClaims' is deprecated; use a sub-type" #-}
 
 registeredClaims :: S.Set T.Text
 registeredClaims = S.fromDistinctAscList
