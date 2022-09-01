@@ -26,7 +26,8 @@ module Crypto.JOSE.AESKW
   , aesKeyUnwrap
   ) where
 
-import Control.Monad.State
+import Control.Monad (join)
+import Control.Monad.State (StateT, execStateT, get, lift, put)
 import Crypto.Cipher.Types
 import Data.Bits (xor)
 import Data.ByteArray as BA hiding (replicate, xor)

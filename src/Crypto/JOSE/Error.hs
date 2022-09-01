@@ -45,6 +45,7 @@ import Data.Semigroup ((<>))
 import Numeric.Natural
 
 import Control.Monad.Except
+import Control.Monad.Trans
 import qualified Crypto.PubKey.RSA as RSA
 import Crypto.Error (CryptoError)
 import Crypto.Random (MonadRandom(..))

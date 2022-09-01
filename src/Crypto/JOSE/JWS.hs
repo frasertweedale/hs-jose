@@ -89,6 +89,7 @@ module Crypto.JOSE.JWS
   ) where
 
 import Control.Applicative ((<|>))
+import Control.Monad (unless)
 import Data.Foldable (toList)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
@@ -98,7 +99,7 @@ import Data.Word (Word8)
 import Control.Lens hiding ((.=))
 import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Error.Lens (throwing, throwing_)
-import Control.Monad.Except (MonadError, unless)
+import Control.Monad.Except (MonadError)
 import Data.Aeson
 import qualified Data.Aeson.KeyMap as M
 import qualified Data.ByteString as B
