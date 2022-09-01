@@ -1,6 +1,6 @@
 cabal-version:       2.2
 name:                jose
-version:             0.9
+version:             0.10
 synopsis:
   JSON Object Signing and Encryption (JOSE) and JSON Web Token (JWT) library
 description:
@@ -24,6 +24,7 @@ bug-reports:         https://github.com/frasertweedale/hs-jose/issues
 license:             Apache-2.0
 license-file:        LICENSE
 extra-source-files:
+  CHANGELOG.md
   README.md
   test/data/fido.jwt
 author:              Fraser Tweedale
