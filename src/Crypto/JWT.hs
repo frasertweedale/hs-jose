@@ -107,15 +107,18 @@ module Crypto.JWT
   -- * Validating a JWT and extracting claims
   , defaultJWTValidationSettings
   , verifyClaims
-  , verifyClaimsAt
   , verifyJWT
-  , verifyJWTAt
   , HasAllowedSkew(..)
   , HasAudiencePredicate(..)
   , HasIssuerPredicate(..)
   , HasCheckIssuedAt(..)
   , JWTValidationSettings
   , HasJWTValidationSettings(..)
+
+  -- ** Specifying the verification time
+  , WrappedUTCTime(..)
+  , verifyClaimsAt
+  , verifyJWTAt
 
   -- * Claims Set
   , HasClaimsSet(..)
@@ -607,6 +610,11 @@ newtype WrappedUTCTime = WrappedUTCTime { getUTCTime :: UTCTime }
 
 instance Monad m => MonadTime (ReaderT WrappedUTCTime m) where
   currentTime = asks getUTCTime
+#if MIN_VERSION_monad_time(0,4,0)
+  -- | /jose/ doesn't use this, so we fake it.
+  -- @monotonicTime = pure 0@
+  monotonicTime = pure 0
+#endif
 
 
 -- | Cryptographically verify a JWS JWT, then validate the

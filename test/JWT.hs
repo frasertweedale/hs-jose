@@ -38,8 +38,8 @@ import Crypto.JWT
 intDate :: String -> Maybe NumericDate
 intDate = fmap NumericDate . parseTimeM True defaultTimeLocale "%F %T"
 
-utcTime :: String -> UTCTime
-utcTime = fromJust . parseTimeM True defaultTimeLocale "%F %T"
+utcTime :: String -> WrappedUTCTime
+utcTime = WrappedUTCTime . fromJust . parseTimeM True defaultTimeLocale "%F %T"
 
 --
 -- example extended JWT payload type
