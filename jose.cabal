@@ -121,7 +121,7 @@ test-suite tests
     , jose
 
     , tasty
-    , tasty-hedgehog
+    , tasty-hedgehog >= 1.2
     , tasty-hspec >= 1.0
     , hedgehog
     , hspec
