@@ -14,9 +14,12 @@
 
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-module Properties where
+module Properties
+  ( properties
+  ) where
 
 import Control.Applicative (liftA2)
 import Control.Monad.IO.Class

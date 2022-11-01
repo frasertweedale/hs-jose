@@ -20,7 +20,9 @@
 JSON Web Signature algorithms.
 
 -}
-module Crypto.JOSE.JWA.JWS where
+module Crypto.JOSE.JWA.JWS
+  ( Alg(..)
+  ) where
 
 import qualified Crypto.JOSE.TH
 

@@ -44,8 +44,8 @@ module Crypto.JOSE.Error
 import Data.Semigroup ((<>))
 import Numeric.Natural
 
-import Control.Monad.Except
-import Control.Monad.Trans
+import Control.Monad.Except (MonadError(..), ExceptT, runExceptT)
+import Control.Monad.Trans (MonadIO(liftIO), MonadTrans(lift))
 import qualified Crypto.PubKey.RSA as RSA
 import Crypto.Error (CryptoError)
 import Crypto.Random (MonadRandom(..))

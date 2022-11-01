@@ -14,7 +14,9 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module JWS where
+module JWS
+  ( spec
+  ) where
 
 import Data.Maybe
 import Data.Monoid ((<>))
@@ -169,7 +171,7 @@ headerSpec = describe "JWS Header" $ do
     let
       -- protected header: {"crit":["nonce"],"nonce":"bm9uY2U"}
       s = "{\"protected\":\"eyJjcml0IjpbIm5vbmNlIl0sIm5vbmNlIjoiYm05dVkyVSJ9\""
-          <>",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
+          <> ",\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
       (eitherDecode s :: Either String (Signature Protection ACMEHeader))
         `shouldSatisfy` is _Right
@@ -201,9 +203,6 @@ examplePayloadBytes = "\
   \{\"iss\":\"joe\",\r\n\
   \ \"exp\":1300819380,\r\n\
   \ \"http://example.com/is_root\":true}"
-
-examplePayload :: Types.Base64Octets
-examplePayload = Types.Base64Octets examplePayloadBytes
 
 
 appendixA1Spec :: Spec

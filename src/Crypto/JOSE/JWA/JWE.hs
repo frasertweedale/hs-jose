@@ -20,7 +20,13 @@
 JSON Web Encryption data types specified under JSON Web Algorithms.
 
 -}
-module Crypto.JOSE.JWA.JWE where
+module Crypto.JOSE.JWA.JWE
+  ( Enc(..)
+  , AlgWithParams(..)
+  , AESGCMParameters(AESGCMParameters)
+  , ECDHParameters(ECDHParameters)
+  , PBES2Parameters(PBES2Parameters)
+  ) where
 
 import Data.Maybe (catMaybes)
 

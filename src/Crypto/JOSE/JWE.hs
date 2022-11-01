@@ -262,12 +262,14 @@ _cbcHmacEnc _ _ k m aad = do
     CryptoFailed _ -> return $ Left AlgorithmNotImplemented -- FIXME
     CryptoPassed (e :: e) -> do
       iv <- getRandomBytes 16
-      let Just iv' = makeIV iv
-      let m' = pad (PKCS7 $ blockSize e) m
-      let c = cbcEncrypt e iv' m'
-      let hmacInput = B.concat [aad, iv, c, aadLen]
-      let tag = B.take kLen $ BA.pack $ BA.unpack (hmac mKey hmacInput :: HMAC h)
-      return $ Right (iv, c, tag)
+      case makeIV iv of
+        Nothing -> pure $ Left (CryptoError CryptoError_IvSizeInvalid)
+        Just iv' -> do
+          let m' = pad (PKCS7 $ blockSize e) m
+          let c = cbcEncrypt e iv' m'
+          let hmacInput = B.concat [aad, iv, c, aadLen]
+          let tag = BA.convert $ BA.takeView (hmac mKey hmacInput :: HMAC h) kLen
+          pure $ Right (iv, c, tag)
 
 _gcmEnc
   :: forall e m. (BlockCipher e, MonadRandom m)

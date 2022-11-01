@@ -21,7 +21,12 @@ representations of certain types.  This module defines classes and
 functions for working with such data.
 
 -}
-module Crypto.JOSE.Compact where
+module Crypto.JOSE.Compact
+  ( FromCompact(..)
+  , decodeCompact
+  , ToCompact(..)
+  , encodeCompact
+  ) where
 
 import Control.Monad.Except (MonadError)
 import qualified Data.ByteString.Lazy as L

@@ -12,9 +12,12 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module JWK where
+module JWK
+  ( spec
+  ) where
 
 import Data.Monoid ((<>))
 

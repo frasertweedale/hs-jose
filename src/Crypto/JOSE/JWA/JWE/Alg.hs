@@ -20,7 +20,9 @@
 JSON Web Encryption algorithms.
 
 -}
-module Crypto.JOSE.JWA.JWE.Alg where
+module Crypto.JOSE.JWA.JWE.Alg
+  ( Alg(..)
+  ) where
 
 import qualified Crypto.JOSE.TH
 

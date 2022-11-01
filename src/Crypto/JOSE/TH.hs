@@ -44,7 +44,7 @@ conize :: String -> Name
 conize = mkName . capitalize . sanitize
 
 guardPred :: String -> ExpQ
-guardPred s = [e| $(varE $ mkName "s") == s |]
+guardPred s = [e| $(varE $ mkName "s") == $(lift s) |]
 
 guardExp :: String -> ExpQ
 guardExp s = [e| pure $(conE $ conize s) |]
@@ -58,7 +58,7 @@ endGuardPred = [e| otherwise |]
 -- | Expression for an end guard.  Arg describes type it was expecting.
 --
 endGuardExp :: String -> ExpQ
-endGuardExp s = [e| fail ("unrecognised value; expected: " ++ s) |]
+endGuardExp s = [e| fail ("unrecognised value; expected: " ++ $(lift s)) |]
 
 -- | Build a catch-all guard that fails.  String describes what is expected.
 --
@@ -76,7 +76,7 @@ parseJSONFun vs = funD 'parseJSON [parseJSONClauseQ vs]
 
 
 toJSONClause :: String -> ClauseQ
-toJSONClause s = clause [conP (conize s) []] (normalB [| s |]) []
+toJSONClause s = clause [conP (conize s) []] (normalB [| $(lift s) |]) []
 
 toJSONFun :: [String] -> DecQ
 toJSONFun vs = funD 'toJSON (map toJSONClause vs)

@@ -14,7 +14,9 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Types where
+module Types
+  ( spec
+  ) where
 
 import Data.Aeson
 import qualified Data.ByteString as BS

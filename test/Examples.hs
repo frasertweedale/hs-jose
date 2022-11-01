@@ -1,7 +1,10 @@
--- | Miscellaneous end-to-end examples.
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE LambdaCase #-}
-module Examples where
+
+-- | Miscellaneous end-to-end examples.
+module Examples
+  ( spec
+  ) where
 
 import Control.Lens (_Right, (&), (?~), (.~))
 import Control.Lens.Extras (is)

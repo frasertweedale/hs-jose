@@ -15,7 +15,9 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module AESKW where
+module AESKW
+  ( aeskwProperties
+  ) where
 
 import qualified Data.ByteString as B
 import Crypto.Cipher.AES

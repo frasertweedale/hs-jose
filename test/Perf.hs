@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-incomplete-uni-patterns #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -12,7 +13,6 @@ program published by Silvan Mosberger at:
 Related: https://github.com/frasertweedale/hs-jose/pull/103
 
 -}
-module Main where
 
 import Control.Lens ((^?), _Just)
 import Control.Monad.Except (ExceptT, runExceptT)

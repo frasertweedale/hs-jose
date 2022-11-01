@@ -15,7 +15,9 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-module JWT where
+module JWT
+  ( spec
+  ) where
 
 import Data.Maybe
 import Data.Monoid ((<>))
@@ -108,7 +110,6 @@ spec = do
 
     it "JWT round-trip (sign, serialise, decode, verify) [extended payload type]" $ do
       let
-        claims = emptyClaimsSet
         valConf = defaultJWTValidationSettings (const True)
         now = utcTime "2010-01-01 00:00:00"
       k <- genJWK $ RSAGenParam 256
@@ -116,8 +117,8 @@ spec = do
         token <- signJWT k (newJWSHeader ((), RS512)) super
         token' <- decodeCompact . encodeCompact $ token
         liftIO $ token' `shouldBe` token
-        claims' <- runReaderT (verifyJWT valConf k token') now
-        liftIO $ claims' `shouldBe` super
+        claims <- runReaderT (verifyJWT valConf k token') now
+        liftIO $ claims `shouldBe` super
       either (error . show) return (res :: Either JWTError ()) :: IO ()
 
     it "formats to a parsable and equal value" $ do
@@ -199,62 +200,64 @@ spec = do
 
     describe "with a Not Before claim" $ do
       let
-        claimsSet = emptyClaimsSet & claimNbf .~ intDate "2016-07-05 17:37:22"
+        claims = emptyClaimsSet & claimNbf .~ intDate "2016-07-05 17:37:22"
       describe "when the current time is prior to the Not Before claim" $ do
         let now = utcTime "2016-07-05 17:37:20" -- 2s before nbf
         it "cannot be validated" $
-          runReaderT (validateClaimsSet conf claimsSet) now
+          runReaderT (validateClaimsSet conf claims) now
             `shouldBe` Left JWTNotYetValid
         it "cannot be validated if nonzero skew tolerance < delta" $
           let conf' = set allowedSkew 1 conf
-          in runReaderT (validateClaimsSet conf' claimsSet) now
+          in runReaderT (validateClaimsSet conf' claims) now
             `shouldBe` Left JWTNotYetValid
         it "can be validated if nonzero skew tolerance = delta" $
           let conf' = set allowedSkew 2 conf
-          in runReaderT (validateClaimsSet conf' claimsSet) now
-            `shouldBe` (Right claimsSet :: Either JWTError ClaimsSet)
+          in runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` (Right claims :: Either JWTError ClaimsSet)
         it "can be validated if nonzero skew tolerance > delta" $
           let conf' = set allowedSkew 3 conf
-          in runReaderT (validateClaimsSet conf' claimsSet) now
-            `shouldBe` (Right claimsSet :: Either JWTError ClaimsSet)
+          in runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` (Right claims :: Either JWTError ClaimsSet)
         it "can be validated if negative skew tolerance = -delta" $
           let conf' = set allowedSkew (-2) conf
-          in runReaderT (validateClaimsSet conf' claimsSet) now
-            `shouldBe` (Right claimsSet :: Either JWTError ClaimsSet)
+          in runReaderT (validateClaimsSet conf' claims) now
+            `shouldBe` (Right claims :: Either JWTError ClaimsSet)
 
       describe "when the current time is exactly equal to the Not Before claim" $
         it "can be validated" $
-          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2016-07-05 17:37:22")
-            `shouldBe` (Right claimsSet :: Either JWTError ClaimsSet)
+          runReaderT (validateClaimsSet conf claims) (utcTime "2016-07-05 17:37:22")
+            `shouldBe` (Right claims :: Either JWTError ClaimsSet)
 
       describe "when the current time is after the Not Before claim" $
         it "can be validated" $
-          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2017-01-01 00:00:00")
-            `shouldBe` (Right claimsSet :: Either JWTError ClaimsSet)
+          runReaderT (validateClaimsSet conf claims) (utcTime "2017-01-01 00:00:00")
+            `shouldBe` (Right claims :: Either JWTError ClaimsSet)
 
     describe "with Expiration Time and Not Before claims" $ do
       let
-        claimsSet = emptyClaimsSet & claimExp .~ intDate "2011-03-22 18:43:00"
-                                   & claimNbf .~ intDate "2011-03-20 17:37:22"
+        claims =
+          emptyClaimsSet
+            & claimExp .~ intDate "2011-03-22 18:43:00"
+            & claimNbf .~ intDate "2011-03-20 17:37:22"
       describe "when the current time is prior to the Not Before claim" $
         it "cannot be validated" $
-          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-18 00:00:00")
+          runReaderT (validateClaimsSet conf claims) (utcTime "2011-03-18 00:00:00")
             `shouldBe` Left JWTNotYetValid
       describe "when the current time is exactly equal to the Not Before claim" $
         it "can be validated" $
-          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-20 17:37:22")
-            `shouldBe` (Right claimsSet :: Either JWTError ClaimsSet)
+          runReaderT (validateClaimsSet conf claims) (utcTime "2011-03-20 17:37:22")
+            `shouldBe` (Right claims :: Either JWTError ClaimsSet)
       describe "when the current time is between the Not Before and Expiration Time claims" $
         it "can be validated" $
-          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-21 18:00:00")
-            `shouldBe` (Right claimsSet :: Either JWTError ClaimsSet)
+          runReaderT (validateClaimsSet conf claims) (utcTime "2011-03-21 18:00:00")
+            `shouldBe` (Right claims :: Either JWTError ClaimsSet)
       describe "when the current time is exactly the Expiration Time" $
         it "cannot be validated" $
-          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-22 18:43:00")
+          runReaderT (validateClaimsSet conf claims) (utcTime "2011-03-22 18:43:00")
             `shouldBe` Left JWTExpired
       describe "when the current time is after the Expiration Time claim" $
         it "cannot be validated" $
-          runReaderT (validateClaimsSet conf claimsSet) (utcTime "2011-03-24 00:00:00")
+          runReaderT (validateClaimsSet conf claims) (utcTime "2011-03-24 00:00:00")
             `shouldBe` Left JWTExpired
 
     describe "with an Audience claim" $ do
