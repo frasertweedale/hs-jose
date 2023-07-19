@@ -81,7 +81,7 @@ instance 'HasClaimsSet' Super where
   'claimsSet' f s = fmap (\\a' -> s { jwtClaims = a' }) (f (jwtClaims s))
 
 instance FromJSON Super where
-  parseJSON = withObject "Super" $ \\o -> Super
+  parseJSON = withObject \"Super\" $ \\o -> Super
     \<$\> parseJSON (Object o)
     \<*\> o .: "http://example.com/is_root"
 
