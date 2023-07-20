@@ -30,6 +30,96 @@ parties.
 JWTs use the JWS /compact serialisation/.
 See "Crypto.JOSE.Compact" for details.
 
+-}
+module Crypto.JWT
+  (
+  -- * Overview / HOWTO
+  -- ** Basic usage
+  -- $basic
+
+  -- ** Supporting additional claims via subtypes #subtypes#
+  -- $subtypes
+
+  -- * API
+  -- ** Creating a JWT
+    SignedJWT
+  , signClaims
+  , signJWT
+
+  -- ** Validating a JWT and extracting claims
+  , defaultJWTValidationSettings
+  , verifyClaims
+  , verifyJWT
+  , HasAllowedSkew(..)
+  , HasAudiencePredicate(..)
+  , HasIssuerPredicate(..)
+  , HasCheckIssuedAt(..)
+  , JWTValidationSettings
+  , HasJWTValidationSettings(..)
+
+  -- *** Specifying the verification time
+  , WrappedUTCTime(..)
+  , verifyClaimsAt
+  , verifyJWTAt
+
+  -- ** Claims Set
+  , ClaimsSet
+  , emptyClaimsSet
+  , HasClaimsSet(..)
+  , validateClaimsSet
+  -- *** Unregistered claims (__deprecated__)
+  , addClaim
+  , unregisteredClaims
+
+  -- ** JWT errors
+  , JWTError(..)
+  , AsJWTError(..)
+
+  -- ** Miscellaneous types
+  , Audience(..)
+  , StringOrURI
+  , stringOrUri
+  , string
+  , uri
+  , NumericDate(..)
+
+  -- ** Re-exports
+  , module Crypto.JOSE
+
+  ) where
+
+import Control.Applicative
+import Control.Monad
+import Control.Monad.Time (MonadTime(..))
+import Data.Foldable (traverse_)
+import Data.Functor.Identity
+import Data.Maybe
+import qualified Data.String
+import Data.Semigroup ((<>))
+
+import Control.Lens (
+  makeClassy, makeClassyPrisms, makePrisms,
+  Lens', _Just, over, preview, view,
+  Prism', prism', Cons, iso, AsEmpty)
+import Control.Lens.Cons.Extras (recons)
+import Control.Monad.Error.Lens (throwing, throwing_)
+import Control.Monad.Except (MonadError)
+import Control.Monad.Reader (ReaderT, asks, runReaderT)
+import Data.Aeson
+import qualified Data.Aeson.Key as Key
+import qualified Data.Aeson.KeyMap as KeyMap
+import qualified Data.Map as M
+import qualified Data.Set as S
+import qualified Data.Text as T
+import Data.Time (NominalDiffTime, UTCTime, addUTCTime)
+import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
+import Network.URI (parseURI)
+
+import Crypto.JOSE
+import Crypto.JOSE.Types
+
+{- $basic
+
 @
 import Crypto.JWT
 
@@ -66,6 +156,10 @@ verify k s = 'runJOSE' $ do
   'verifyClaims' ('defaultJWTValidationSettings' audCheck) k' jwt
 @
 
+-}
+
+{- $subtypes
+
 For applications that use __additional claims__, define a data type that wraps
 'ClaimsSet' and includes fields for the additional claims.  You will also need
 to define 'FromJSON' if verifying JWTs, and 'ToJSON' if producing JWTs.  The
@@ -97,82 +191,6 @@ __Use 'signJWT' and 'verifyJWT' when using custom payload types__ (instead of
 'signClaims' and 'verifyClaims' which are specialised to 'ClaimsSet').
 
 -}
-module Crypto.JWT
-  (
-  -- * Creating a JWT
-    SignedJWT
-  , signClaims
-  , signJWT
-
-  -- * Validating a JWT and extracting claims
-  , defaultJWTValidationSettings
-  , verifyClaims
-  , verifyJWT
-  , HasAllowedSkew(..)
-  , HasAudiencePredicate(..)
-  , HasIssuerPredicate(..)
-  , HasCheckIssuedAt(..)
-  , JWTValidationSettings
-  , HasJWTValidationSettings(..)
-
-  -- ** Specifying the verification time
-  , WrappedUTCTime(..)
-  , verifyClaimsAt
-  , verifyJWTAt
-
-  -- * Claims Set
-  , HasClaimsSet(..)
-  , ClaimsSet
-  , emptyClaimsSet
-  , addClaim
-  , unregisteredClaims
-  , validateClaimsSet
-
-  -- * JWT errors
-  , JWTError(..)
-  , AsJWTError(..)
-
-  -- * Miscellaneous
-  , Audience(..)
-  , StringOrURI
-  , stringOrUri
-  , string
-  , uri
-  , NumericDate(..)
-
-  , module Crypto.JOSE
-
-  ) where
-
-import Control.Applicative
-import Control.Monad
-import Control.Monad.Time (MonadTime(..))
-import Data.Foldable (traverse_)
-import Data.Functor.Identity
-import Data.Maybe
-import qualified Data.String
-import Data.Semigroup ((<>))
-
-import Control.Lens (
-  makeClassy, makeClassyPrisms, makePrisms,
-  Lens', _Just, over, preview, view,
-  Prism', prism', Cons, iso, AsEmpty)
-import Control.Lens.Cons.Extras (recons)
-import Control.Monad.Error.Lens (throwing, throwing_)
-import Control.Monad.Except (MonadError)
-import Control.Monad.Reader (ReaderT, asks, runReaderT)
-import Data.Aeson
-import qualified Data.Aeson.Key as Key
-import qualified Data.Aeson.KeyMap as KeyMap
-import qualified Data.Map as M
-import qualified Data.Set as S
-import qualified Data.Text as T
-import Data.Time (NominalDiffTime, UTCTime, addUTCTime)
-import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
-import Network.URI (parseURI)
-
-import Crypto.JOSE
-import Crypto.JOSE.Types
 
 
 data JWTError
@@ -274,12 +292,11 @@ instance ToJSON Audience where
 
 -- | The JWT Claims Set represents a JSON object whose members are
 -- the registered claims defined by RFC 7519.  To construct a
--- @ClaimsSet@ use 'emptyClaimsSet' then use the lenses from this
--- class to set relevant claims.
+-- @ClaimsSet@ use 'emptyClaimsSet' then use the lenses defined in
+-- 'HasClaimsSet' to set relevant claims.
 --
 -- For applications that use additional claims beyond those defined
--- by RFC 7519, define a new data type and instance 'HasClaimsSet'.
--- See the module synopsis for more details and an example.
+-- by RFC 7519, define a [subtype](#g:subtypes) and instance 'HasClaimsSet'.
 --
 data ClaimsSet = ClaimsSet
   { _claimIss :: Maybe StringOrURI
@@ -392,7 +409,7 @@ unregisteredClaims :: Lens' ClaimsSet (M.Map T.Text Value)
 unregisteredClaims f h@ClaimsSet{ _unregisteredClaims = a} =
   fmap (\a' -> h { _unregisteredClaims = a' }) (f a)
 {-# INLINE unregisteredClaims #-}
-{-# DEPRECATED unregisteredClaims "use a sub-type" #-}
+{-# DEPRECATED unregisteredClaims "use a [subtype](#g:subtypes) to define additional claims" #-}
 
 -- | Return an empty claims set.
 --
@@ -404,7 +421,7 @@ emptyClaimsSet = ClaimsSet n n n n n n n M.empty where n = Nothing
 --
 addClaim :: T.Text -> Value -> ClaimsSet -> ClaimsSet
 addClaim k v = over unregisteredClaims (M.insert k v)
-{-# DEPRECATED addClaim "'unregisteredClaims' is deprecated; use a sub-type" #-}
+{-# DEPRECATED addClaim "use a [subtype](#g:subtypes) to define additional claims" #-}
 
 registeredClaims :: S.Set T.Text
 registeredClaims = S.fromDistinctAscList
@@ -608,11 +625,12 @@ type SignedJWT = CompactJWS JWSHeader
 
 newtype WrappedUTCTime = WrappedUTCTime { getUTCTime :: UTCTime }
 
+#if MIN_VERSION_monad_time(0,4,0)
+-- | @'monotonicTime' = pure 0@.  /jose/ doesn't use this so we fake it
+#endif
 instance Monad m => MonadTime (ReaderT WrappedUTCTime m) where
   currentTime = asks getUTCTime
 #if MIN_VERSION_monad_time(0,4,0)
-  -- | /jose/ doesn't use this, so we fake it.
-  -- @monotonicTime = pure 0@
   monotonicTime = pure 0
 #endif
 
