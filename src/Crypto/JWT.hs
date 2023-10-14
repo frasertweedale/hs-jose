@@ -370,13 +370,13 @@ class HasClaimsSet a where
   claimJti :: Lens' a (Maybe T.Text)
   {-# INLINE claimJti #-}
 
-  claimAud = ((.) claimsSet) claimAud
-  claimExp = ((.) claimsSet) claimExp
-  claimIat = ((.) claimsSet) claimIat
-  claimIss = ((.) claimsSet) claimIss
-  claimJti = ((.) claimsSet) claimJti
-  claimNbf = ((.) claimsSet) claimNbf
-  claimSub = ((.) claimsSet) claimSub
+  claimAud = claimsSet . claimAud
+  claimExp = claimsSet . claimExp
+  claimIat = claimsSet . claimIat
+  claimIss = claimsSet . claimIss
+  claimJti = claimsSet . claimJti
+  claimNbf = claimsSet . claimNbf
+  claimSub = claimsSet . claimSub
 
 instance HasClaimsSet ClaimsSet where
   claimsSet = id
