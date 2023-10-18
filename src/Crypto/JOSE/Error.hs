@@ -121,6 +121,7 @@ data Error
   | JWSNoSignatures
   -- ^ 'AllValidated' policy active, and there were no signatures on object
   --   that matched the allowed algorithms
+  | JWEIntegrityFailed
   deriving (Eq, Show)
 makeClassyPrisms ''Error
 

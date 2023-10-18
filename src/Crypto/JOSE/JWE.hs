@@ -12,6 +12,8 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -22,21 +24,32 @@ module Crypto.JOSE.JWE
     JWEHeader(..)
 
   , JWE(..)
+  , GeneralJWE
+  , FlattenedJWE
+  , CompactJWE
+
+  , decryptJWE
+  , decryptJWE2JWS
   ) where
 
 import Control.Applicative ((<|>))
-import Data.Bifunctor (bimap)
+import Control.Monad (when)
+import Data.Bifunctor (bimap, first)
 import Data.Maybe (catMaybes, fromMaybe)
 import Data.Monoid ((<>))
 
-import Control.Lens (view, views)
+import Control.Lens hiding ((.=))
+import Control.Lens.Cons.Extras (recons)
+import Control.Monad.Error.Lens (throwing)
 import Data.Aeson
 import Data.Aeson.Types
 import qualified Data.ByteArray as BA
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Data.List.NonEmpty (NonEmpty)
+import Data.Proxy
 
 import Crypto.Cipher.AES
 import Crypto.Cipher.Types
@@ -45,13 +58,17 @@ import Crypto.Error
 import Crypto.Hash
 import Crypto.MAC.HMAC
 import Crypto.PubKey.MaskGenFunction
+import qualified Crypto.PubKey.RSA.Types as RSA
 import qualified Crypto.PubKey.RSA.OAEP as OAEP
 
 import Crypto.JOSE.AESKW
+import Crypto.JOSE.Compact
 import Crypto.JOSE.Error
 import Crypto.JOSE.Header
 import Crypto.JOSE.JWA.JWE
+import Crypto.JOSE.JWA.JWK
 import Crypto.JOSE.JWK
+import Crypto.JOSE.JWS (CompactJWS, JWSHeader)
 import qualified Crypto.JOSE.Types as Types
 import Crypto.JOSE.Types.URI
 import qualified Crypto.JOSE.Types.Internal as Types
@@ -124,20 +141,17 @@ instance HasParams JWEHeader where
       ]
 
 
-data JWERecipient a p = JWERecipient
-  { _jweHeader :: a p
+data JWERecipient p a = JWERecipient
+  { _jweHeader :: a p -- ^ Aggregate header from shared protected,
+                      -- shared unprotected and per-recipient
+                      -- unprotected headers
   , _jweEncryptedKey :: Maybe Types.Base64Octets  -- ^ JWE Encrypted Key
   }
 
-instance FromJSON (JWERecipient a p) where
-  parseJSON = withObject "JWE Recipient" $ \o -> JWERecipient
-    <$> undefined -- o .:? "header"
-    <*> o .:? "encrypted_key"
-
 parseRecipient
   :: (HasParams a, ProtectionIndicator p)
-  => Maybe Object -> Maybe Object -> Value -> Parser (JWERecipient a p)
-parseRecipient hp hu = withObject "JWE Recipient" $ \o -> do
+  => Maybe Object -> Maybe Object -> Object -> Parser (JWERecipient p a)
+parseRecipient hp hu o = do
   hr <- o .:? "header"
   JWERecipient
     <$> parseParams hp (hu <> hr)  -- TODO fail on key collision in (hr <> hu)
@@ -145,25 +159,35 @@ parseRecipient hp hu = withObject "JWE Recipient" $ \o -> do
 
 -- parseParamsFor :: HasParams b => Proxy b -> Maybe Object -> Maybe Object -> Parser a
 
-data JWE a p = JWE
+data JWE t p a = JWE
   { _protectedRaw :: Maybe T.Text       -- ^ Encoded protected header, if available
   , _jweIv :: Maybe Types.Base64Octets  -- ^ JWE Initialization Vector
   , _jweAad :: Maybe Types.Base64Octets -- ^ JWE AAD
   , _jweCiphertext :: Types.Base64Octets  -- ^ JWE Ciphertext
   , _jweTag :: Maybe Types.Base64Octets  -- ^ JWE Authentication Tag
-  , _jweRecipients :: [JWERecipient a p]
+  , _jweRecipients :: t (JWERecipient p a)
   }
 
-instance (HasParams a, ProtectionIndicator p) => FromJSON (JWE a p) where
+type GeneralJWE = JWE [] Protection
+
+type FlattenedJWE = JWE Identity Protection
+
+type CompactJWE = JWE Identity ()
+
+protectedField :: FromJSON a => Object -> Parser (Maybe a)
+protectedField o = do
+  hpB64 <- o .:? "protected"
+  maybe
+    (pure Nothing)
+    (withText "base64url-encoded header params"
+      (Types.parseB64Url (maybe
+        (fail "protected header contains invalid JSON")
+        pure . decode . L.fromStrict)))
+    hpB64
+
+instance (HasParams a, ProtectionIndicator p) => FromJSON (JWE [] p a) where
   parseJSON = withObject "JWE JSON Serialization" $ \o -> do
-    hpB64 <- o .:? "protected"
-    hp <- maybe
-      (pure Nothing)
-      (withText "base64url-encoded header params"
-        (Types.parseB64Url (maybe
-          (fail "protected header contains invalid JSON")
-          pure . decode . L.fromStrict)))
-      hpB64
+    hp <- protectedField o
     hu <- o .:? "unprotected"
     JWE
       <$> (Just <$> (o .: "protected" <|> pure ""))  -- raw protected header
@@ -172,8 +196,35 @@ instance (HasParams a, ProtectionIndicator p) => FromJSON (JWE a p) where
       <*> o .: "ciphertext"
       <*> o .:? "tag"
       <*> (o .: "recipients" >>= traverse (parseRecipient hp hu))
-  -- TODO flattened serialization
 
+instance (HasParams a, ProtectionIndicator p) => FromJSON (JWE Identity p a) where
+  parseJSON = withObject "Flattened JWE JSON Serialization" $ \o -> do
+    hp <- protectedField o
+    hu <- o .:? "unprotected"
+    JWE
+      <$> (Just <$> (o .: "protected" <|> pure ""))  -- raw protected header
+      <*> o .:? "iv"
+      <*> o .:? "aad"
+      <*> o .: "ciphertext"
+      <*> o .:? "tag"
+      <*> (Identity <$> parseRecipient hp hu o)
+
+instance HasParams a => FromCompact (JWE Identity () a) where
+  fromCompact xs = do
+    xs' <- traverse (uncurry t) $ zip [0..] xs
+    case xs' of
+      [_, _, _, _, _] -> do
+        let o = object $ zip [ "protected", "encrypted_key", "iv"
+                             , "ciphertext", "tag" ] xs'
+        case fromJSON o of
+          Error e -> throwing _JSONDecodeError e
+          Success a -> pure a
+      _ -> throwing (_CompactDecodeError . _CompactInvalidNumberOfParts)
+             (InvalidNumberOfParts 5 (fromIntegral (length xs')))
+    where
+      l = _CompactDecodeError . _CompactInvalidText
+      t n = either (throwing l . CompactTextError n) (pure . String)
+        . T.decodeUtf8' . view recons
 
 wrap
   :: MonadRandom m
@@ -256,7 +307,7 @@ _cbcHmacEnc
 _cbcHmacEnc _ _ k m aad = do
   let
     kLen = B.length k `div` 2
-    (eKey, mKey) = B.splitAt kLen k
+    (mKey, eKey) = B.splitAt kLen k
     aadLen = B.reverse $ fst $ B.unfoldrN 8 (\x -> Just (fromIntegral x, x `div` 256)) (B.length aad)
   case cipherInit eKey of
     CryptoFailed _ -> return $ Left AlgorithmNotImplemented -- FIXME
@@ -289,3 +340,95 @@ _gcmEnc _ k m aad = do
         let (c, aeadFinal) = aeadEncrypt (aeadAppendHeader aead aad) m'
         let tag = BA.pack $ BA.unpack $ aeadFinalize aeadFinal 16
         return $ Right (iv, tag, c)
+
+-- | Decrypt JWE contents.  It's application specific how to handle
+-- partial successes but if all fail it should always be treated as
+-- failure.
+decryptJWE
+  :: Functor t
+  => JWK
+  -> Maybe RSA.Blinder
+  -> JWE t p JWEHeader
+  -> t (Either Error B.ByteString)
+decryptJWE k blinder jwe = fmap decrypt' $ _jweRecipients jwe
+  where
+    iv = maybe "" (\(Types.Base64Octets x) -> x) $ _jweIv jwe
+    aad = maybe "" (\(Types.Base64Octets x) -> x) $ _jweAad jwe
+    ciphertext = (\(Types.Base64Octets x) -> x) $ _jweCiphertext jwe
+    tag = maybe "" (\(Types.Base64Octets x) -> x) $ _jweTag jwe
+    decrypt' :: JWERecipient p JWEHeader -> Either Error B.ByteString
+    decrypt' recipient = do
+      (enc, cek) <- case (k ^. jwkMaterial, _jweAlg $ _jweHeader recipient) of
+        (RSAKeyMaterial m, Just RSA_OAEP) -> do
+          privateKey <- rsaPrivateKey m
+          let oaepParams = (OAEP.OAEPParams SHA1 (mgf1 SHA1) Nothing)
+          let header = _jweHeader recipient
+          let enc = view param $ _jweEnc header
+          encryptedKey <-
+            maybe
+              (Left JWEIntegrityFailed)
+              (\(Types.Base64Octets x) -> Right x) $
+              _jweEncryptedKey recipient
+          -- TODO think about blinder use.
+          (enc,) <$> first RSAError (OAEP.decrypt blinder oaepParams privateKey encryptedKey)
+        _ -> Left AlgorithmNotImplemented
+      -- Validate and decrypt
+      decrypt enc cek aad iv ciphertext tag
+
+decryptJWE2JWS
+  :: JWK
+  -> Maybe RSA.Blinder
+  -> JWE Identity () JWEHeader
+  -> Either Error (CompactJWS JWSHeader)
+decryptJWE2JWS k blinder jwe = do
+  decodeCompact . L.fromStrict =<< runIdentity (decryptJWE k blinder jwe)
+
+decrypt
+  :: Enc
+  -> B.ByteString -- ^ key
+  -> B.ByteString -- ^ additional authenticated data
+  -> B.ByteString -- ^ iv
+  -> B.ByteString -- ^ ciphertext
+  -> B.ByteString -- ^ tag
+  -> Either Error B.ByteString
+decrypt A128CBC_HS256 k a i c t = case B.length k of
+  32 ->_cbcHmacDec (Proxy :: Proxy AES128) (Proxy :: Proxy SHA256) k a i c t
+  _ -> Left KeySizeTooSmall
+decrypt A192CBC_HS384 k a i c t = case B.length k of
+  48 -> _cbcHmacDec (Proxy :: Proxy AES192) (Proxy :: Proxy SHA384) k a i c t
+  _ -> Left KeySizeTooSmall
+decrypt A256CBC_HS512 k a i c t = case B.length k of
+  48 -> _cbcHmacDec (Proxy :: Proxy AES256) (Proxy :: Proxy SHA512) k a i c t
+  _ -> Left KeySizeTooSmall
+decrypt _ _ _ _ _ _ = Left AlgorithmNotImplemented
+
+_cbcHmacDec
+  :: forall e h. (BlockCipher e, HashAlgorithm h)
+  => Proxy e
+  -> Proxy h
+  -> B.ByteString -- ^ key
+  -> B.ByteString -- ^ additional authenticated data
+  -> B.ByteString -- ^ iv
+  -> B.ByteString -- ^ ciphertext
+  -> B.ByteString -- ^ tag
+  -> Either Error B.ByteString -- ^ message
+_cbcHmacDec _ _ k aad iv c tag = do
+  let
+    kLen = B.length k `div` 2
+    (mKey, eKey) = B.splitAt kLen k
+    aadLen = B.reverse $ fst $ B.unfoldrN 8 (\x -> Just (fromIntegral x, x `div` 256)) (B.length aad)
+  case (cipherInit eKey, makeIV iv) of
+    (_, Nothing) -> Left $ CryptoError CryptoError_IvSizeInvalid
+    (CryptoPassed (e :: e), Just iv') -> do
+      let m' = cbcDecrypt e iv' c
+      m <- case unpad (PKCS7 $ blockSize e) m' of
+        Nothing -> Left JWEIntegrityFailed
+        Just m -> pure m
+      let hmacInput = B.concat [aad, iv, c, aadLen]
+      let tag' = BA.convert $ BA.takeView (hmac mKey hmacInput :: HMAC h) kLen
+      let tag'' :: B.ByteString = BA.convert $ BA.takeView tag kLen
+      -- Check the integrity of aad+ciphertext
+      when (tag'' /= tag') $ Left JWEIntegrityFailed  -- FIXME failed in my testing
+      -- aad and e are considered valid
+      pure m
+    _ -> Left AlgorithmNotImplemented
