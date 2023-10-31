@@ -1,4 +1,4 @@
-## Version NEXT
+## Version 0.11 (2023-10-31)
 
 - Migrate to the *crypton* library ecosystem.  *crypton* was a hard
   fork of *cryptonite*, which was no longer maintained.  With this
