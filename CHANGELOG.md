@@ -1,3 +1,15 @@
+## Version NEXT
+
+- Migrate to the *crypton* library ecosystem.  *crypton* was a hard
+  fork of *cryptonite*, which was no longer maintained.  With this
+  change, the minimum supported version of GHC increased to 8.8.
+  There are no other notable changes in this release.
+
+- The `v0.10` series is the last release series to support
+  *cryptonite*.  It will continue to receive important bug fixes
+  until the end of 2024.
+
+
 ## Version 0.10 (2022-09-01)
 
 - Introduce `newtype JOSE e m a` which behaves like `ExceptT e m a`
