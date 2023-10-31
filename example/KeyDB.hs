@@ -9,7 +9,6 @@ module KeyDB
 
 import Control.Exception (IOException, handle)
 import Data.Maybe (catMaybes)
-import Data.Semigroup ((<>))
 
 import Control.Monad.Trans (MonadIO(..))
 import Control.Lens (_Just, preview)

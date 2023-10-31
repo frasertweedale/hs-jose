@@ -77,7 +77,6 @@ import Control.Monad.Except (MonadError)
 import Data.Bifunctor
 import Data.Foldable (toList)
 import Data.Maybe (isJust)
-import Data.Monoid ((<>))
 
 import Control.Lens hiding ((.=), elements)
 import Control.Monad.Error.Lens (throwing, throwing_)

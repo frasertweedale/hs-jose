@@ -92,7 +92,6 @@ import Control.Applicative ((<|>))
 import Control.Monad (unless)
 import Data.Foldable (toList)
 import Data.Maybe (catMaybes, fromMaybe)
-import Data.Monoid ((<>))
 import Data.List.NonEmpty (NonEmpty)
 import Data.Word (Word8)
 

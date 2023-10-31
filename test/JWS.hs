@@ -19,7 +19,6 @@ module JWS
   ) where
 
 import Data.Maybe
-import Data.Monoid ((<>))
 
 import Control.Lens hiding ((.=))
 import Control.Lens.Extras (is)

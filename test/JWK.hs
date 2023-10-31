@@ -19,8 +19,6 @@ module JWK
   ( spec
   ) where
 
-import Data.Monoid ((<>))
-
 import Control.Lens (_Left, _Right, review, view)
 import Control.Lens.Extras (is)
 import Data.Aeson

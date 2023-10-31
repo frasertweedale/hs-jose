@@ -27,7 +27,6 @@ module Crypto.JOSE.JWE
 import Control.Applicative ((<|>))
 import Data.Bifunctor (bimap)
 import Data.Maybe (catMaybes, fromMaybe)
-import Data.Monoid ((<>))
 
 import Control.Lens (view, views)
 import Data.Aeson

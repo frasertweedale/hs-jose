@@ -66,7 +66,6 @@ module Crypto.JOSE.Header
 import qualified Control.Monad.Fail as Fail
 import Data.Kind (Type)
 import Data.List.NonEmpty (NonEmpty)
-import Data.Monoid ((<>))
 import Data.Proxy (Proxy(..))
 
 import Control.Lens (Lens', Getter, review, to)

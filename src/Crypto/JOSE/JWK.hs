@@ -92,7 +92,6 @@ import Control.Applicative
 import Control.Monad ((>=>))
 import Data.Function (on)
 import Data.Maybe (catMaybes)
-import Data.Monoid ((<>))
 import Data.Word (Word8)
 
 import Control.Lens hiding ((.=))

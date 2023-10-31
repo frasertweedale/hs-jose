@@ -20,7 +20,6 @@ module JWT
   ) where
 
 import Data.Maybe
-import Data.Monoid ((<>))
 
 import qualified Data.ByteString.Lazy as L
 import Control.Lens

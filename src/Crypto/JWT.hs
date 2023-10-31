@@ -95,7 +95,6 @@ import Data.Foldable (traverse_)
 import Data.Functor.Identity
 import Data.Maybe
 import qualified Data.String
-import Data.Semigroup ((<>))
 
 import Control.Lens (
   makeClassy, makeClassyPrisms, makePrisms,

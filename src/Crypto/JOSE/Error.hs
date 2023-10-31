@@ -41,7 +41,6 @@ module Crypto.JOSE.Error
 
   ) where
 
-import Data.Semigroup ((<>))
 import Numeric.Natural
 
 import Control.Monad.Except (MonadError(..), ExceptT, runExceptT)

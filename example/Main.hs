@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 import Data.Maybe (fromJust)
-import Data.Semigroup ((<>))
 import System.Environment (getArgs)
 import System.Exit (die, exitFailure)
 
