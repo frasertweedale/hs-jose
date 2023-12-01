@@ -308,7 +308,7 @@ _cbcHmacEnc _ _ k m aad = do
   let
     kLen = B.length k `div` 2
     (mKey, eKey) = B.splitAt kLen k
-    aadLen = B.reverse $ fst $ B.unfoldrN 8 (\x -> Just (fromIntegral x, x `div` 256)) (B.length aad)
+    aadLen = B.reverse $ fst $ B.unfoldrN 8 (\x -> Just (fromIntegral x, x `div` 256)) (B.length aad * 8)
   case cipherInit eKey of
     CryptoFailed _ -> return $ Left AlgorithmNotImplemented -- FIXME
     CryptoPassed (e :: e) -> do
@@ -353,24 +353,31 @@ decryptJWE
 decryptJWE k blinder jwe = fmap decrypt' $ _jweRecipients jwe
   where
     iv = maybe "" (\(Types.Base64Octets x) -> x) $ _jweIv jwe
-    aad = maybe "" (\(Types.Base64Octets x) -> x) $ _jweAad jwe
+    aad = case (_protectedRaw jwe, _jweAad jwe) of
+      (Just h, Just (Types.Base64Octets x)) | String a <- Types.encodeB64 x -> h <> "." <> a
+      (Just h, _) -> h
+      (_, Just (Types.Base64Octets x)) | String a <- Types.encodeB64 x -> a
+      _ -> ""
     ciphertext = (\(Types.Base64Octets x) -> x) $ _jweCiphertext jwe
     tag = maybe "" (\(Types.Base64Octets x) -> x) $ _jweTag jwe
     decrypt' :: JWERecipient p JWEHeader -> Either Error B.ByteString
     decrypt' recipient = do
-      (enc, cek) <- case (k ^. jwkMaterial, _jweAlg $ _jweHeader recipient) of
+      enc <- case _jweAlg $ _jweHeader recipient of
+        Just RSA_OAEP -> do
+          let header = _jweHeader recipient
+          pure $ view param $ _jweEnc header
+        _ -> Left AlgorithmNotImplemented
+      cek <- case (k ^. jwkMaterial, _jweAlg $ _jweHeader recipient) of
         (RSAKeyMaterial m, Just RSA_OAEP) -> do
           privateKey <- rsaPrivateKey m
           let oaepParams = (OAEP.OAEPParams SHA1 (mgf1 SHA1) Nothing)
-          let header = _jweHeader recipient
-          let enc = view param $ _jweEnc header
           encryptedKey <-
             maybe
               (Left JWEIntegrityFailed)
               (\(Types.Base64Octets x) -> Right x) $
               _jweEncryptedKey recipient
           -- TODO think about blinder use.
-          (enc,) <$> first RSAError (OAEP.decrypt blinder oaepParams privateKey encryptedKey)
+          first RSAError (OAEP.decrypt blinder oaepParams privateKey encryptedKey)
         _ -> Left AlgorithmNotImplemented
       -- Validate and decrypt
       decrypt enc cek aad iv ciphertext tag
@@ -386,7 +393,7 @@ decryptJWE2JWS k blinder jwe = do
 decrypt
   :: Enc
   -> B.ByteString -- ^ key
-  -> B.ByteString -- ^ additional authenticated data
+  -> T.Text -- ^ additional authenticated data
   -> B.ByteString -- ^ iv
   -> B.ByteString -- ^ ciphertext
   -> B.ByteString -- ^ tag
@@ -398,7 +405,7 @@ decrypt A192CBC_HS384 k a i c t = case B.length k of
   48 -> _cbcHmacDec (Proxy :: Proxy AES192) (Proxy :: Proxy SHA384) k a i c t
   _ -> Left KeySizeTooSmall
 decrypt A256CBC_HS512 k a i c t = case B.length k of
-  48 -> _cbcHmacDec (Proxy :: Proxy AES256) (Proxy :: Proxy SHA512) k a i c t
+  64 -> _cbcHmacDec (Proxy :: Proxy AES256) (Proxy :: Proxy SHA512) k a i c t
   _ -> Left KeySizeTooSmall
 decrypt _ _ _ _ _ _ = Left AlgorithmNotImplemented
 
@@ -407,16 +414,17 @@ _cbcHmacDec
   => Proxy e
   -> Proxy h
   -> B.ByteString -- ^ key
-  -> B.ByteString -- ^ additional authenticated data
+  -> T.Text -- ^ additional authenticated data
   -> B.ByteString -- ^ iv
   -> B.ByteString -- ^ ciphertext
   -> B.ByteString -- ^ tag
   -> Either Error B.ByteString -- ^ message
-_cbcHmacDec _ _ k aad iv c tag = do
+_cbcHmacDec _ _ k aadText iv c tag = do
   let
+    aad = T.encodeUtf8 aadText
     kLen = B.length k `div` 2
     (mKey, eKey) = B.splitAt kLen k
-    aadLen = B.reverse $ fst $ B.unfoldrN 8 (\x -> Just (fromIntegral x, x `div` 256)) (B.length aad)
+    aadLen = B.reverse $ fst $ B.unfoldrN 8 (\x -> Just (fromIntegral x, x `div` 256)) (B.length aad * 8)
   case (cipherInit eKey, makeIV iv) of
     (_, Nothing) -> Left $ CryptoError CryptoError_IvSizeInvalid
     (CryptoPassed (e :: e), Just iv') -> do
@@ -428,7 +436,7 @@ _cbcHmacDec _ _ k aad iv c tag = do
       let tag' = BA.convert $ BA.takeView (hmac mKey hmacInput :: HMAC h) kLen
       let tag'' :: B.ByteString = BA.convert $ BA.takeView tag kLen
       -- Check the integrity of aad+ciphertext
-      when (tag'' /= tag') $ Left JWEIntegrityFailed  -- FIXME failed in my testing
+      when (tag'' /= tag') $ Left JWEIntegrityFailed
       -- aad and e are considered valid
       pure m
     _ -> Left AlgorithmNotImplemented
