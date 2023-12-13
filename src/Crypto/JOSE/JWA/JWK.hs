@@ -47,6 +47,7 @@ module Crypto.JOSE.JWA.JWK (
   , toRSAPublicKeyParameters
   , rsaE
   , rsaN
+  , rsaPrivateKey
   , rsaPrivateKeyParameters
   , rsaPublicKey
   , genRSA
