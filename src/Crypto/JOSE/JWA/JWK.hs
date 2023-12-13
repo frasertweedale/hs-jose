@@ -36,6 +36,7 @@ module Crypto.JOSE.JWA.JWK (
   , point
   , ecPrivateKey
   , ecParametersFromX509
+  , ecParametersFromX509Priv
   , genEC
 
   -- * Parameters for RSA Keys
@@ -306,17 +307,45 @@ ecPrivateKey :: (MonadError e m, AsError e) => ECKeyParameters -> m Integer
 ecPrivateKey (ECKeyParameters _ _ _ (Just (Types.SizedBase64Integer _ d))) = pure d
 ecPrivateKey _ = throwing _KeyMismatch "Not an EC private key"
 
+-- | See also 'Crypto.JOSE.JWK.fromX509PubKey' and
+-- 'Crypto.JOSE.JWK.fromX509Certificate'.
+--
 ecParametersFromX509 :: (MonadError e m, AsError e) => X509.PubKeyEC -> m ECKeyParameters
-ecParametersFromX509 pubKeyEC = do
-  ecCurve <- maybe (throwing _KeyMismatch "Invalid EC point") pure $ X509.EC.ecPubKeyCurve pubKeyEC
-  curveName <- maybe (throwing _KeyMismatch "Unknown curve") pure $ X509.EC.ecPubKeyCurveName pubKeyEC
-  crv <- maybe (throwing _KeyMismatch "Unsupported curve TODO ") pure $ preview fromCurveName curveName
-  pt <- maybe (throwing _KeyMismatch "Invalid EC point") pure $ X509.EC.unserializePoint ecCurve (X509.pubkeyEC_pub pubKeyEC)
+ecParametersFromX509 k = do
+  curveName <-
+    maybe (throwing _KeyMismatch "Unknown curve") pure
+      $ X509.EC.ecPubKeyCurveName k
+  crv <-
+    maybe (throwing _KeyMismatch "Unsupported curve") pure
+      $ preview fromCurveName curveName
+  pt <-
+    maybe (throwing _KeyMismatch "Invalid EC point") pure
+      $ X509.EC.unserializePoint (ECC.getCurveByName curveName) (X509.pubkeyEC_pub k)
   (x, y) <- case pt of
-    ECC.PointO    -> throwing _KeyMismatch "Cannot use point at infinity"
+    ECC.PointO ->
+      throwing _KeyMismatch "Cannot use point at infinity"
     ECC.Point x y ->
       pure (Types.makeSizedBase64Integer x, Types.makeSizedBase64Integer y)
   pure $ ECKeyParameters crv x y Nothing
+
+-- | See also 'Crypto.JOSE.JWK.fromX509PrivKey'.
+--
+ecParametersFromX509Priv :: (MonadError e m, AsError e) => X509.PrivKeyEC -> m ECKeyParameters
+ecParametersFromX509Priv k = do
+  curveName <-
+    maybe (throwing _KeyMismatch "Unknown curve") pure
+      $ X509.EC.ecPrivKeyCurveName k
+  crv <-
+    maybe (throwing _KeyMismatch "Unsupported curve") pure
+      $ preview fromCurveName curveName
+  let d = privkeyEC_priv k
+  (x, y) <- case ECC.generateQ (ECC.getCurveByName curveName) d of
+    ECC.PointO ->
+      throwing _KeyMismatch "Cannot use point at infinity"
+    ECC.Point x y ->
+      pure (Types.makeSizedBase64Integer x, Types.makeSizedBase64Integer y)
+  pure $ ECKeyParameters crv x y (Just $ Types.makeSizedBase64Integer d)
+
 
 -- | Parameters for RSA Keys.
 --

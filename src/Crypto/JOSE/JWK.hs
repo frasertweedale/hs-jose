@@ -73,6 +73,7 @@ module Crypto.JOSE.JWK
   , fromOctets
   , fromX509Certificate
   , fromX509PubKey
+  , fromX509PrivKey
 
   -- * JWK Thumbprint
   , thumbprint
@@ -101,6 +102,10 @@ import Control.Lens.Cons.Extras (recons)
 import Control.Monad.Except (MonadError, runExcept)
 import Control.Monad.Error.Lens (throwing, throwing_)
 import Crypto.Hash
+import qualified Crypto.PubKey.Ed25519 as Ed25519
+import qualified Crypto.PubKey.Ed448 as Ed448
+import qualified Crypto.PubKey.Curve25519 as Curve25519
+import qualified Crypto.PubKey.Curve448 as Curve448
 import qualified Crypto.PubKey.RSA as RSA
 import Data.Aeson
 import Data.Aeson.Types (explicitParseFieldMaybe')
@@ -269,6 +274,23 @@ fromX509PubKey = \case
   _ -> throwing _KeyMismatch "X.509 key type not supported"
   where
     fromECPublic = fmap (fromKeyMaterial . ECKeyMaterial) . ecParametersFromX509
+    fromOKP = pure . fromKeyMaterial . OKPKeyMaterial
+
+-- | Convert from a 'X509.PrivKey' (such as can be read via the
+-- /crypton-x509-store/ package).  Supports RSA, ECDSA, Ed25519,
+-- Ed448, X25519 and X448 keys.
+--
+fromX509PrivKey :: (AsError e, MonadError e m) => X509.PrivKey -> m JWK
+fromX509PrivKey = \case
+  X509.PrivKeyRSA k      -> pure (fromRSA k)
+  X509.PrivKeyEC k       -> fromEC k
+  X509.PrivKeyX25519 k   -> fromOKP $ X25519Key (Curve25519.toPublic k) (Just k)
+  X509.PrivKeyX448 k     -> fromOKP $ X448Key (Curve448.toPublic k) (Just k)
+  X509.PrivKeyEd25519 k  -> fromOKP $ Ed25519Key (Ed25519.toPublic k) (Just k)
+  X509.PrivKeyEd448 k    -> fromOKP $ Ed448Key (Ed448.toPublic k) (Just k)
+  _ -> throwing _KeyMismatch "X.509 key type not supported"
+  where
+    fromEC = fmap (fromKeyMaterial . ECKeyMaterial) . ecParametersFromX509Priv
     fromOKP = pure . fromKeyMaterial . OKPKeyMaterial
 
 
