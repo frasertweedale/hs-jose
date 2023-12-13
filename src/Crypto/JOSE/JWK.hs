@@ -13,6 +13,7 @@
 -- limitations under the License.
 
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -71,6 +72,7 @@ module Crypto.JOSE.JWK
   , fromRSA
   , fromOctets
   , fromX509Certificate
+  , fromX509PubKey
 
   -- * JWK Thumbprint
   , thumbprint
@@ -242,11 +244,6 @@ fromRSA = fromKeyMaterial . RSAKeyMaterial . toRSAKeyParameters
 fromRSAPublic :: RSA.PublicKey -> JWK
 fromRSAPublic = fromKeyMaterial . RSAKeyMaterial . toRSAPublicKeyParameters
 
--- | Convert an EC public key into a JWK
---
-fromECPublic :: (AsError e, MonadError e m) => X509.PubKeyEC -> m JWK
-fromECPublic = fmap (fromKeyMaterial . ECKeyMaterial) . ecParametersFromX509
-
 
 -- | Convert octet string into a JWK
 --
@@ -255,6 +252,18 @@ fromOctets =
   fromKeyMaterial . OctKeyMaterial . OctKeyParameters . Types.Base64Octets
   . view recons
 {-# INLINE fromOctets #-}
+
+
+-- | Convert from a 'X509.PubKey' (such as can be read via the
+-- /crypton-x509-store/ package).
+--
+fromX509PubKey :: (AsError e, MonadError e m) => X509.PubKey -> m JWK
+fromX509PubKey = \case
+  X509.PubKeyRSA k -> pure (fromRSAPublic k)
+  X509.PubKeyEC k -> fromECPublic k
+  _ -> throwing _KeyMismatch "X.509 key type not supported"
+  where
+    fromECPublic = fmap (fromKeyMaterial . ECKeyMaterial) . ecParametersFromX509
 
 
 -- | Convert an X.509 certificate into a JWK.
@@ -268,10 +277,7 @@ fromX509Certificate
   :: (AsError e, MonadError e m)
   => X509.SignedCertificate -> m JWK
 fromX509Certificate cert = do
-  k <- case (X509.certPubKey . X509.signedObject . X509.getSigned) cert of
-    X509.PubKeyRSA k -> pure (fromRSAPublic k)
-    X509.PubKeyEC k -> fromECPublic k
-    _ -> throwing _KeyMismatch "X.509 key type not supported"
+  k <- fromX509PubKey . X509.certPubKey . X509.signedObject $ X509.getSigned cert
   pure $ k & set jwkX5cRaw (Just (pure cert))
 
 fromX509CertificateMaybe :: X509.SignedCertificate -> Maybe JWK
