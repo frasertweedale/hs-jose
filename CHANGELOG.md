@@ -1,3 +1,14 @@
+## Version NEXT
+
+- Added `Crypto.JOSE.JWK.fromX509PubKey`, which supports conversion
+  from the `Data.X509.PubKey` type, such as can be read via the
+  *crypton-x509-store* package.  It supports RSA, NIST ECC, and
+  Edwards curve key types (Ed25519, Ed448, X25519, X448).
+
+- Updated `Crypto.JOSE.JWK.fromX509Certificate` to support Edwards
+  curve key types (Ed25519, Ed448, X25519, X448).
+
+
 ## Version 0.11 (2023-10-31)
 
 - Migrate to the *crypton* library ecosystem.  *crypton* was a hard

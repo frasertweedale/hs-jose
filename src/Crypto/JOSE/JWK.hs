@@ -255,21 +255,27 @@ fromOctets =
 
 
 -- | Convert from a 'X509.PubKey' (such as can be read via the
--- /crypton-x509-store/ package).
+-- /crypton-x509-store/ package).  Supports RSA, ECDSA, Ed25519,
+-- Ed448, X25519 and X448 keys.
 --
 fromX509PubKey :: (AsError e, MonadError e m) => X509.PubKey -> m JWK
 fromX509PubKey = \case
-  X509.PubKeyRSA k -> pure (fromRSAPublic k)
-  X509.PubKeyEC k -> fromECPublic k
+  X509.PubKeyRSA k      -> pure (fromRSAPublic k)
+  X509.PubKeyEC k       -> fromECPublic k
+  X509.PubKeyX25519 k   -> fromOKP $ X25519Key k Nothing
+  X509.PubKeyX448 k     -> fromOKP $ X448Key k Nothing
+  X509.PubKeyEd25519 k  -> fromOKP $ Ed25519Key k Nothing
+  X509.PubKeyEd448 k    -> fromOKP $ Ed448Key k Nothing
   _ -> throwing _KeyMismatch "X.509 key type not supported"
   where
     fromECPublic = fmap (fromKeyMaterial . ECKeyMaterial) . ecParametersFromX509
+    fromOKP = pure . fromKeyMaterial . OKPKeyMaterial
 
 
 -- | Convert an X.509 certificate into a JWK.
 --
--- Supports RSA and ECDSA (when the curve is supported).  Other key types
--- will throw 'AlgorithmNotImplemented'.
+-- Supports RSA, ECDSA (curves defined for use in JOSE), and Edwards
+-- curves (Ed25519, Ed448, X25519, X448).
 --
 -- The @"x5c"@ field of the resulting JWK contains the certificate.
 --
