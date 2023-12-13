@@ -30,7 +30,7 @@ module Crypto.JOSE.JWA.JWK (
 
   -- * Parameters for Elliptic Curve Keys
   , Crv(..)
-  , ECKeyParameters
+  , ECKeyParameters(ECKeyParameters)
   , ecCrv, ecX, ecY, ecD
   , curve
   , point
@@ -188,7 +188,11 @@ instance ToJSON RSAPrivateKeyParameters where
       $ maybe (Object mempty) toJSON rsaOptionalParameters
 
 
--- | Parameters for Elliptic Curve Keys
+-- | Parameters for Elliptic Curve Keys.
+--
+-- @
+-- ECKeyParameters crv x y (Just d)
+-- @
 --
 data ECKeyParameters = ECKeyParameters
   { _ecCrv :: Crv
@@ -314,7 +318,11 @@ ecParametersFromX509 pubKeyEC = do
       pure (Types.makeSizedBase64Integer x, Types.makeSizedBase64Integer y)
   pure $ ECKeyParameters crv x y Nothing
 
--- | Parameters for RSA Keys
+-- | Parameters for RSA Keys.
+--
+-- @
+-- RSAKeyParameters modulus exponent (Just privateParams)
+-- @
 --
 data RSAKeyParameters = RSAKeyParameters
   { _rsaN :: Types.Base64Integer
