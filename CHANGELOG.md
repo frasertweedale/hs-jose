@@ -1,5 +1,9 @@
 ## Version NEXT
 
+- Add `Crypto.JOSE.JWK.negotiateJWSAlg` which chooses the
+  cryptographically strongest JWS algorithm for a given key,
+  restricted to a given set of algorithms.  ([#118][])
+
 - Added new conversion functions `Crypto.JOSE.JWK.fromX509PubKey`
   and `Crypto.JOSE.JWK.fromX509PrivKey`.  These convert from the
   `Data.X509.PubKey` and `Data.X509.PrivKey` types, which can be
@@ -66,6 +70,7 @@
 [#91]: https://github.com/frasertweedale/hs-jose/issues/91
 [#106]: https://github.com/frasertweedale/hs-jose/issues/106
 [#107]: https://github.com/frasertweedale/hs-jose/issues/107
+[#118]: https://github.com/frasertweedale/hs-jose/issues/118
 
 
 ## Older versions

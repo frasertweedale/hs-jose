@@ -1,4 +1,4 @@
--- Copyright (C) 2013, 2014, 2015, 2016, 2017  Fraser Tweedale
+-- Copyright (C) 2013-2023  Fraser Tweedale
 --
 -- Licensed under the Apache License, Version 2.0 (the "License");
 -- you may not use this file except in compliance with the License.
@@ -87,6 +87,7 @@ module Crypto.JOSE.JWK
 
   -- Miscellaneous
   , checkJWK
+  , negotiateJWSAlg
   , bestJWSAlg
 
   , module Crypto.JOSE.JWA.JWK
@@ -95,6 +96,7 @@ module Crypto.JOSE.JWK
 import Control.Applicative
 import Control.Monad ((>=>))
 import Data.Function (on)
+import Data.List (find)
 import Data.Maybe (catMaybes)
 import Data.Word (Word8)
 
@@ -352,33 +354,75 @@ checkJWK jwk = case view jwkMaterial jwk of
 -- | Choose the cryptographically strongest JWS algorithm for a
 -- given key.  The JWK "alg" algorithm parameter is ignored.
 --
+-- See also 'negotiateJWSAlg'.
+--
+-- @
+-- bestJWSAlg k = negotiateJWSAlg k Nothing
+-- @
+--
 bestJWSAlg
   :: (MonadError e m, AsError e)
   => JWK
   -> m JWA.JWS.Alg
-bestJWSAlg jwk = case view jwkMaterial jwk of
-  ECKeyMaterial k -> pure $ case view ecCrv k of
-    P_256 -> JWA.JWS.ES256
-    P_384 -> JWA.JWS.ES384
-    P_521 -> JWA.JWS.ES512
-    Secp256k1 -> JWA.JWS.ES256K
-  RSAKeyMaterial k ->
-    let
+bestJWSAlg jwk = chooseJWSAlg jwk Nothing
+
+-- | Choose the cryptographically strongest JWS algorithm for a
+-- given key, restricted to a given set of algorithms.  This
+-- function supports negotiation use cases where verifier's
+-- supported algorithms are advertised or known.
+--
+-- Throws an error if the key is too small or cannot be used for
+-- signing, or if there is no overlap between the allowed algorithms
+-- and the algorithms supported by the key type.
+--
+-- RSASSA-PSS algorithms are preferred over RSASSA-PKCS1-v1_5.
+--
+-- The JWK "alg" parameter is ignored.
+--
+negotiateJWSAlg
+  :: (MonadError e m, AsError e)
+  => JWK
+  -> NonEmpty JWA.JWS.Alg
+  -> m JWA.JWS.Alg
+negotiateJWSAlg jwk = chooseJWSAlg jwk . Just
+
+-- | General implementation used by 'bestJWSAlg' and 'negotiateJWSAlg'.
+--
+chooseJWSAlg
+  :: (MonadError e m, AsError e)
+  => JWK
+  -> Maybe (NonEmpty JWA.JWS.Alg)
+  -> m JWA.JWS.Alg
+chooseJWSAlg jwk allowed = case view jwkMaterial jwk of
+  ECKeyMaterial k -> case view ecCrv k of
+    P_256     | ok JWA.JWS.ES256  -> pure JWA.JWS.ES256
+    P_384     | ok JWA.JWS.ES384  -> pure JWA.JWS.ES384
+    P_521     | ok JWA.JWS.ES512  -> pure JWA.JWS.ES512
+    Secp256k1 | ok JWA.JWS.ES256K -> pure JWA.JWS.ES256K
+    _                             -> negoFail
+  RSAKeyMaterial k
+    | n < 2 ^ (2040 :: Integer) -> throwing_ _KeySizeTooSmall
+    | otherwise                 -> maybe negoFail pure (find ok rsaAlgs)
+    where
       Types.Base64Integer n = view rsaN k
-    in
-      if n >= 2 ^ (2040 :: Integer)
-      then pure JWA.JWS.PS512
-      else throwing_ _KeySizeTooSmall
+      rsaAlgs =
+        [ JWA.JWS.PS512 , JWA.JWS.PS384 , JWA.JWS.PS256
+        , JWA.JWS.RS512 , JWA.JWS.RS384 , JWA.JWS.RS256 ]
   OctKeyMaterial (OctKeyParameters (Types.Base64Octets k))
-    | B.length k >= 512 `div` 8 -> pure JWA.JWS.HS512
-    | B.length k >= 384 `div` 8 -> pure JWA.JWS.HS384
-    | B.length k >= 256 `div` 8 -> pure JWA.JWS.HS256
-    | otherwise -> throwing_ _KeySizeTooSmall
+    | B.length k >= 512 `div` 8, ok JWA.JWS.HS512 -> pure JWA.JWS.HS512
+    | B.length k >= 384 `div` 8, ok JWA.JWS.HS384 -> pure JWA.JWS.HS384
+    | B.length k >= 256 `div` 8, ok JWA.JWS.HS256 -> pure JWA.JWS.HS256
+    | B.length k >= 256 `div` 8                   -> negoFail
+    | otherwise                                   -> throwing_ _KeySizeTooSmall
   OKPKeyMaterial k -> case k of
-    (Ed25519Key _ _)  -> pure JWA.JWS.EdDSA
-    (Ed448Key _ _)    -> pure JWA.JWS.EdDSA
-    (X25519Key _ _)   -> throwing _KeyMismatch "Cannot sign with X25519 key"
-    (X448Key _ _)     -> throwing _KeyMismatch "Cannot sign with X448 key"
+    (X25519Key _ _)                     -> throwing _KeyMismatch "Cannot sign with X25519 key"
+    (X448Key _ _)                       -> throwing _KeyMismatch "Cannot sign with X448 key"
+    (Ed25519Key _ _) | ok JWA.JWS.EdDSA -> pure JWA.JWS.EdDSA
+    (Ed448Key _ _)   | ok JWA.JWS.EdDSA -> pure JWA.JWS.EdDSA
+    _                                   -> negoFail
+  where
+    ok alg = maybe True (alg `elem`) allowed
+    negoFail = throwing _AlgorithmMismatch "Algorithm negotation failed"
 
 
 -- | Compute the JWK Thumbprint of a JWK
