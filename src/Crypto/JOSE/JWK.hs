@@ -70,6 +70,7 @@ module Crypto.JOSE.JWK
   -- * Converting from other key formats
   , fromKeyMaterial
   , fromRSA
+  , fromRSAPublic
   , fromOctets
   , fromX509Certificate
   , fromX509PubKey

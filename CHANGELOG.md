@@ -10,6 +10,8 @@
 - Updated `Crypto.JOSE.JWK.fromX509Certificate` to support Edwards
   curve key types (Ed25519, Ed448, X25519, X448).
 
+- Added `Crypto.JOSE.JWK.fromRSAPublic :: RSA.PublicKey -> JWK`.
+
 
 ## Version 0.11 (2023-10-31)
 
