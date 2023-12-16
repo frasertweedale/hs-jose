@@ -43,8 +43,9 @@ module Crypto.JWT
   -- * API
   -- ** Creating a JWT
     SignedJWT
-  , signClaims
+  , SignedJWTWithHeader
   , signJWT
+  , signClaims
 
   -- ** Validating a JWT and extracting claims
   , defaultJWTValidationSettings
@@ -155,8 +156,8 @@ verify k s = 'runJOSE' $ do
   let
     k' = 'fromOctets' k      -- turn raw secret into symmetric JWK
     audCheck = const True  -- should be a proper audience check
-  jwt <- 'decodeCompact' s    -- decode JWT
-  'verifyClaims' ('defaultJWTValidationSettings' audCheck) k' jwt
+  jwt <- 'decodeCompact' s   -- decode JWT
+  'verifyClaims' ('defaultJWTValidationSettings' audCheck) k' (jwt :: 'SignedJWT')
 @
 
 -}
@@ -621,10 +622,16 @@ validateIssClaim conf =
     unless (view issuerPredicate conf iss) (throwing_ _JWTNotInIssuer) )
   . preview (claimIss . _Just)
 
--- | A digitally signed or MACed JWT
+-- | A digitally signed or MAC'd JWT, with the JWS header type fixed
+-- at 'JWSHeader'.
 --
-type SignedJWT = CompactJWS JWSHeader
+type SignedJWT = SignedJWTWithHeader JWSHeader
 
+-- | A digitally signed or MAC'd JWT, with caller-specified JWS
+-- header type.  For information about defining custom header types
+-- see /Defining additional header parameters/ in "Crypto.JOSE.JWS".
+--
+type SignedJWTWithHeader h = CompactJWS h
 
 newtype WrappedUTCTime = WrappedUTCTime { getUTCTime :: UTCTime }
 
@@ -678,13 +685,18 @@ verifyJWT
     , HasIssuerPredicate a
     , HasCheckIssuedAt a
     , HasValidationSettings a
+    , HasJWSHeader h, HasParams h
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore m (JWSHeader ()) payload k
+    , VerificationKeyStore m (h ()) payload k
     , HasClaimsSet payload, FromJSON payload
     )
   => a
+  -- ^ Validation settings
   -> k
-  -> SignedJWT
+  -- ^ Key store
+  -> SignedJWTWithHeader h
+  -- ^ JWT.  Simple use cases may find the 'SignedJWT' type synonym useful for
+  -- fixing the type of @h@.
   -> m payload
 verifyJWT conf k jws =
   -- It is important, for security reasons, that the signature get
@@ -701,12 +713,17 @@ verifyClaims
     , HasIssuerPredicate a
     , HasCheckIssuedAt a
     , HasValidationSettings a
+    , HasJWSHeader h, HasParams h
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore m (JWSHeader ()) ClaimsSet k
+    , VerificationKeyStore m (h ()) ClaimsSet k
     )
   => a
+  -- ^ Validation settings
   -> k
-  -> SignedJWT
+  -- ^ Key store
+  -> SignedJWTWithHeader h
+  -- ^ JWT.  Simple use cases may find the 'SignedJWT' type synonym useful for
+  -- fixing the type of @h@.
   -> m ClaimsSet
 verifyClaims = verifyJWT
 
@@ -720,14 +737,20 @@ verifyJWTAt
     , HasIssuerPredicate a
     , HasCheckIssuedAt a
     , HasValidationSettings a
+    , HasJWSHeader h, HasParams h
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore (ReaderT WrappedUTCTime m) (JWSHeader ()) payload k
+    , VerificationKeyStore (ReaderT WrappedUTCTime m) (h ()) payload k
     , HasClaimsSet payload, FromJSON payload
     )
   => a
+  -- ^ Validation settings
   -> k
+  -- ^ Key store
   -> UTCTime
-  -> SignedJWT
+  -- ^ Validation time
+  -> SignedJWTWithHeader h
+  -- ^ JWT.  Simple use cases may find the 'SignedJWT' type synonym useful for
+  -- fixing the type of @h@.
   -> m payload
 verifyJWTAt a k t jwt = runReaderT (verifyJWT a k jwt) (WrappedUTCTime t)
 
@@ -740,13 +763,19 @@ verifyClaimsAt
     , HasIssuerPredicate a
     , HasCheckIssuedAt a
     , HasValidationSettings a
+    , HasJWSHeader h, HasParams h
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore (ReaderT WrappedUTCTime m) (JWSHeader ()) ClaimsSet k
+    , VerificationKeyStore (ReaderT WrappedUTCTime m) (h ()) ClaimsSet k
     )
   => a
+  -- ^ Validation settings
   -> k
+  -- ^ Key store
   -> UTCTime
-  -> SignedJWT
+  -- ^ Validation time
+  -> SignedJWTWithHeader h
+  -- ^ JWT.  Simple use cases may find the 'SignedJWT' type synonym useful for
+  -- fixing the type of @h@.
   -> m ClaimsSet
 verifyClaimsAt = verifyJWTAt
 
@@ -760,11 +789,17 @@ verifyClaimsAt = verifyJWTAt
 --
 signJWT
   :: ( MonadRandom m, MonadError e m, AsError e
+     , HasJWSHeader h, HasParams h
      , ToJSON payload )
   => JWK
-  -> JWSHeader ()
+  -- ^ Signing key
+  -> h ()
+  -- ^ JWS Header.  Commonly this will be 'JWSHeader'.  If your application
+  -- uses additional header fields, see /Defining additional header parameters/
+  -- in "Crypto.JOSE.JWS".
   -> payload
-  -> m SignedJWT
+  -- ^ The payload ('ClaimsSet' or a subtype).
+  -> m (SignedJWTWithHeader h)
 signJWT k h c = signJWS (encode c) (Identity (h, k))
 
 -- | Create a JWS JWT.  Specialisation of 'signJWT' with payload type fixed
@@ -774,9 +809,15 @@ signJWT k h c = signJWS (encode c) (Identity (h, k))
 -- ("Issued At") Claim.  The payload is encoded as-is.
 --
 signClaims
-  :: (MonadRandom m, MonadError e m, AsError e)
+  :: ( MonadRandom m, MonadError e m, AsError e
+     , HasJWSHeader h, HasParams h )
   => JWK
-  -> JWSHeader ()
+  -- ^ Signing key
+  -> h ()
+  -- ^ JWS Header.  Commonly this will be 'JWSHeader'.  If your application
+  -- uses additional header fields, see /Defining additional header parameters/
+  -- in "Crypto.JOSE.JWS".
   -> ClaimsSet
-  -> m SignedJWT
+  -- ^ Payload
+  -> m (SignedJWTWithHeader h)
 signClaims = signJWT
