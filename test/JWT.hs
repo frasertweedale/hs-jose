@@ -14,6 +14,7 @@
 
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module JWT
   ( spec
@@ -339,9 +340,9 @@ spec = do
            192,205,154,245,103,208,128,163]
         now = utcTime "2010-01-01 00:00:00"
         settings = defaultJWTValidationSettings (const True)
-      runReaderT (decodeCompact exampleJWT >>= verifyClaims settings k) now
+      runReaderT (decodeCompact @SignedJWT exampleJWT >>= verifyClaims settings k) now
         `shouldBe` (Right exampleClaimsSet :: Either JWTError ClaimsSet)
-      runReaderT (decodeCompact exampleJWT >>= verifyJWT settings k) now
+      runReaderT (decodeCompact @SignedJWT exampleJWT >>= verifyJWT settings k) now
         `shouldBe` (Right super :: Either JWTError Super)
 
   describe "RFC 7519 §6.1.  Example Unsecured JWT" $ do
@@ -352,7 +353,7 @@ spec = do
         <> "eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt"
         <> "cGxlLmNvbS9pc19yb290Ijp0cnVlfQ"
         <> "."
-      jwt = decodeCompact exampleJWT
+      jwt = decodeCompact @SignedJWT exampleJWT
       k = fromJust $ decode "{\"kty\":\"oct\",\"k\":\"\"}" :: JWK
 
     describe "when the current time is prior to the Expiration Time" $
@@ -367,7 +368,7 @@ spec = do
 
     describe "when signature is invalid and token is expired" $
       it "fails on sig validation (claim validation not reached)" $ do
-        let jwt' = decodeCompact (exampleJWT <> "badsig")
+        let jwt' = decodeCompact @SignedJWT (exampleJWT <> "badsig")
         (runReaderT (jwt' >>= verifyClaims conf k) (utcTime "2012-01-01 00:00:00")
           :: Either JWTError ClaimsSet)
           `shouldSatisfy` is (_Left . _JWSInvalidSignature)

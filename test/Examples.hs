@@ -42,7 +42,7 @@ fromX509VerifySpec =
           (do
             es256jwk <- errorOrJWK
             jwt <- decodeCompact es256token
-            verifyClaimsAt valSettings es256jwk now jwt) `shouldBe`
+            verifyClaimsAt valSettings es256jwk now (jwt :: SignedJWT)) `shouldBe`
           Right expectedClaims
 
       _ -> pure ()

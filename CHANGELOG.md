@@ -1,5 +1,29 @@
 ## Version NEXT
 
+- Generalised the types of `signJWT`, `verifyJWT` and related
+  functions to accept custom JWS header types.  Added new type
+  synonym `SignedJWTWithHeader h`.  This change could break some
+  applications by introducing ambiguity.  The solution is to use
+  a type annotation, type application, or explicit coercion
+  function, as in the below examples:
+
+  ```haskell
+  -- type application
+  {-# LANGUAGE TypeApplications #-}
+  decodeCompact @SignedJWT s >>= verifyClaims settings k
+
+  -- type annotation
+  do
+    jwt <- decodeCompact s
+    verifyClaims settings k (jwt :: SignedJWT)
+
+  -- coercion function
+  let
+    fixType = id :: SignedJWT -> SignedJWT
+  in
+    verifyClaims settings k . fixType =<< decodeCompact s
+  ```
+
 - Added `unsafeGetPayload`, `unsafeGetJWTPayload` and
   `unsafeGetJWTClaimsSet` functions.  These enable access to
   the JWS/JWT payload without cryptographic verification.  As
@@ -77,6 +101,7 @@
 [#106]: https://github.com/frasertweedale/hs-jose/issues/106
 [#107]: https://github.com/frasertweedale/hs-jose/issues/107
 [#118]: https://github.com/frasertweedale/hs-jose/issues/118
+[#122]: https://github.com/frasertweedale/hs-jose/issues/122
 
 
 ## Older versions
