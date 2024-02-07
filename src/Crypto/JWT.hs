@@ -62,6 +62,10 @@ module Crypto.JWT
   , verifyClaimsAt
   , verifyJWTAt
 
+  -- ** Extracting claims without verification
+  , unsafeGetJWTPayload
+  , unsafeGetJWTClaimsSet
+
   -- ** Claims Set
   , ClaimsSet
   , emptyClaimsSet
@@ -633,14 +637,32 @@ instance Monad m => MonadTime (ReaderT WrappedUTCTime m) where
   monotonicTime = pure 0
 #endif
 
+-- | Get the JWT payload __without verifying it__.  Do not use this
+-- function unless you have a compelling reason.
+--
+-- Most applications should use 'verifyJWT' or one of its variants
+-- to verify the JWT and access the claims.
+--
+-- See also 'unsafeGetJWTClaimsSet' which is the same as this
+-- function with the payload type specialised to 'ClaimsSet'.
+--
+unsafeGetJWTPayload
+  :: ( FromJSON payload, AsJWTError e, MonadError e m )
+  => SignedJWT -> m payload
+unsafeGetJWTPayload = unsafeGetPayload f
+  where
+  f = either (throwing _JWTClaimsSetDecodeError) pure . eitherDecode
+
+-- | Variant of 'unsafeGetJWTPayload' specialised to 'ClaimsSet'
+unsafeGetJWTClaimsSet
+  :: ( AsJWTError e, MonadError e m )
+  => SignedJWT -> m ClaimsSet
+unsafeGetJWTClaimsSet = unsafeGetJWTPayload
+
 
 -- | Cryptographically verify a JWS JWT, then validate the
 -- Claims Set, returning it if valid.  The claims are validated
 -- at the current system time.
---
--- This is the only way to get at the claims of a JWS JWT,
--- enforcing that the claims are cryptographically and
--- semantically valid before the application can use them.
 --
 -- This function is abstracted over any payload type with 'HasClaimsSet' and
 -- 'FromJSON' instances.  The 'verifyClaims' variant uses 'ClaimsSet' as the

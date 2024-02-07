@@ -71,6 +71,9 @@ module Crypto.JOSE.JWS
   , HasAlgorithms(..)
   , HasValidationPolicy(..)
 
+  -- * Access payload without verification
+  , unsafeGetPayload
+
   -- * Signature data
   , signatures
   , Signature
@@ -363,8 +366,7 @@ instance HasParams JWSHeader where
       ]
 
 
--- | JSON Web Signature data type.  The payload can only be
--- accessed by verifying the JWS.
+-- | JSON Web Signature data type.
 --
 -- Parameterised by the signature container type, the header
 -- 'ProtectionIndicator' type, and the header record type.
@@ -380,9 +382,14 @@ instance HasParams JWSHeader where
 -- 'encodeCompact').
 --
 -- Use 'signJWS' to create a signed/MACed JWS.
+
+-- Use 'verifyJWS', 'verifyJWS'' or 'verifyJWSWithPayload' to verify
+-- a JWS and extract the payload.
 --
--- Use 'verifyJWS' to verify a JWS and extract the payload.
---
+-- Applications generally should not access a payload without
+-- first verifying it.  If you have an exceptional use case, you
+-- can use 'unsafeGetPayload' to access the payload.
+
 data JWS t p a = JWS Types.Base64Octets (t (Signature p a))
 
 -- | A JWS that allows multiple signatures, and cannot use
@@ -432,6 +439,20 @@ instance (HasParams a, ProtectionIndicator p) => ToJSON (JWS [] p a) where
 
 instance (HasParams a, ProtectionIndicator p) => ToJSON (JWS Identity p a) where
   toJSON (JWS p (Identity s)) = Types.insertToObject "payload" p (toJSON s)
+
+
+-- | Get the payload __without verifying it__.  Do not use this
+-- function unless you have a compelling reason.
+--
+-- Most applications should use 'verifyJWSWithPayload', 'verifyJWS'
+-- or 'verifyJWS'' to verify the JWS and access the payload.
+--
+unsafeGetPayload
+  :: (Cons s s Word8 Word8, AsEmpty s)
+  => (s -> m payload)   -- ^ Function to decode payload
+  -> JWS t p a          -- ^ JWS
+  -> m payload
+unsafeGetPayload dec (JWS (Types.Base64Octets s) _) = views recons dec s
 
 
 signingInput
@@ -618,6 +639,10 @@ verifyJWS
 verifyJWS = verifyJWSWithPayload pure
 {-# INLINE verifyJWS #-}
 
+-- | Verify a JWS, with explicit payload decoding.  This variant
+-- enables the key store to use information in the payload to locate
+-- verification key(s).
+--
 verifyJWSWithPayload
   ::  ( HasAlgorithms a, HasValidationPolicy a, AsError e, MonadError e m
       , HasJWSHeader h, HasParams h
@@ -631,7 +656,7 @@ verifyJWSWithPayload
   -> k                 -- ^ key or key store
   -> JWS t p h         -- ^ JWS
   -> m payload
-verifyJWSWithPayload dec conf k (JWS p@(Types.Base64Octets p') sigs) =
+verifyJWSWithPayload dec conf k jws@(JWS p sigs) =
   let
     algs :: S.Set Alg
     algs = conf ^. algorithms
@@ -649,7 +674,7 @@ verifyJWSWithPayload dec conf k (JWS p@(Types.Base64Octets p') sigs) =
         then throwing_ _NoUsableKeys
         else pure $ any ((== Right True) . verifySig p sig) keys
   in do
-    payload <- (dec . view recons) p'
+    payload <- unsafeGetPayload dec jws
     results <- traverse (validate payload) $ filter shouldValidateSig $ toList sigs
     payload <$ applyPolicy policy results
 {-# INLINE verifyJWSWithPayload #-}

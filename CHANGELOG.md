@@ -1,5 +1,11 @@
 ## Version NEXT
 
+- Added `unsafeGetPayload`, `unsafeGetJWTPayload` and
+  `unsafeGetJWTClaimsSet` functions.  These enable access to
+  the JWS/JWT payload without cryptographic verification.  As
+  the name imlies, these should be used with the utmost caution!
+  ([#126](https://github.com/frasertweedale/hs-jose/issues/126))
+
 - Add `Crypto.JOSE.JWK.negotiateJWSAlg` which chooses the
   cryptographically strongest JWS algorithm for a given key,
   restricted to a given set of algorithms.  ([#118][])
