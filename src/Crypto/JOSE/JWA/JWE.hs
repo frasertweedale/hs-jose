@@ -23,6 +23,14 @@ JSON Web Encryption data types specified under JSON Web Algorithms.
 module Crypto.JOSE.JWA.JWE
   ( Enc(..)
   , AlgWithParams(..)
+  , AlgOnly(..)
+  , SimpleAlg(..)
+  , ECDHESAlg(..)
+  , AESGCMAlg(..)
+  , PBES2Alg(..)
+  , algType
+  , algOnly
+  , knownAlgsMsg
   , AESGCMParameters(AESGCMParameters)
   , ECDHParameters(ECDHParameters)
   , PBES2Parameters(PBES2Parameters)
@@ -37,11 +45,12 @@ import Crypto.JOSE.Types.Internal (insertToObject)
 
 import Data.Aeson
 import qualified Data.Aeson.KeyMap as M
+import qualified Data.Text as Text
 
 
 -- | RFC 7518 §4.  Cryptographic Algorithms for Key Management
 --
-data AlgWithParams
+data SimpleAlg
   = RSA1_5
   | RSA_OAEP
   | RSA_OAEP_256
@@ -49,41 +58,85 @@ data AlgWithParams
   | A192KW
   | A256KW
   | Dir
-  | ECDH_ES ECDHParameters
-  | ECDH_ES_A128KW ECDHParameters
-  | ECDH_ES_A192KW ECDHParameters
-  | ECDH_ES_A256KW ECDHParameters
-  | A128GCMKW AESGCMParameters
-  | A192GCMKW AESGCMParameters
-  | A256GCMKW AESGCMParameters
-  | PBES2_HS256_A128KW PBES2Parameters
-  | PBES2_HS384_A192KW PBES2Parameters
-  | PBES2_HS512_A256KW PBES2Parameters
   deriving (Eq, Show)
+
+data ECDHESAlg
+  = ECDH_ES
+  | ECDH_ES_A128KW
+  | ECDH_ES_A192KW
+  | ECDH_ES_A256KW
+  deriving (Eq, Show)
+
+data AESGCMAlg
+  = A128GCMKW
+  | A192GCMKW
+  | A256GCMKW
+  deriving (Eq, Show)
+
+data PBES2Alg
+  = PBES2_HS256_A128KW
+  | PBES2_HS384_A192KW
+  | PBES2_HS512_A256KW
+  deriving (Eq, Show)
+
+data AlgWithParams
+  = SimpleAlg SimpleAlg
+  | ECDHESAlg ECDHESAlg ECDHParameters
+  | AESGCMAlg AESGCMAlg AESGCMParameters
+  | PBES2Alg PBES2Alg PBES2Parameters
+  deriving (Eq, Show)
+
+data AlgOnly
+  = SimpleAlgOnly SimpleAlg
+  | ECDHESAlgOnly ECDHESAlg
+  | AESGCMAlgOnly AESGCMAlg
+  | PBES2AlgOnly PBES2Alg
+  deriving (Eq, Show)
+
+algType :: Text.Text -> Either () AlgOnly
+algType t = case t of
+  "RSA1_5"             -> simple RSA1_5
+  "RSA-OAEP"           -> simple RSA_OAEP
+  "RSA-OAEP-256"       -> simple RSA_OAEP_256
+  "A128KW"             -> simple A128KW
+  "A192KW"             -> simple A192KW
+  "A256KW"             -> simple A256KW
+  "dir"                -> simple Dir
+  "ECDH-ES"            -> ecdh ECDH_ES
+  "ECDH-ES+A128KW"     -> ecdh ECDH_ES_A128KW
+  "ECDH-ES+A192KW"     -> ecdh ECDH_ES_A192KW
+  "ECDH-ES+A256KW"     -> ecdh ECDH_ES_A256KW
+  "A128GCMKW"          -> aesgcm A128GCMKW
+  "A192GCMKW"          -> aesgcm A192GCMKW
+  "A256GCMKW"          -> aesgcm A256GCMKW
+  "PBES2-HS256+A128KW" -> pbes2 PBES2_HS256_A128KW
+  "PBES2-HS384+A192KW" -> pbes2 PBES2_HS384_A192KW
+  "PBES2-HS512+A256KW" -> pbes2 PBES2_HS512_A256KW
+  _                    -> Left ()
+  where
+    simple = pure . SimpleAlgOnly
+    ecdh = pure . ECDHESAlgOnly
+    aesgcm = pure . AESGCMAlgOnly
+    pbes2 = pure . PBES2AlgOnly
+
+algOnly :: AlgWithParams -> AlgOnly
+algOnly (SimpleAlg a) = SimpleAlgOnly a
+algOnly (ECDHESAlg a _) = ECDHESAlgOnly a
+algOnly (AESGCMAlg a _) = AESGCMAlgOnly a
+algOnly (PBES2Alg a _) = PBES2AlgOnly a
 
 instance FromJSON AlgWithParams where
   parseJSON = withObject "Encryption alg and params" $ \o ->
-    case M.lookup "alg" o of
+    case algType . (\x -> case x of String t -> t ; _ -> "") <$> M.lookup "alg" o of
       Nothing -> fail "\"alg\" parameter is required"
-      Just "RSA1_5"             -> pure RSA1_5
-      Just "RSA-OAEP"           -> pure RSA_OAEP
-      Just "RSA-OAEP-256"       -> pure RSA_OAEP_256
-      Just "A128KW"             -> pure A128KW
-      Just "A192KW"             -> pure A192KW
-      Just "A256KW"             -> pure A256KW
-      Just "dir"                -> pure Dir
-      Just "ECDH-ES"            -> ECDH_ES            <$> parseJSON (Object o)
-      Just "ECDH-ES+A128KW"     -> ECDH_ES_A128KW     <$> parseJSON (Object o)
-      Just "ECDH-ES+A192KW"     -> ECDH_ES_A192KW     <$> parseJSON (Object o)
-      Just "ECDH-ES+A256KW"     -> ECDH_ES_A256KW     <$> parseJSON (Object o)
-      Just "A128GCMKW"          -> A128GCMKW          <$> parseJSON (Object o)
-      Just "A192GCMKW"          -> A192GCMKW          <$> parseJSON (Object o)
-      Just "A256GCMKW"          -> A256GCMKW          <$> parseJSON (Object o)
-      Just "PBES2-HS256+A128KW" -> PBES2_HS256_A128KW <$> parseJSON (Object o)
-      Just "PBES2-HS384+A192KW" -> PBES2_HS384_A192KW <$> parseJSON (Object o)
-      Just "PBES2-HS512+A256KW" -> PBES2_HS512_A256KW <$> parseJSON (Object o)
-      _ -> fail $ "unrecognised value; expected: "
-         ++ "[\"RSA1_5\",\"RSA-OAEP\",\"RSA-OAEP-256\",\"A128KW\",\"A192KW\",\"A256KW\",\"dir\",\"ECDH-ES\",\"ECDH-ES+A128KW\",\"ECDH-ES+A192KW\",\"ECDH-ES+A256KW\",\"A128GCMKW\",\"A192GCMKW\",\"A256GCMKW\",\"PBES2-HS256+A128KW\",\"PBES2-HS384+A128KW\",\"PBES2-HS512+A128KW\"]"
+      Just (Right (SimpleAlgOnly a)) -> pure $ SimpleAlg a
+      Just (Right (ECDHESAlgOnly a)) -> ECDHESAlg a <$> parseJSON (Object o)
+      Just (Right (AESGCMAlgOnly a)) -> AESGCMAlg a <$> parseJSON (Object o)
+      Just (Right (PBES2AlgOnly a))  -> PBES2Alg a <$> parseJSON (Object o)
+      _ -> fail $ "unrecognised value; expected: " ++ knownAlgsMsg
+
+knownAlgsMsg :: String
+knownAlgsMsg = "[\"RSA1_5\",\"RSA-OAEP\",\"RSA-OAEP-256\",\"A128KW\",\"A192KW\",\"A256KW\",\"dir\",\"ECDH-ES\",\"ECDH-ES+A128KW\",\"ECDH-ES+A192KW\",\"ECDH-ES+A256KW\",\"A128GCMKW\",\"A192GCMKW\",\"A256GCMKW\",\"PBES2-HS256+A128KW\",\"PBES2-HS384+A128KW\",\"PBES2-HS512+A128KW\"]"
 
 algObject :: Value -> Value
 algObject s = object [("alg", s)]
@@ -92,23 +145,27 @@ algWithParamsObject :: ToJSON a => a -> Value -> Value
 algWithParamsObject a s = insertToObject "alg" s (toJSON a)
 
 instance ToJSON AlgWithParams where
-  toJSON RSA1_5       = algObject "RSA1_5"
-  toJSON RSA_OAEP     = algObject "RSA-OAEP"
-  toJSON RSA_OAEP_256 = algObject "RSA-OAEP-256"
-  toJSON A128KW       = algObject "A128KW"
-  toJSON A192KW       = algObject "A192KW"
-  toJSON A256KW       = algObject "A256KW"
-  toJSON Dir          = algObject "Dir"
-  toJSON (ECDH_ES params)             = algWithParamsObject params "ECDH-ES"
-  toJSON (ECDH_ES_A128KW params)      = algWithParamsObject params "ECDH-ES+A128KW"
-  toJSON (ECDH_ES_A192KW params)      = algWithParamsObject params "ECDH-ES+A192KW"
-  toJSON (ECDH_ES_A256KW params)      = algWithParamsObject params "ECDH-ES+A256KW"
-  toJSON (A128GCMKW params)           = algWithParamsObject params "A128GCMKW"
-  toJSON (A192GCMKW params)           = algWithParamsObject params "A192GCMKW"
-  toJSON (A256GCMKW params)           = algWithParamsObject params "A256GCMKW"
-  toJSON (PBES2_HS256_A128KW params)  = algWithParamsObject params "PBES2-HS256+A128KW"
-  toJSON (PBES2_HS384_A192KW params)  = algWithParamsObject params "PBES2-HS384+A192KW"
-  toJSON (PBES2_HS512_A256KW params)  = algWithParamsObject params "PBES2-HS512+A256KW"
+  toJSON (SimpleAlg a) = algObject $ case a of
+    RSA1_5       -> "RSA1_5"
+    RSA_OAEP     -> "RSA-OAEP"
+    RSA_OAEP_256 -> "RSA-OAEP-256"
+    A128KW       -> "A128KW"
+    A192KW       -> "A192KW"
+    A256KW       -> "A256KW"
+    Dir          -> "dir"
+  toJSON (ECDHESAlg a params) = algWithParamsObject params $ case a of
+    ECDH_ES        -> "ECDH-ES"
+    ECDH_ES_A128KW -> "ECDH-ES+A128KW"
+    ECDH_ES_A192KW -> "ECDH-ES+A192KW"
+    ECDH_ES_A256KW -> "ECDH-ES+A256KW"
+  toJSON (AESGCMAlg a params) = algWithParamsObject params $ case a of
+    A128GCMKW -> "A128GCMKW"
+    A192GCMKW -> "A192GCMKW"
+    A256GCMKW -> "A256GCMKW"
+  toJSON (PBES2Alg a params) = algWithParamsObject params $ case a of
+    PBES2_HS256_A128KW -> "PBES2-HS256+A128KW"
+    PBES2_HS384_A192KW -> "PBES2-HS384+A192KW"
+    PBES2_HS512_A256KW -> "PBES2-HS512+A256KW"
 
 
 -- | RFC 7518 §4.6.1.  Header Parameters Used for ECDH Key Agreement
@@ -129,7 +186,7 @@ instance ToJSON ECDHParameters where
   toJSON (ECDHParameters epk apu apv) = object $ catMaybes
     [ Just ("epk" .= epk)
     , fmap ("apu" .=) apu
-    , fmap ("apu" .=) apv
+    , fmap ("apv" .=) apv
     ]
 
 
