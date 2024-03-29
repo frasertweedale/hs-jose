@@ -193,7 +193,7 @@ headerSpec = describe "JWS Header" $ do
     let
       s = "{\"header\":{\"alg\":\"none\"},\"signature\":\"\"}"
     in
-      (eitherDecode s :: Either String (Signature () JWSHeader))
+      (eitherDecode s :: Either String (Signature ProtectedOnly JWSHeader))
         `shouldSatisfy` is _Left
 
 
@@ -234,8 +234,8 @@ appendixA1Spec = describe "RFC 7515 A.1.  Example JWS using HMAC SHA-256" $ do
     compactJWS = signingInput' <> ".dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
     jws = decodeCompact compactJWS :: Either Error (CompactJWS JWSHeader)
     alg_ = JWA.JWS.HS256
-    h = newJWSHeader ((), alg_)
-        & typ .~ Just (HeaderParam () "JWT")
+    h = newJWSHeaderProtected alg_
+        & typ .~ Just (newHeaderParamProtected "JWT")
     mac = view recons
       [116, 24, 223, 180, 151, 153, 224, 37, 79, 250, 96, 125, 216, 173,
       187, 186, 22, 212, 37, 77, 105, 214, 191, 240, 91, 88, 5, 88, 83,
@@ -280,7 +280,7 @@ appendixA2Spec = describe "RFC 7515 A.2. Example JWS using RSASSA-PKCS-v1_5 SHA-
 
   it "prohibits signing with 1024-bit key" $
     fst (withDRG drg (runJOSE $
-      signJWS signingInput' (Identity (newJWSHeader ((), JWA.JWS.RS256), jwkRSA1024))))
+      signJWS signingInput' (Identity (newJWSHeaderProtected JWA.JWS.RS256, jwkRSA1024))))
         `shouldBe` (Left KeySizeTooSmall :: Either Error (CompactJWS JWSHeader))
 
   where
@@ -363,7 +363,7 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
 
   where
     jws = fst $ withDRG drg $ runJOSE $
-      signJWS examplePayloadBytes (Identity (newJWSHeader ((), JWA.JWS.None), undefined))
+      signJWS examplePayloadBytes (Identity (newJWSHeaderProtected JWA.JWS.None, undefined))
       :: Either Error (CompactJWS JWSHeader)
     exampleJWS = "eyJhbGciOiJub25lIn0\
       \.\
