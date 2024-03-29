@@ -1,5 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
+
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TypeApplications #-}
 
 import Data.Maybe (fromJust)
 import System.Environment (getArgs)
@@ -75,7 +77,7 @@ doJwtVerify [jwkFilename, jwtFilename, aud] = do
   let
     aud' = fromJust $ preview stringOrUri aud
     conf = defaultJWTValidationSettings (== aud')
-    go k = runJOSE $ decodeCompact jwtData >>= verifyClaims conf k
+    go k = runJOSE $ decodeCompact @SignedJWT jwtData >>= verifyClaims conf k
 
   jwkDir <- isDirectory <$> getFileStatus jwkFilename
   result <-
