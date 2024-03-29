@@ -55,6 +55,7 @@ module Crypto.JOSE.JWS
 
   -- * JWS creation
   , newJWSHeader
+  , newJWSHeaderProtected
   , makeJWSHeader
   , signJWS
 
@@ -241,11 +242,16 @@ instance HasJWSHeader a => HasCrit a where
 
 
 -- | Construct a minimal header with the given algorithm and
--- protection indicator for the /alg/ header.
+-- protection value for the @"alg"@ header.
 --
 newJWSHeader :: (p, Alg) -> JWSHeader p
 newJWSHeader a = JWSHeader (uncurry HeaderParam a) z z z z z z z z z z
   where z = Nothing
+
+-- | Construct a minimal JWS header with the given @"alg"@ header
+-- value, to be carried as a protected header.
+newJWSHeaderProtected :: (ProtectionSupport p) => Alg -> JWSHeader p
+newJWSHeaderProtected a = newJWSHeader (getProtected, a)
 
 -- | Make a JWS header for the given signing key.
 --
@@ -257,7 +263,7 @@ newJWSHeader a = JWSHeader (uncurry HeaderParam a) z z z z z z z z z z
 -- May return 'KeySizeTooSmall' or 'KeyMismatch'.
 --
 makeJWSHeader
-  :: forall e m p. (MonadError e m, AsError e, ProtectionIndicator p)
+  :: forall e m p. (MonadError e m, AsError e, ProtectionSupport p)
   => JWK
   -> m (JWSHeader p)
 makeJWSHeader k = do
@@ -304,7 +310,7 @@ signature = to (\(Signature _ _ (Types.Base64Octets s)) -> s) . recons
 instance (Eq (a p)) => Eq (Signature p a) where
   Signature _ h s == Signature _ h' s' = h == h' && s == s'
 
-instance (HasParams a, ProtectionIndicator p) => FromJSON (Signature p a) where
+instance (HasParams a, ProtectionSupport p) => FromJSON (Signature p a) where
   parseJSON = withObject "signature" (\o -> Signature
     <$> (Just <$> (o .: "protected" <|> pure ""))  -- raw protected header
     <*> do
@@ -321,7 +327,7 @@ instance (HasParams a, ProtectionIndicator p) => FromJSON (Signature p a) where
     <*> o .: "signature"
     )
 
-instance (HasParams a, ProtectionIndicator p) => ToJSON (Signature p a) where
+instance (HasParams a, ProtectionSupport p) => ToJSON (Signature p a) where
   toJSON s@(Signature _ h sig) =
     let
       pro = case rawProtectedHeader s of
@@ -369,7 +375,7 @@ instance HasParams JWSHeader where
 -- | JSON Web Signature data type.
 --
 -- Parameterised by the signature container type, the header
--- 'ProtectionIndicator' type, and the header record type.
+-- 'ProtectionSupport' type, and the header record type.
 --
 -- Use 'encode' and 'decode' to convert a JWS to or from JSON.
 -- When encoding a @'JWS' []@ with exactly one signature, the
@@ -396,19 +402,19 @@ data JWS t p a = JWS Types.Base64Octets (t (Signature p a))
 -- the /compact serialisation/.  Headers may be 'Protected'
 -- or 'Unprotected'.
 --
-type GeneralJWS = JWS [] Protection
+type GeneralJWS = JWS [] OptionalProtection
 
 -- | A JWS with one signature, which uses the
 -- /flattened serialisation/.  Headers may be 'Protected'
 -- or 'Unprotected'.
 --
-type FlattenedJWS = JWS Identity Protection
+type FlattenedJWS = JWS Identity OptionalProtection
 
 -- | A JWS with one signature which only allows protected
 -- parameters.  Can use the /flattened serialisation/ or
 -- the /compact serialisation/.
 --
-type CompactJWS = JWS Identity ()
+type CompactJWS = JWS Identity RequiredProtection
 
 instance (Eq (t (Signature p a))) => Eq (JWS t p a) where
   JWS p sigs == JWS p' sigs' = p == p' && sigs == sigs'
@@ -419,25 +425,25 @@ instance (Show (t (Signature p a))) => Show (JWS t p a) where
 signatures :: Foldable t => Fold (JWS t p a) (Signature p a)
 signatures = folding (\(JWS _ sigs) -> sigs)
 
-instance (HasParams a, ProtectionIndicator p) => FromJSON (JWS [] p a) where
+instance (HasParams a, ProtectionSupport p) => FromJSON (JWS [] p a) where
   parseJSON v =
     withObject "JWS JSON serialization" (\o -> JWS
       <$> o .: "payload"
       <*> o .: "signatures") v
     <|> fmap (\(JWS p (Identity s)) -> JWS p [s]) (parseJSON v)
 
-instance (HasParams a, ProtectionIndicator p) => FromJSON (JWS Identity p a) where
+instance (HasParams a, ProtectionSupport p) => FromJSON (JWS Identity p a) where
   parseJSON =
     withObject "Flattened JWS JSON serialization" $ \o ->
       if M.member "signatures" o
       then fail "\"signatures\" member MUST NOT be present"
       else (\p s -> JWS p (pure s)) <$> o .: "payload" <*> parseJSON (Object o)
 
-instance (HasParams a, ProtectionIndicator p) => ToJSON (JWS [] p a) where
+instance (HasParams a, ProtectionSupport p) => ToJSON (JWS [] p a) where
   toJSON (JWS p [s]) = Types.insertToObject "payload" p (toJSON s)
   toJSON (JWS p ss) = object ["payload" .= p, "signatures" .= ss]
 
-instance (HasParams a, ProtectionIndicator p) => ToJSON (JWS Identity p a) where
+instance (HasParams a, ProtectionSupport p) => ToJSON (JWS Identity p a) where
   toJSON (JWS p (Identity s)) = Types.insertToObject "payload" p (toJSON s)
 
 
@@ -456,7 +462,7 @@ unsafeGetPayload dec (JWS (Types.Base64Octets s) _) = views recons dec s
 
 
 signingInput
-  :: (HasParams a, ProtectionIndicator p)
+  :: (HasParams a, ProtectionSupport p)
   => Signature p a
   -> Types.Base64Octets
   -> B.ByteString
@@ -470,7 +476,7 @@ signingInput sig (Types.Base64Octets p) =
 -- Application code should never need to use this.  It is exposed
 -- for testing purposes.
 rawProtectedHeader
-  :: (HasParams a, ProtectionIndicator p)
+  :: (HasParams a, ProtectionSupport p)
   => Signature p a -> B.ByteString
 rawProtectedHeader (Signature raw h _) =
   maybe (view recons $ protectedParamsEncoded h) T.encodeUtf8 raw
@@ -480,13 +486,13 @@ rawProtectedHeader (Signature raw h _) =
 -- The operation is defined only when there is exactly one
 -- signature and returns Nothing otherwise
 --
-instance HasParams a => ToCompact (JWS Identity () a) where
+instance (HasParams a) => ToCompact (JWS Identity RequiredProtection a) where
   toCompact (JWS p (Identity s@(Signature _ _ (Types.Base64Octets sig)))) =
     [ view recons $ signingInput s p
     , review Types.base64url sig
     ]
 
-instance HasParams a => FromCompact (JWS Identity () a) where
+instance (HasParams a) => FromCompact (JWS Identity RequiredProtection a) where
   fromCompact xs = case xs of
     [h, p, s] -> do
       (h', p', s') <- (,,) <$> t 0 h <*> t 1 p <*> t 2 s
@@ -509,7 +515,7 @@ signJWS
   :: ( Cons s s Word8 Word8
      , HasJWSHeader a, HasParams a, MonadRandom m, AsError e, MonadError e m
      , Traversable t
-     , ProtectionIndicator p
+     , ProtectionSupport p
      )
   => s          -- ^ Payload
   -> t (a p, JWK) -- ^ Traversable of header, key pairs
@@ -521,7 +527,7 @@ signJWS s =
 
 mkSignature
   :: ( HasJWSHeader a, HasParams a, MonadRandom m, AsError e, MonadError e m
-     , ProtectionIndicator p
+     , ProtectionSupport p
      )
   => B.ByteString -> a p -> JWK -> m (Signature p a)
 mkSignature p h k =
@@ -606,7 +612,7 @@ verifyJWS'
       , VerificationKeyStore m (h p) s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
-      , ProtectionIndicator p
+      , ProtectionSupport p
       )
   => k      -- ^ key or key store
   -> JWS t p h  -- ^ JWS
@@ -630,7 +636,7 @@ verifyJWS
       , VerificationKeyStore m (h p) s k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
-      , ProtectionIndicator p
+      , ProtectionSupport p
       )
   => a        -- ^ validation settings
   -> k        -- ^ key or key store
@@ -649,7 +655,7 @@ verifyJWSWithPayload
       , VerificationKeyStore m (h p) payload k
       , Cons s s Word8 Word8, AsEmpty s
       , Foldable t
-      , ProtectionIndicator p
+      , ProtectionSupport p
       )
   => (s -> m payload)  -- ^ payload decoder
   -> a                 -- ^ validation settings
@@ -680,7 +686,7 @@ verifyJWSWithPayload dec conf k jws@(JWS p sigs) =
 {-# INLINE verifyJWSWithPayload #-}
 
 verifySig
-  :: (HasJWSHeader a, HasParams a, ProtectionIndicator p)
+  :: (HasJWSHeader a, HasParams a, ProtectionSupport p)
   => Types.Base64Octets
   -> Signature p a
   -> JWK

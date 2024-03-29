@@ -82,7 +82,7 @@ data JWEHeader p = JWEHeader
   }
   deriving (Eq, Show)
 
-newJWEHeader :: ProtectionIndicator p => AlgWithParams -> Enc -> JWEHeader p
+newJWEHeader :: (ProtectionSupport p) => AlgWithParams -> Enc -> JWEHeader p
 newJWEHeader alg enc =
   JWEHeader (Just alg) (HeaderParam getProtected enc) z z z z z z z z z z z
   where z = Nothing
@@ -134,7 +134,7 @@ instance FromJSON (JWERecipient a p) where
     <*> o .:? "encrypted_key"
 
 parseRecipient
-  :: (HasParams a, ProtectionIndicator p)
+  :: (HasParams a, ProtectionSupport p)
   => Maybe Object -> Maybe Object -> Value -> Parser (JWERecipient a p)
 parseRecipient hp hu = withObject "JWE Recipient" $ \o -> do
   hr <- o .:? "header"
@@ -153,7 +153,7 @@ data JWE a p = JWE
   , _jweRecipients :: [JWERecipient a p]
   }
 
-instance (HasParams a, ProtectionIndicator p) => FromJSON (JWE a p) where
+instance (HasParams a, ProtectionSupport p) => FromJSON (JWE a p) where
   parseJSON = withObject "JWE JSON Serialization" $ \o -> do
     hpB64 <- o .:? "protected"
     hp <- maybe

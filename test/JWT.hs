@@ -101,7 +101,7 @@ spec = do
         valConf = defaultJWTValidationSettings (const True)
       k <- genJWK $ RSAGenParam 256
       res <- runJOSE $ do
-        token <- signClaims k (newJWSHeader ((), RS512)) claims
+        token <- signClaims k (newJWSHeaderProtected RS512) claims
         token' <- decodeCompact . encodeCompact $ token
         liftIO $ token' `shouldBe` token
         claims' <- verifyClaims valConf k token'
@@ -114,7 +114,7 @@ spec = do
         now = utcTime "2010-01-01 00:00:00"
       k <- genJWK $ RSAGenParam 256
       res <- runJOSE $ do
-        token <- signJWT k (newJWSHeader ((), RS512)) super
+        token <- signJWT k (newJWSHeaderProtected RS512) super
         token' <- decodeCompact . encodeCompact $ token
         liftIO $ token' `shouldBe` token
         claims <- runReaderT (verifyJWT valConf k token') now

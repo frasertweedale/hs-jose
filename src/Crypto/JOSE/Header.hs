@@ -12,6 +12,7 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -22,10 +23,19 @@ Types and functions for working with JOSE header parameters.
 -}
 module Crypto.JOSE.Header
   (
-  -- * Defining header data types
+  -- * Constructing header parameters
     HeaderParam(..)
-  , ProtectionIndicator(..)
-  , Protection(..)
+  , newHeaderParamProtected
+  , newHeaderParamUnprotected
+
+  -- ** Header protection support
+  , ProtectionSupport(..)
+  , ProtectionIndicator
+
+  , OptionalProtection(..)
+  , RequiredProtection(..)
+  , Protection
+
   , protection
   , isProtected
   , param
@@ -87,7 +97,7 @@ import qualified Crypto.JOSE.Types as Types
 class HasParams (a :: Type -> Type) where
   -- | Return a list of parameters,
   -- each paired with whether it is protected or not.
-  params :: ProtectionIndicator p => a p -> [(Bool, Pair)]
+  params :: ProtectionSupport p => a p -> [(Bool, Pair)]
 
   -- | List of "known extensions", i.e. keys that may appear in the
   -- "crit" header parameter.
@@ -95,7 +105,7 @@ class HasParams (a :: Type -> Type) where
   extensions = const []
 
   parseParamsFor
-    :: (HasParams b, ProtectionIndicator p)
+    :: (HasParams b, ProtectionSupport p)
     => Proxy b -> Maybe Object -> Maybe Object -> Parser (a p)
 
 -- | Parse a pair of objects (protected and unprotected header)
@@ -105,14 +115,14 @@ class HasParams (a :: Type -> Type) where
 -- to access "known extensions" understood by the target type.)
 --
 parseParams
-  :: forall a p. (HasParams a, ProtectionIndicator p)
+  :: forall a p. (HasParams a, ProtectionSupport p)
   => Maybe Object -- ^ protected header
   -> Maybe Object -- ^ unprotected header
   -> Parser (a p)
 parseParams = parseParamsFor (Proxy :: Proxy a)
 
 protectedParams
-  :: (HasParams a, ProtectionIndicator p)
+  :: (HasParams a, ProtectionSupport p)
   => a p -> Maybe Value {- ^ Object -}
 protectedParams h =
   case (map snd . filter fst . params) h of
@@ -122,7 +132,7 @@ protectedParams h =
 -- | Return the base64url-encoded protected parameters
 --
 protectedParamsEncoded
-  :: (HasParams a, ProtectionIndicator p)
+  :: (HasParams a, ProtectionSupport p)
   => a p -> L.ByteString
 protectedParamsEncoded =
   maybe mempty (review base64url . encode) . protectedParams
@@ -130,19 +140,18 @@ protectedParamsEncoded =
 -- | Return unprotected params as a JSON 'Value' (always an object)
 --
 unprotectedParams
-  :: (HasParams a, ProtectionIndicator p)
+  :: (HasParams a, ProtectionSupport p)
   => a p -> Maybe Value {- ^ Object -}
 unprotectedParams h =
   case (map snd . filter (not . fst) . params) h of
     [] -> Nothing
     xs -> Just (object xs)
 
--- | Whether a header is protected or unprotected
---
-data Protection = Protected | Unprotected
-  deriving (Eq, Show)
 
-class Eq a => ProtectionIndicator a where
+-- | Class that defines the protected and (if supported) unprotected values
+-- for a protection indicator data type.
+--
+class Eq a => ProtectionSupport a where
   -- | Get a value for indicating protection.
   getProtected :: a
 
@@ -150,12 +159,33 @@ class Eq a => ProtectionIndicator a where
   -- if the type does not support unprotected headers.
   getUnprotected :: Maybe a
 
-instance ProtectionIndicator Protection where
+type ProtectionIndicator = ProtectionSupport
+{-# DEPRECATED ProtectionIndicator "renamed to 'ProtectionSupport." #-}
+
+
+
+-- | Use this protection type when the serialisation supports both
+-- protected and unprotected headers.
+--
+data OptionalProtection = Protected | Unprotected
+  deriving (Eq, Show)
+
+instance ProtectionSupport OptionalProtection where
   getProtected = Protected
   getUnprotected = Just Unprotected
 
-instance ProtectionIndicator () where
-  getProtected = ()
+type Protection = OptionalProtection
+{-# DEPRECATED Protection "renamed to 'OptionalProtection'." #-}
+
+
+-- | Use this protection type when the serialisation only supports
+-- protected headers.
+--
+data RequiredProtection = RequiredProtection
+  deriving (Eq, Show)
+
+instance ProtectionSupport RequiredProtection where
+  getProtected = RequiredProtection
   getUnprotected = Nothing
 
 
@@ -178,8 +208,17 @@ param f (HeaderParam p v) = fmap (\v' -> HeaderParam p v') (f v)
 {-# ANN param "HLint: ignore Avoid lambda" #-}
 
 -- | Getter for whether a parameter is protected
-isProtected :: (ProtectionIndicator p) => Getter (HeaderParam p a) Bool
+isProtected :: (ProtectionSupport p) => Getter (HeaderParam p a) Bool
 isProtected = protection . to (== getProtected)
+
+
+-- | Convenience constructor for a protected 'HeaderParam'.
+newHeaderParamProtected :: (ProtectionIndicator p) => a -> HeaderParam p a
+newHeaderParamProtected = HeaderParam getProtected
+
+-- | Convenience constructor for a protected 'HeaderParam'.
+newHeaderParamUnprotected :: a -> HeaderParam OptionalProtection a
+newHeaderParamUnprotected = HeaderParam Unprotected
 
 
 {- $parsing
@@ -224,7 +263,7 @@ instance HasParams ACMEHeader where
 -- the protected or the unprotected header.
 --
 headerOptional
-  :: (FromJSON a, ProtectionIndicator p)
+  :: (FromJSON a, ProtectionSupport p)
   => T.Text
   -> Maybe Object
   -> Maybe Object
@@ -236,7 +275,7 @@ headerOptional = headerOptional' parseJSON
 -- but with an explicit argument for the parser.
 --
 headerOptional'
-  :: (ProtectionIndicator p)
+  :: (ProtectionSupport p)
   => (Value -> Parser a)
   -> T.Text
   -> Maybe Object
@@ -274,7 +313,7 @@ headerOptionalProtected kText hp hu = case (hp >>= M.lookup k, hu >>= M.lookup k
 -- the protected or the unprotected header.
 --
 headerRequired
-  :: (FromJSON a, ProtectionIndicator p)
+  :: (FromJSON a, ProtectionSupport p)
   => T.Text
   -> Maybe Object
   -> Maybe Object

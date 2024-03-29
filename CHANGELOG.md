@@ -1,5 +1,24 @@
 ## Version NEXT
 
+- Changed the header protection data types for better ergonomics
+  ([#125](https://github.com/frasertweedale/hs-jose/issues/125)).
+  Previously, `()` was used for serialisations that only support
+  protected headers (thus, a single constructor).  This release
+  introduces the new singleton data type `RequiredProtected` to
+  replace the use of `()` for this purpose.  This is a breaking
+  change and some library users will need to update their code.
+
+  The `Protection` type has been renamed to `OptionalProtection`,
+  with the old name retained as a (deprecated) type synonym.
+
+  The `ProtectionIndicator` class has been renamed to
+  `ProtectionSupport`, with the old name retained as a (deprecated)
+  type synonym.
+
+  Added some convenience header and header parameter constructors:
+  `newJWSHeaderProtected`, `newHeaderParamProtected` and
+  `newHeaderParamUnprotected`.
+
 - Generalised the types of `signJWT`, `verifyJWT` and related
   functions to accept custom JWS header types.  Added new type
   synonym `SignedJWTWithHeader h`.  This change could break some

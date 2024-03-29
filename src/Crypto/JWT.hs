@@ -138,7 +138,7 @@ mkClaims = do
 doJwtSign :: 'JWK' -> 'ClaimsSet' -> IO (Either 'JWTError' 'SignedJWT')
 doJwtSign jwk claims = 'runJOSE' $ do
   alg \<- 'bestJWSAlg' jwk
-  'signClaims' jwk ('newJWSHeader' ((), alg)) claims
+  'signClaims' jwk ('newJWSHeaderProtected' alg) claims
 
 doJwtVerify :: 'JWK' -> 'SignedJWT' -> IO (Either 'JWTError' 'ClaimsSet')
 doJwtVerify jwk jwt = 'runJOSE' $ do
@@ -687,7 +687,7 @@ verifyJWT
     , HasValidationSettings a
     , HasJWSHeader h, HasParams h
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore m (h ()) payload k
+    , VerificationKeyStore m (h RequiredProtection) payload k
     , HasClaimsSet payload, FromJSON payload
     )
   => a
@@ -715,7 +715,7 @@ verifyClaims
     , HasValidationSettings a
     , HasJWSHeader h, HasParams h
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore m (h ()) ClaimsSet k
+    , VerificationKeyStore m (h RequiredProtection) ClaimsSet k
     )
   => a
   -- ^ Validation settings
@@ -739,7 +739,7 @@ verifyJWTAt
     , HasValidationSettings a
     , HasJWSHeader h, HasParams h
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore (ReaderT WrappedUTCTime m) (h ()) payload k
+    , VerificationKeyStore (ReaderT WrappedUTCTime m) (h RequiredProtection) payload k
     , HasClaimsSet payload, FromJSON payload
     )
   => a
@@ -765,7 +765,7 @@ verifyClaimsAt
     , HasValidationSettings a
     , HasJWSHeader h, HasParams h
     , AsError e, AsJWTError e, MonadError e m
-    , VerificationKeyStore (ReaderT WrappedUTCTime m) (h ()) ClaimsSet k
+    , VerificationKeyStore (ReaderT WrappedUTCTime m) (h RequiredProtection) ClaimsSet k
     )
   => a
   -- ^ Validation settings
@@ -793,7 +793,7 @@ signJWT
      , ToJSON payload )
   => JWK
   -- ^ Signing key
-  -> h ()
+  -> h RequiredProtection
   -- ^ JWS Header.  Commonly this will be 'JWSHeader'.  If your application
   -- uses additional header fields, see /Defining additional header parameters/
   -- in "Crypto.JOSE.JWS".
@@ -813,7 +813,7 @@ signClaims
      , HasJWSHeader h, HasParams h )
   => JWK
   -- ^ Signing key
-  -> h ()
+  -> h RequiredProtection
   -- ^ JWS Header.  Commonly this will be 'JWSHeader'.  If your application
   -- uses additional header fields, see /Defining additional header parameters/
   -- in "Crypto.JOSE.JWS".

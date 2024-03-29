@@ -39,7 +39,7 @@ doJwsSign [jwkFilename, payloadFilename] = do
   payload <- L.readFile payloadFilename
   result <- runJOSE $ do
     h <- makeJWSHeader k
-    signJWS payload [(h :: JWSHeader Protection, k)]
+    signJWS payload [(h :: JWSHeader OptionalProtection, k)]
   case result of
     Left e -> print (e :: Error) >> exitFailure
     Right jws -> L.putStr (encode jws)
