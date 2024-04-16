@@ -102,6 +102,12 @@ instance FromJSON SizedBase64Integer where
 instance ToJSON SizedBase64Integer where
   toJSON (SizedBase64Integer w n) = encodeB64Url $ sizedIntegerToBS w n
 
+instance Enum SizedBase64Integer where
+  succ (SizedBase64Integer w n) = SizedBase64Integer w $ succ n `rem` 2^w
+  pred (SizedBase64Integer w n) = SizedBase64Integer w $ if n <= 0 then 2^w-1 else n-1
+  toEnum n = SizedBase64Integer 29 $ fromIntegral n
+  fromEnum (SizedBase64Integer _ n) = fromEnum n -- ^ Lossy but Integer has the same issue as well
+
 -- | Parsed a 'SizedBase64Integer' with an expected number of /bytes/.
 --
 checkSize :: Int -> SizedBase64Integer -> Parser SizedBase64Integer
