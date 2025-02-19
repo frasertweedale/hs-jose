@@ -676,9 +676,11 @@ verifyJWSWithPayload dec conf k jws@(JWS p sigs) =
 
     validate payload sig = do
       keys <- getVerificationKeys (view header sig) payload k
-      if null keys
-        then throwing_ _NoUsableKeys
-        else pure $ any ((== Right True) . verifySig p sig) keys
+      case (keys, view (header . alg . param) sig) of
+        -- special case for alg "none"
+        ([], None)  -> pure $ verifySig p sig undefined == Right True
+        ([], _)     -> throwing_ _NoUsableKeys
+        _           -> pure $ any ((== Right True) . verifySig p sig) keys
   in do
     payload <- unsafeGetPayload dec jws
     results <- traverse (validate payload) $ filter shouldValidateSig $ toList sigs

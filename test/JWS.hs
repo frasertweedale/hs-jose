@@ -26,6 +26,7 @@ import Control.Lens.Cons.Extras (recons)
 import Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64.URL as B64U
+import qualified Data.Set as S
 import Test.Hspec
 
 import Crypto.JOSE.Compact
@@ -361,6 +362,10 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
   it "decodes the correct JWS" $
     decodeCompact exampleJWS `shouldBe` jws
 
+  it "can be verified with an empty key set" $
+    (jws >>= verifyJWS conf (JWKSet []) :: Either Error BS.ByteString)
+      `shouldSatisfy` is _Right
+
   where
     jws = fst $ withDRG drg $ runJOSE $
       signJWS examplePayloadBytes (Identity (newJWSHeaderProtected JWA.JWS.None, undefined))
@@ -370,6 +375,7 @@ appendixA5Spec = describe "RFC 7515 A.5.  Example Unsecured JWS" $ do
       \eyJpc3MiOiJqb2UiLA0KICJleHAiOjEzMDA4MTkzODAsDQogImh0dHA6Ly9leGFt\
       \cGxlLmNvbS9pc19yb290Ijp0cnVlfQ\
       \."
+    conf = set algorithms (S.singleton None) defaultValidationSettings
 
 
 appendixA6Spec :: Spec
