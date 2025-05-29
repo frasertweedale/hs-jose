@@ -33,50 +33,37 @@ copyright:           Copyright (C) 2013-2021  Fraser Tweedale
 category:            Cryptography
 build-type:          Simple
 tested-with:
-  GHC ==8.8.4 || ==8.10.7 || ==9.0.2 || ==9.2.8 || ==9.4.8 || ==9.6.7 || ==9.8.4 || ==9.10.2 || ==9.12.2
+  GHC ==9.6.7 || ==9.8.4 || ==9.10.2 || ==9.12.2
 
 flag demos
   description: Build demonstration programs
   default: False
 
 common common
-  default-language: Haskell2010
+  default-language: GHC2021
+  default-extensions: LambdaCase
   ghc-options:
     -Wall
     -Widentities
     -Wincomplete-record-updates
     -Wincomplete-uni-patterns
     -Werror=missing-methods
-  if impl(ghc >= 8.0)
-    ghc-options:
-      -Wcompat
-      -Wnoncanonical-monad-instances
-      -Wredundant-constraints
-  if impl(ghc >= 8.2)
-    ghc-options:
-      -fhide-source-paths
-  if impl(ghc >= 8.4)
-    ghc-options:
-      -Wmissing-export-lists
-      -Wpartial-fields
-  if impl(ghc >= 8.10)
-    ghc-options:
-      -Wunused-packages
-  if impl(ghc >= 9.0)
-    ghc-options:
-      -Winvalid-haddock
-      -Werror=unicode-bidirectional-format-characters
-  if impl(ghc >= 9.2)
-    ghc-options:
-      -Wimplicit-lift
-      -Woperator-whitespace
-      -Wredundant-bang-patterns
-  if impl(ghc >= 9.4)
-    ghc-options:
-      -Wredundant-strictness-flags
+    -Wcompat
+    -Wnoncanonical-monad-instances
+    -Wredundant-constraints
+    -fhide-source-paths
+    -Wmissing-export-lists
+    -Wpartial-fields
+    -Wunused-packages
+    -Winvalid-haddock
+    -Werror=unicode-bidirectional-format-characters
+    -Wimplicit-lift
+    -Woperator-whitespace
+    -Wredundant-bang-patterns
+    -Wredundant-strictness-flags
 
   build-depends:
-    base >= 4.13 && < 5
+    base >= 4.18 && < 5
     , bytestring >= 0.10 && < 0.13
     , lens >= 4.16
     , mtl >= 2.2.1
@@ -110,11 +97,11 @@ library
     , aeson >= 2.0.1.0 && < 3
     , base64-bytestring >= 1.2.1.0 && < 1.3
     , concise >= 0.1
-    , containers >= 0.5
+    , containers >= 0.5.8
     , crypton >= 0.31
     , memory >= 0.7
-    , monad-time >= 0.3
-    , template-haskell >= 2.11
+    , monad-time >= 0.4
+    , template-haskell >= 2.12
     , text >= 1.1
     , time >= 1.5
     , network-uri >= 2.6

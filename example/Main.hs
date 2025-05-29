@@ -1,8 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-incomplete-patterns #-}
 
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeApplications #-}
-
 import Data.Maybe (fromJust)
 import System.Environment (getArgs)
 import System.Exit (die, exitFailure)

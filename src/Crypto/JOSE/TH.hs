@@ -12,7 +12,6 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 {-|
@@ -100,11 +99,7 @@ deriveJOSEType s vs = sequenceQ [
   let
     derive = map mkName ["Eq", "Ord", "Show"]
   in
-#if ! MIN_VERSION_template_haskell(2,12,0)
-    dataD (cxt []) (mkName s) [] Nothing (map conQ vs) (mapM conT derive)
-#else
     dataD (cxt []) (mkName s) [] Nothing (map conQ vs) [return (DerivClause Nothing (map ConT derive))]
-#endif
   , instanceD (cxt []) (aesonInstance s ''FromJSON) [parseJSONFun vs]
   , instanceD (cxt []) (aesonInstance s ''ToJSON) [toJSONFun vs]
   ]

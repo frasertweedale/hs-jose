@@ -1,5 +1,7 @@
 ## Version NEXT
 
+- GHC 9.6 is now the earliest supported version.
+
 - Changed the header protection data types for better ergonomics
   ([#125](https://github.com/frasertweedale/hs-jose/issues/125)).
   Previously, `()` was used for serialisations that only support

@@ -12,9 +12,6 @@
 -- See the License for the specific language governing permissions and
 -- limitations under the License.
 
-{-# LANGUAGE CPP #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
@@ -440,11 +437,7 @@ registeredClaims = S.fromDistinctAscList
 
 filterUnregistered :: M.Map T.Text Value -> M.Map T.Text Value
 filterUnregistered m =
-#if MIN_VERSION_containers(0,5,8)
   m `M.withoutKeys` registeredClaims
-#else
-  m `M.difference` M.fromSet (const ()) registeredClaims
-#endif
 
 toKeyMap :: M.Map T.Text Value -> KeyMap.KeyMap Value
 toKeyMap = KeyMap.fromMap . M.mapKeysMonotonic Key.fromText
@@ -635,14 +628,10 @@ type SignedJWTWithHeader h = CompactJWS h
 
 newtype WrappedUTCTime = WrappedUTCTime { getUTCTime :: UTCTime }
 
-#if MIN_VERSION_monad_time(0,4,0)
 -- | @'monotonicTime' = pure 0@.  /jose/ doesn't use this so we fake it
-#endif
 instance Monad m => MonadTime (ReaderT WrappedUTCTime m) where
   currentTime = asks getUTCTime
-#if MIN_VERSION_monad_time(0,4,0)
   monotonicTime = pure 0
-#endif
 
 -- | Get the JWT payload __without verifying it__.  Do not use this
 -- function unless you have a compelling reason.

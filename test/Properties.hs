@@ -21,7 +21,6 @@ module Properties
   ( properties
   ) where
 
-import Control.Applicative (liftA2)
 import Control.Monad.IO.Class
 
 import Control.Lens ((&), set, view)
