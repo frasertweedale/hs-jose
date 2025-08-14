@@ -221,7 +221,7 @@ instance AsError JWTError where
 -- contains a @:@ but does not parse as a 'URI'.  Use 'stringOrUri'
 -- directly in this situation.
 --
-data StringOrURI = Arbitrary T.Text | OrURI URI deriving (Eq, Show)
+data StringOrURI = Arbitrary T.Text | OrURI URI deriving (Eq, Show, Ord)
 
 -- | Non-total.  A string with a @':'@ in it MUST parse as a URI
 instance Data.String.IsString StringOrURI where
