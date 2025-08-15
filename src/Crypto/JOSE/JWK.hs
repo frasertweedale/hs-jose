@@ -322,7 +322,7 @@ instance AsPublicKey JWK where
 
 -- | RFC 7517 §5.  JWK Set Format
 --
-newtype JWKSet = JWKSet [JWK] deriving (Eq, Show)
+newtype JWKSet = JWKSet [JWK] deriving (Eq, Show, Semigroup, Monoid)
 
 instance FromJSON JWKSet where
   parseJSON = withObject "JWKSet" (\o -> JWKSet <$> o .: "keys")
