@@ -70,7 +70,11 @@
 - Added `Ord` instance for `StringOrURI` ([#134]; contributed by
   Chris Penner).
 
+- Added `Semigroup` and `Monoid` instances for `JWKSet`
+  ([#135]; contributed by Torgeir Strand Henriksen).
+
 [#134]: https://github.com/frasertweedale/hs-jose/pull/134
+[#135]: https://github.com/frasertweedale/hs-jose/pull/135
 
 
 ## Version 0.11 (2023-10-31)
