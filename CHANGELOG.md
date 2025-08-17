@@ -67,6 +67,11 @@
 
 - Added `Crypto.JOSE.JWK.fromRSAPublic :: RSA.PublicKey -> JWK`.
 
+- Added `Ord` instance for `StringOrURI` ([#134]; contributed by
+  Chris Penner).
+
+[#134]: https://github.com/frasertweedale/hs-jose/pull/134
+
 
 ## Version 0.11 (2023-10-31)
 
