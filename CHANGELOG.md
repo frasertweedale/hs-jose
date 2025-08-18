@@ -1,4 +1,4 @@
-## Version NEXT
+## Version 0.12 (2025-08-18)
 
 - GHC 9.6 is now the earliest supported version.
 
