@@ -1,3 +1,10 @@
 packages: .
 constraints:
   aeson +ordered-keymap
+package jose
+  ghc-options:
+    -Werror=missing-methods
+    -Werror=missing-fields
+    -Werror=incomplete-uni-patterns
+    -Werror=incomplete-patterns
+    -Werror=unused-packages

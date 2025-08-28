@@ -34,7 +34,7 @@ copyright:           Copyright (C) 2013-2025  Fraser Tweedale
 category:            Cryptography
 build-type:          Simple
 tested-with:
-  GHC ==9.6.7 || ==9.8.4 || ==9.10.2 || ==9.12.2
+  GHC ==9.6.7 || ==9.8.4 || ==9.10.2 || ==9.12.2 || ==9.14.1
 
 flag demos
   description: Build demonstration programs
