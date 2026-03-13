@@ -1,3 +1,10 @@
+## Version 0.13 (2026-06-06)
+
+- Update to *crypton >= 1.1.0* and *ram*.  There are no
+  functional changes in this release.  Until the release
+  of 0.14, any behavioural changes (bug fixes, etc) will
+  be released to both the 0.13 and 0.12 series.
+
 ## Version 0.12 (2025-08-18)
 
 - GHC 9.6 is now the earliest supported version.
