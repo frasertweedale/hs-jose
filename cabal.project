@@ -8,3 +8,5 @@ package jose
     -Werror=incomplete-uni-patterns
     -Werror=incomplete-patterns
     -Werror=unused-packages
+allow-newer:
+  tasty-hspec:base
