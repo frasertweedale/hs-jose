@@ -1,6 +1,6 @@
 cabal-version:       2.2
 name:                jose
-version:             0.12
+version:             0.12.0.1
 synopsis:
   JSON Object Signing and Encryption (JOSE) and JSON Web Token (JWT) library
 description:
@@ -99,7 +99,7 @@ library
     , base64-bytestring >= 1.2.1.0 && < 1.3
     , concise >= 0.1
     , containers >= 0.5.8
-    , crypton >= 0.31
+    , crypton >= 0.31 && < 1.1
     , memory >= 0.7
     , monad-time >= 0.4
     , template-haskell >= 2.12
